@@ -283,8 +283,68 @@ export async function postProposalCard(teamId: string, p: { proposalId: string; 
   return toChatMessage(data as MessageRow);
 }
 
+/** 홈 '다가오는 회의' 한 줄 (진짜 팀) */
+export interface UpcomingItem {
+  proposalId: string;
+  teamName: string;
+  title: string;
+  /** confirmed: 확정된 회의 · collecting: 응답 받는 중인 제안 */
+  kind: "confirmed" | "collecting";
+  /** 확정 시각, 또는 지금 가장 유력한 후보 시각 (없으면 null) */
+  startAt: string | null;
+  placeName: string;
+  responseDeadline: string;
+  respondedCount: number;
+  totalCount: number;
+  /** 내가 아직 응답하지 않았는지 */
+  needsMe: boolean;
+}
+
+/**
+ * 홈 '다가오는 회의' — 내 팀들의 C 제안을 모아요 (C · c_schedule_list)
+ * 끝나지 않은 확정 회의 + 아직 확정 전인 제안. 시간 순 (응답이 필요한 제안은 위로)
+ */
+export async function loadUpcoming(teams: Team[]): Promise<UpcomingItem[]> {
+  const me = await myUserId();
+  const now = Date.now();
+  const lists = await Promise.all(teams.map((t) => loadTeamProposals(t.id).then((ps) => ps.map((p) => ({ t, p }))).catch(() => [])));
+  const items: UpcomingItem[] = [];
+  for (const { t, p } of lists.flat()) {
+    if (p.status === "confirmed" && p.meeting) {
+      if (Date.parse(p.meeting.endAt) <= now) continue; // 이미 끝난 회의
+      items.push({
+        proposalId: p.id,
+        teamName: t.name,
+        title: p.title,
+        kind: "confirmed",
+        startAt: p.meeting.startAt,
+        placeName: p.meeting.mode === "online" ? "온라인" : (p.meeting.place?.name ?? ""),
+        responseDeadline: p.responseDeadline,
+        respondedCount: p.respondedCount,
+        totalCount: p.totalCount,
+        needsMe: false,
+      });
+    } else if (p.status !== "confirmed") {
+      items.push({
+        proposalId: p.id,
+        teamName: t.name,
+        title: p.title,
+        kind: "collecting",
+        startAt: p.candidates[0]?.startAt ?? null,
+        placeName: "",
+        responseDeadline: p.responseDeadline,
+        respondedCount: p.respondedCount,
+        totalCount: p.totalCount,
+        needsMe: !!me && p.pendingIds.includes(me) && Date.parse(p.responseDeadline) > now,
+      });
+    }
+  }
+  const when = (i: UpcomingItem) => Date.parse(i.startAt ?? i.responseDeadline);
+  return items.sort((a, b) => Number(b.needsMe) - Number(a.needsMe) || when(a) - when(b));
+}
+
 /** 팀의 진짜 회의 제안 목록 (C · c_schedule_list) — 팀 메뉴 · 홈에서 써요 */
-export async function loadTeamProposals(teamId: string): Promise<{ id: string; title: string; status: "collecting" | "confirmed"; responseDeadline: string; meeting: { startAt: string; endAt: string; place: { name: string } | null; mode: string } | null; respondedCount: number; totalCount: number }[]> {
+export async function loadTeamProposals(teamId: string): Promise<{ id: string; title: string; status: "collecting" | "confirmed"; responseDeadline: string; meeting: { startAt: string; endAt: string; place: { name: string } | null; mode: string } | null; respondedCount: number; totalCount: number; pendingIds: string[]; candidates: { startAt: string; endAt: string }[] }[]> {
   const supabase = getSupabase();
   if (!supabase) return [];
   const { data: s } = await supabase.auth.getSession();

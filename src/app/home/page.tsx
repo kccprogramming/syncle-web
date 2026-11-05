@@ -4,7 +4,7 @@
  * 1 홈 — 다가오는 회의와 내 팀 목록.
  * ?empty=1 이면 1-0 빈 홈(처음 로그인해서 팀이 없을 때)을 보여줘요.
  * 로그인했으면 내 진짜 팀(A · Supabase)을 보여주고, 팀이 없으면 1-0이에요.
- * 다가오는 회의는 아직 가짜 데이터라 로그인했을 때는 비워 둬요 (C 저장을 붙이면 채워요).
+ * 로그인했으면 다가오는 회의도 내 팀들의 진짜 제안 · 확정 회의(C)를 보여줘요.
  */
 import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
@@ -13,7 +13,7 @@ import { Icon } from "@/components/Icon";
 import { TeamBadge } from "@/components/Avatar";
 import { HomeHeader } from "@/components/home/HomeHeader";
 import { useDemo, useProposal } from "@/lib/demo-store";
-import { getMeetings, getNotifications, getPlaces, getTeam, getTeams, loadMyTeams } from "@/lib/data";
+import { getMeetings, getNotifications, getPlaces, getTeam, getTeams, loadMyTeams, loadUpcoming, seoulLabel, type UpcomingItem } from "@/lib/data";
 import type { Meeting, Team } from "@/types";
 import { useAuthUser } from "@/lib/use-auth-user";
 import { getChosenPlace, type PlacePick } from "@/components/chat/team-info";
@@ -31,11 +31,18 @@ function Inner() {
   const user = useAuthUser();
   // 로그인한 사람의 진짜 팀. undefined = 불러오는 중
   const [liveTeams, setLiveTeams] = useState<Team[] | undefined>(undefined);
+  const [liveUpcoming, setLiveUpcoming] = useState<UpcomingItem[] | null>(null);
   const [failed, setFailed] = useState(false);
   useEffect(() => {
     if (!user) return;
     loadMyTeams()
-      .then((t) => setLiveTeams(t ?? []))
+      .then((t) => {
+        setLiveTeams(t ?? []);
+        // 팀 목록을 먼저 보여주고, 다가오는 회의는 이어서 불러와요
+        loadUpcoming(t ?? [])
+          .then(setLiveUpcoming)
+          .catch(() => setLiveUpcoming([]));
+      })
       .catch(() => setFailed(true));
   }, [user]);
 
@@ -43,13 +50,13 @@ function Inner() {
   if (!user) return sp.get("empty") === "1" ? <EmptyHome /> : <FullHome />; // 데모
   if (failed) return <FullHome live={[]} error="팀 목록을 불러오지 못했어요 · 새로고침해 주세요" />;
   if (liveTeams === undefined) return null;
-  return liveTeams.length === 0 ? <EmptyHome /> : <FullHome live={liveTeams} />;
+  return liveTeams.length === 0 ? <EmptyHome /> : <FullHome live={liveTeams} liveUpcoming={liveUpcoming} />;
 }
 
 /* ───────── 1 홈 ───────── */
 
 /** live: 로그인한 사람의 진짜 팀 (없으면 데모) */
-function FullHome({ live, error }: { live?: Team[]; error?: string }) {
+function FullHome({ live, liveUpcoming, error }: { live?: Team[]; liveUpcoming?: UpcomingItem[] | null; error?: string }) {
   const { state } = useDemo();
   const teams = live ?? getTeams();
 
@@ -70,7 +77,15 @@ function FullHome({ live, error }: { live?: Team[]; error?: string }) {
       <div className="screen__body" style={{ gap: 20 }}>
         <section className="stack gap-10">
           <h2 className="t-14 t-strong t-ink2">다가오는 회의</h2>
-          {upcoming.length === 0 && <p className="t-13 t-muted">아직 다가오는 회의가 없어요 · 대화방에서 ‘@AI 회의 잡아줘’로 시작해요</p>}
+          {live ? (
+            liveUpcoming === null || liveUpcoming === undefined ? (
+              <p className="t-13 t-muted">불러오는 중…</p>
+            ) : liveUpcoming.length === 0 ? (
+              <p className="t-13 t-muted">아직 다가오는 회의가 없어요 · 대화방에서 ‘@AI 회의 잡아줘’로 시작해요</p>
+            ) : (
+              liveUpcoming.map((u) => <LiveMeetingCard key={u.proposalId} item={u} />)
+            )
+          ) : null}
           {upcoming.map((m) => (
             <MeetingCard key={m.id} meeting={m} confirmed={state.confirmed} pick={state} />
           ))}
@@ -110,6 +125,49 @@ function FullHome({ live, error }: { live?: Team[]; error?: string }) {
         </Link>
       </footer>
     </main>
+  );
+}
+
+/** 진짜 팀의 다가오는 회의 한 장 (확정 회의 · 응답 받는 중인 제안) → C 화면 */
+function LiveMeetingCard({ item }: { item: UpcomingItem }) {
+  const d = item.startAt ? new Date(Date.parse(item.startAt) + 9 * 3600_000) : null; // 서울 날짜
+  const confirmed = item.kind === "confirmed";
+  // "11/10(화) 16:00" → "화 16:00" (날짜는 왼쪽 네모에 있어요)
+  const when = item.startAt ? seoulLabel(item.startAt).replace(/^\d+\/\d+\((.)\)\s*/, "$1 ") : "";
+  return (
+    <Link
+      href={`/proposals/${item.proposalId}`}
+      className={`card${confirmed ? "" : " card--accent"}`}
+      style={{ flexDirection: "row", alignItems: "center", gap: 14, color: "var(--ink)" }}
+    >
+      <div
+        className="stack no-shrink"
+        style={{ width: 48, height: 52, borderRadius: 10, background: confirmed ? "var(--ok-bg)" : "var(--accent-soft)", color: confirmed ? "var(--ok)" : "var(--accent-strong)", alignItems: "center", justifyContent: "center" }}
+      >
+        {d ? (
+          <>
+            <span style={{ fontSize: 11, fontWeight: 600 }}>{d.getUTCMonth() + 1}월</span>
+            <span style={{ fontSize: 18, fontWeight: 700, lineHeight: 1.1 }}>{d.getUTCDate()}</span>
+          </>
+        ) : (
+          <span style={{ fontSize: 12, fontWeight: 700 }}>미정</span>
+        )}
+      </div>
+      <div className="stack gap-2 grow" style={{ minWidth: 0 }}>
+        <span className="t-15 t-strong t-ellipsis">{item.title}</span>
+        <span className="t-12 t-muted t-ellipsis">
+          {confirmed ? `${when}${item.placeName ? ` · ${item.placeName}` : ""}` : when ? `AI 추천 ${when}` : "시간 후보를 모으는 중"} · {item.teamName}
+        </span>
+        {confirmed ? (
+          <span className="tag tag--ok" style={{ alignSelf: "flex-start", marginTop: 2 }}>확정</span>
+        ) : (
+          <span className="tag tag--warn" style={{ alignSelf: "flex-start", marginTop: 2 }}>
+            {item.needsMe ? "내 응답 필요 · " : ""}응답 마감 {seoulLabel(item.responseDeadline)} · {item.respondedCount}/{item.totalCount}명
+          </span>
+        )}
+      </div>
+      <span style={{ fontSize: 16, color: "var(--disabled)" }}>›</span>
+    </Link>
   );
 }
 
