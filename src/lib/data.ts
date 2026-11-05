@@ -263,10 +263,10 @@ export function getConditions(proposalId: string): Condition[] {
 }
 
 /**
- * 회의 확정 — C (confirmProposal) · 저장은 A
- * 방장이 5에서 확정할 때 불러요. 시간 후보 ID와 6에서 고른 장소 ID를 넘겨요 (ConfirmRequest).
- * 지금은 서버 저장이 없어서 아무것도 하지 않고, 화면은 데모 상태(demo-store)에 기억해요.
- * A 기본 DB와 C 저장 SQL을 적용한 뒤 POST로 바꿔요 (주소는 C·A와 정하기).
+ * 회의 확정 — 예시 제안(p-1 …)용. 아무것도 저장하지 않고 화면은 데모 상태(demo-store)에 기억해요.
+ * 실제 제안(UUID)은 C 화면(src/components/scheduling/LiveProposal.tsx)이
+ * POST /api/scheduling/proposals/{id}/confirm { candidateId, placeId, allowPartial, version }로 바로 확정해요.
+ * (C는 timeCandidateId · acknowledgePartialAttendance 이름도 받아요. 장소 ID는 C 장소 API 결과여야 해요.)
  */
 export function confirmProposal(_req: ConfirmRequest): void {
   // 서버가 생기면: await fetch(`/api/proposals/${_req.proposalId}/confirm`, { method: "POST", body: JSON.stringify(_req) })

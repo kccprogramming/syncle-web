@@ -59,7 +59,9 @@
 | 담당 | 받은 코드 | 연결 파일 | 서버 주소 |
 |---|---|---|---|
 | B 성하 | `src/server/b` | `src/server/ai-adapter.ts` | `/api/ai/request` |
-| C 지우 | `src/server/c` | `src/server/proposal-adapter.ts` | `/api/ai/request` (B 다음) |
+| C 지우 (예시 흐름) | `src/server/c` | `src/server/proposal-adapter.ts` | `/api/ai/request` (B 다음) |
+| C 지우 (실제 저장) | `src/server/scheduling`, `src/features/scheduling`, `src/components/scheduling`, `src/lib/scheduling-client.ts` | `src/app/api/places/areas` (지역·장소 종류 추천) | `/api/scheduling/*` |
+| A 현서 (서버 도우미) | `src/server/a/private-team-origins.ts` | — | (C·지역 추천이 팀원 출발지를 읽을 때) |
 | D 현규 | `src/server/d` | `src/server/area-search.ts`, `places-adapter.ts` | `/api/places/recommend` |
 | A 현서 | 아직 안 가져옴 (PR 아래 4장) | `src/lib/data.ts` | Supabase 직접 + A의 `/api/tasks`·`/api/notifications`·`/api/account` |
 
@@ -73,7 +75,7 @@
 |---|---|---|
 | A 현서 | `a-hyunseo/feature-code` → `contributions/a-hyunseo/` ([PR #2](https://github.com/kccprogramming/just_keeping/pull/2), 열림) | 아직 안 가져옴 |
 | B 성하 | `share/sungha-b-final` → `sungha_B_code/` | `1ec9384` |
-| C 지우 | `share/jiwoo-c-code` → `jiwoo_C_code/` | `f482f55` |
+| C 지우 | `share/jiwoo-c-code` → `jiwoo_C_code/` | `f482f55` (예시 흐름), `a9c6fb0`의 `integration/syncle-web/` (실제 저장) |
 | D 현규 | `feature/d-place-recommendation` → `D_HANDOFF/` | `2426bba` |
 
 팀원이 코드를 고치면 해당 폴더(`src/server/b|c|d`)만 새 버전으로 바꿔 끼우고, 연결 파일이 깨지는지 확인하면 돼요.
@@ -112,10 +114,25 @@
    - 팀원 출발지: D 계산용 정확한 출발지는 `profile_private_locations`에 있고, 서버만 `get_team_private_origins_for_calculation`(005, service role 키)으로 읽어요. 브라우저에서 부르지 않아요.
    - `src/lib/data.ts`의 함수 안쪽만 API 호출로 바꿔요 (각 함수 위에 담당·API 주소 주석). `saveMyOrigin`이 출발지 저장 자리예요
    - `src/mocks/member-origins.json`(팀원 출발지 임시값)과 `demo-store`의 서버 저장 대상(확정, 응답, 출발지, 할 일)을 A API로 바꾸기
-2. **C의 응답 · 확정 저장**: 지우님이 우리 앱용 연결 묶음을 만들었어요 → `just_keeping`의 `share/jiwoo-c-code`(`a9c6fb0`) `jiwoo_C_code/integration/syncle-web/` (README에 형식 정리). `/api/scheduling/*` 라우트, `src/server/scheduling`, `src/features/scheduling`, C 저장 SQL(`c-scheduling-review.sql`, **검토용·미적용**). 우리 `main`(`a035210`) 기준이라 `integration/b-d`에는 비교하며 합쳐야 해요. 실제 제안의 6번은 C `POST /api/scheduling/proposals/{id}/places`(`searchAreas` 1~3곳 = 우리 지역 찾기의 역 이름)로 찾고, 그 결과의 장소 ID로만 확정할 수 있어요 (아니면 `C_PLACE_REQUIRED`).
+2. **C의 응답 · 확정 저장 — 코드 합침 (11/6), SQL 적용·실제 확인 남음**
+   - 합친 방법 (지우님 묶음 `a9c6fb0`은 예전 `main` 기준이라 덮어쓰지 않았어요):
+     - 새 파일만 그대로 추가: `/api/scheduling/*`, `src/server/scheduling`, `src/features/scheduling`, `src/components/scheduling/LiveProposal.tsx`, `src/lib/scheduling-client.ts`, `supabase/c-scheduling-review.sql`, `tests/c-*.test.ts` (`npm run test:c`, 9개 통과)
+     - 묶음의 `vendor/b`, `vendor/d`는 우리 `src/server/b`, `src/server/d`와 같은 코드라 넣지 않고 그쪽을 가리키게 import만 바꿨어요. `vendor/a` → `src/server/a`. `features/shared/b-c-contract.ts`도 우리 B 것과 같아서 B 것을 써요.
+     - 지우님이 팀 기준(1시간 → 차이 → 최장)으로 고친 D 순위 함수 복사본은 `src/features/scheduling/rank-places-team-rule.ts`에 뒀어요. 현규님 D에 반영되면 바꿔요.
+     - `package.json`은 필요한 것만 추가 (`server-only`, 개발용 `@electric-sql/pglite`·`tsx`, `test:c`). `tsconfig.json`은 바꿀 것 없음.
+     - 5 화면: 실제 제안(UUID)이면 지우님 C 화면(`LiveProposal`), 예시(`p-1`)면 지금 데모 화면. 6 화면도 실제 제안이면 C 화면으로 보내요 (장소 찾기·확정이 그 안에 있어요).
+     - C 화면의 '비교할 지역'과 '찾을 장소'는 우리 `/api/places/areas`가 미리 채워요: 팀원 출발지(A 005, 서버에서만) 가운데 역 3곳 + 대화로 고른 장소 종류. 방장이 고칠 수 있어요.
+   - **C API 보낼 때 규칙 (11/6 지우님)** — `LiveProposal`의 `action()`과 `scheduling-client.ts`가 지켜요:
+     - 바꾸는 요청(respond · condition · mode · remind · places · confirm)에는 모두 지금 제안의 `version`을 넣어요. 다른 사람이 먼저 바꿨으면 `C_STALE_VERSION` → 다시 불러와요.
+     - 응답은 `/respond`. 되는 시간 `kind: "selected"`, '다 안 돼요'는 `kind: "declined_all"`, 직접 입력 `kind: "custom"`.
+     - 장소는 고른 `timeOptionId` + `searchAreas`(1~3곳, 빈 칸·중복 제거)를 `/places`로. 확정은 그 응답 `placeResults`에 저장된 장소 ID로 `/confirm` { `timeCandidateId`, `placeId`(온라인이면 null), `acknowledgePartialAttendance`, `version` }.
+     - 제안 만들기는 `createLiveProposal()` → `POST /api/scheduling/teams/{teamId}` { text, referenceDate, searchWindow, **responseDeadline, materialDeadline** }. 마감 두 개는 꼭 화면에서 정해 보내요 (응답 마감 > 지금, 응답 마감 < 자료 마감, +09:00 붙이기). 아직 이 함수를 부르는 화면은 없어요 (대화방 실제 연결 때).
+   - **남은 것**: ① 팀이 `supabase/c-scheduling-review.sql`을 검토하고 Supabase에 적용 ② 실제 팀(A 팀 만들기 연결)에서 제안을 만들어 응답·장소·확정 확인 ③ 서버 설정 `SCHEDULE_LIVE_AI_ENABLED=true`, `SCHEDULE_LIVE_PLACES_ENABLED=true` (기본 꺼짐, 무료 사용량 확인 뒤 켜기) ④ 대화방 '@AI'에서 C 제안 만들기(`POST /api/scheduling/teams/{teamId}`, 응답 마감 입력 필요)와 대화방 카드·홈에서 실제 제안 열기.
+   - 지우님 묶음 설명: `just_keeping`의 `share/jiwoo-c-code`(`a9c6fb0`) `jiwoo_C_code/integration/syncle-web/README.md`.
+   - 이전 메모: 지우님이 우리 앱용 연결 묶음을 만들었어요 → `just_keeping`의 `share/jiwoo-c-code`(`a9c6fb0`) `jiwoo_C_code/integration/syncle-web/` (README에 형식 정리). `/api/scheduling/*` 라우트, `src/server/scheduling`, `src/features/scheduling`, C 저장 SQL(`c-scheduling-review.sql`, **검토용·미적용**). 우리 `main`(`a035210`) 기준이라 `integration/b-d`에는 비교하며 합쳐야 해요. 실제 제안의 6번은 C `POST /api/scheduling/proposals/{id}/places`(`searchAreas` 1~3곳 = 우리 지역 찾기의 역 이름)로 찾고, 그 결과의 장소 ID로만 확정할 수 있어요 (아니면 `C_PLACE_REQUIRED`).
    - 예전 메모: `src/server/c/features/proposals/proposal-flow.ts`(castVote, confirmProposal)와 `meeting-calendar.ts`(.ics)는 들어왔지만 화면과 연결 전이에요. 지금 5의 응답·확정은 브라우저 예시 상태(demo-store)예요.
    - 순서: A 기본 DB → C 저장 SQL 검토·적용 → 화면을 API에 연결. 그래야 팀원끼리 실제로 공유돼요.
-   - 확정할 때 넘길 값은 앱에 준비돼 있어요: `ConfirmRequest`(`src/types.ts`) = 제안 ID + **C의 시간 후보 ID**(`TimeOption.cTimeCandidateId`) + **6에서 고른 장소 ID** + 미응답자 있어도 확정 여부. 5의 `confirm()`이 `data.ts`의 `confirmProposal()`을 불러요 (지금은 아무것도 안 하고 `demo-store`의 `confirmRequest`에 기억). API 주소가 정해지면 그 함수 안만 fetch로 바꿔요.
+   - 예시 제안의 확정은 `ConfirmRequest`(`src/types.ts`)를 만들어 `data.ts`의 `confirmProposal()`(저장 안 함)에 넘겨요. 실제 제안은 C 화면이 C 확정 API를 바로 불러요.
 3. **Gemini 키로 B 실제 확인**: 키를 받으면 '@AI 회의 잡아줘'로 실제 조건 카드가 나오는지 확인.
 4. **`integration/b-d` → `final`**: 팀 확인 뒤 최종 저장소로 옮기기.
 
@@ -130,6 +147,7 @@
   - 새 추천 기준(1시간 제한 → 차이 → 최장)을 D 코드에 반영할지. 지금 D의 `rankPlacesByFairness`는 예전 기준(최장 우선)이라 앱은 `place-ranking.ts`를 써요
   - `findPlaces`가 글자로만 검색해서 다른 동네 장소가 섞여요 → 좌표·반경 검색 (`area-search.ts` 참고)
   - 걸어갈 만큼 가까우면 대중교통 경로가 없어 '미확인'이 돼요 → 도보 시간으로 처리
+- **지우님 (C)** — C SQL 확인 부탁: 확정할 때 `c_schedule_action('confirm')`이 `messages`에 확정 카드를 직접 넣어요 (security definer). 현서님은 확정 메시지를 `create_confirmed_message`(방장 확인)로만 만들자고 했어요 → 둘 중 어느 쪽으로 할지 현서님과 맞추기.
 - **지우님 (C)** — 11/6 답변으로 정리됨
   - C의 장소 부분은 따로 알고리즘이 아니라 D `findPlaces`를 부르고 결과를 저장하는 연결부라 그대로 둬요.
   - 장소는 **6 장소 화면을 써요**. 앱은 선택한 시간 후보 ID와 장소 ID를 C 확정 API에 넘겨요 (위 6장 2번, 앱 쪽 준비 끝).

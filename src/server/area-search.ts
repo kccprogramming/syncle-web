@@ -73,12 +73,11 @@ function km(a: LatLng, b: LatLng) {
   return 6371 * 2 * Math.asin(Math.sqrt(h));
 }
 
-export async function findFairAreas(args: {
-  keyword: string;
-  members: { memberId: string; name: string; origin?: string }[];
-}): Promise<{ areas: AreaResult[]; unknownOrigins: string[] }> {
-  const { keyword, members } = args;
-
+/**
+ * 팀원 출발지 가운데 근처 지하철역 3곳 (서로 1.5km 이상) = 후보 지역.
+ * findFairAreas의 1~2단계예요. 실제 제안(C)의 장소 찾기에 넘길 지역 이름을 정할 때도 써요.
+ */
+export async function findCenterStations<M extends { name: string; origin?: string }>(members: M[]) {
   // 1. 출발지 → 좌표
   const resolved = await pool(members, async (m) => ({ m, r: m.origin ? await resolveOrigin(m.origin) : null }));
   const located = resolved.flatMap(({ m, r }) => (r && r.status === "ok" ? [{ ...m, at: { latitude: r.latitude, longitude: r.longitude } }] : []));
@@ -109,6 +108,15 @@ export async function findFairAreas(args: {
     if (stations.length === AREA_COUNT) break;
   }
   if (stations.length === 0) throw new Error("팀원 출발지 가운데 근처에서 지하철역을 찾지 못했어요");
+  return { located, unknownOrigins, center, stations };
+}
+
+export async function findFairAreas(args: {
+  keyword: string;
+  members: { memberId: string; name: string; origin?: string }[];
+}): Promise<{ areas: AreaResult[]; unknownOrigins: string[] }> {
+  const { keyword, members } = args;
+  const { located, unknownOrigins, center, stations } = await findCenterStations(members);
 
   // 3. 지역마다 장소 찾기 (역 반경 1km, 없으면 2.5km). 같은 장소는 가운데에 더 가까운 지역에만 둬요
   const search = (s: { at: LatLng }, radius: number) =>

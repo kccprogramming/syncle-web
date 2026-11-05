@@ -21,13 +21,21 @@ import { StatusPill } from "@/components/meeting/StatusPill";
 import { ModeToggle } from "@/components/meeting/ModeToggle";
 import { ReplySheet } from "@/components/meeting/ReplySheet";
 import { countFor } from "@/components/meeting/proposal-utils";
+import { LiveProposal } from "@/components/scheduling/LiveProposal";
+import { isLiveId } from "@/lib/scheduling-client";
 
 export default function ProposalPage() {
   return (
     <Suspense fallback={null}>
-      <ProposalInner />
+      <ProposalEntry />
     </Suspense>
   );
+}
+
+/** 실제 제안(Supabase에 저장된 UUID)이면 C 화면(지우), 예시 제안(p-1 …)이면 지금 데모 화면 */
+function ProposalEntry() {
+  const { proposalId } = useParams<{ proposalId: string }>();
+  return isLiveId(proposalId) ? <LiveProposal proposalId={proposalId} /> : <ProposalInner />;
 }
 
 /** 펼치고 접는 줄 사이의 얇은 선 */

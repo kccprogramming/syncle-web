@@ -22,6 +22,7 @@ import { getMe, originForD, recommendPlaces, type PlaceRecommendation } from "@/
 import type { PlaceOption } from "@/types";
 import { inferPlaceIntent, wasLabel, withRo } from "@/lib/place-intent";
 import { PlaceMap } from "@/components/meeting/PlaceMap";
+import { isLiveId } from "@/lib/scheduling-client";
 
 /** 사람 간 이동시간 차이 (모르는 사람이 있으면 null) */
 function diffOf(p: PlaceOption): number | null {
@@ -31,8 +32,22 @@ function diffOf(p: PlaceOption): number | null {
 /** '바꾸기'를 눌렀을 때 보여 줄 장소 종류. 그 밖의 것은 '직접 입력'으로 */
 const PLACE_KEYWORDS = ["스터디룸", "스터디카페", "카페", "합주실", "회식", "회의실"];
 
+/**
+ * 실제 제안(UUID)의 장소는 C 화면(5, LiveProposal)에서 C 장소 API로 찾아요.
+ * 그 결과의 장소 ID여야 C가 확정할 수 있어서(C_PLACE_REQUIRED), 여기서는 그 화면으로 보내요.
+ */
 export default function PlacesPage() {
   const { proposalId } = useParams<{ proposalId: string }>();
+  const router = useRouter();
+  const live = isLiveId(proposalId);
+  useEffect(() => {
+    if (live) router.replace(`/proposals/${proposalId}`);
+  }, [live, proposalId, router]);
+  return live ? null : <DemoPlaces proposalId={proposalId} />;
+}
+
+/** 6 장소 후보 (예시 제안 p-1 …) — 우리 지역 찾기 /api/places/recommend */
+function DemoPlaces({ proposalId }: { proposalId: string }) {
   const router = useRouter();
   const { state, update } = useDemo();
   const proposal = useProposal(proposalId);
