@@ -2,17 +2,35 @@
 
 /**
  * 로그인 버튼 (Google) + 약관 안내 문구.
- * 0-1 로그인, 0-2 초대 로그인에서 같이 써요. 버튼은 href로 이동해요.
+ * 0-1 로그인, 0-2 초대 로그인에서 같이 써요.
+ * Supabase 키가 있으면 실제 Google 로그인(A)을 하고, 로그인 뒤 /auth/callback을 거쳐 화면을 골라요.
+ * 키가 없으면 지금처럼 href로 바로 이동하는 데모예요.
+ * next: 실제 로그인 뒤 갈 화면. 비우면 팀이 있으면 홈(1), 없으면 처음 홈(1-0)으로 가요.
  */
+import { useState } from "react";
 import Link from "next/link";
 import { Toast, useToast } from "@/components/Toast";
+import { getSupabase, signInWithGoogle } from "@/lib/supabase";
 
-export function LoginButtons({ href }: { href: string }) {
+export function LoginButtons({ href, next }: { href: string; next?: string }) {
   const toast = useToast();
+  const [busy, setBusy] = useState(false);
+
+  async function onGoogle(e: React.MouseEvent) {
+    if (!getSupabase()) return; // 키가 없으면 Link가 그대로 데모 화면으로 이동해요
+    e.preventDefault();
+    setBusy(true);
+    const error = await signInWithGoogle(next);
+    if (error) {
+      setBusy(false);
+      toast.show(`로그인하지 못했어요 · ${error}`);
+    }
+    // 성공하면 브라우저가 Google 화면으로 넘어가요
+  }
 
   return (
     <div className="stack gap-10">
-      <GoogleButton href={href} />
+      <GoogleButton href={href} onClick={onGoogle} busy={busy} />
       <p className="t-12 t-muted t-center" style={{ marginTop: 6, lineHeight: 1.6 }}>
         시작하면{" "}
         <button type="button" style={linkStyle} onClick={() => toast.show("준비 중이에요")}>
@@ -45,13 +63,16 @@ const linkStyle: React.CSSProperties = {
  * Google 로그인 버튼. Google 브랜드 가이드(공식 G 로고, 흰 바탕, #747775 테두리)를 지켜야 해서
  * 색을 토큰이 아닌 값 그대로 써요.
  */
-function GoogleButton({ href }: { href: string }) {
+function GoogleButton({ href, onClick, busy }: { href: string; onClick: (e: React.MouseEvent) => void; busy: boolean }) {
   return (
     <>
       {/* Google Sans 글꼴은 layout.tsx의 Google Fonts 링크에 추가해야 보여요 (없으면 기본 글꼴) */}
       <Link
         href={href}
+        onClick={onClick}
+        aria-busy={busy}
         style={{
+          opacity: busy ? 0.6 : 1,
           height: 52,
           borderRadius: 12,
           border: "1px solid #747775",
@@ -73,7 +94,7 @@ function GoogleButton({ href }: { href: string }) {
           <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z" />
           <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z" />
         </svg>
-        Google로 계속하기
+        {busy ? "Google로 이동하는 중…" : "Google로 계속하기"}
       </Link>
     </>
   );

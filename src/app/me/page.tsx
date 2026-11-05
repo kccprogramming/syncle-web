@@ -2,7 +2,7 @@
 
 /** 1-1 내 정보 — 출발지, 매주 안 되는 시간, 알림 설정, 로그아웃. */
 import { useState } from "react";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { TopBar } from "@/components/TopBar";
 import { Avatar } from "@/components/Avatar";
 import { Switch } from "@/components/Controls";
@@ -12,12 +12,22 @@ import { OriginPickerSheet } from "@/components/home/OriginPickerSheet";
 import { Icon } from "@/components/Icon";
 import { useDemo } from "@/lib/demo-store";
 import { getMe, getTeams, saveMyOrigin } from "@/lib/data";
+import { signOut, useAuthUser } from "@/lib/supabase";
 
 export default function MePage() {
   const me = getMe();
   const teamCount = getTeams().length;
   const { state, update } = useDemo();
   const toast = useToast();
+  const router = useRouter();
+  // 실제 Google 로그인(A)을 했으면 그 계정을 보여줘요. 아니면 가짜 데이터의 '나'
+  const user = useAuthUser();
+  const name = (user?.user_metadata?.full_name as string | undefined) ?? me.name;
+
+  async function logout() {
+    await signOut();
+    router.push("/login");
+  }
 
   const [sheetOpen, setSheetOpen] = useState(false);
   const [originOpen, setOriginOpen] = useState(false);
@@ -35,10 +45,10 @@ export default function MePage() {
         {/* 프로필 */}
         <section className="card hstack" style={{ flexDirection: "row", alignItems: "center", padding: 16, gap: 14 }}>
           <Avatar member={me} size={56} />
-          <div className="stack gap-2 grow">
-            <span style={{ fontSize: 17, fontWeight: 700 }}>{me.name}</span>
-            <span className="t-12 t-muted">
-              Google 계정으로 로그인 · 팀 {teamCount}개
+          <div className="stack gap-2 grow" style={{ minWidth: 0 }}>
+            <span style={{ fontSize: 17, fontWeight: 700 }}>{name}</span>
+            <span className="t-12 t-muted t-ellipsis">
+              {user?.email ? `${user.email} · ` : "Google 계정으로 로그인 · "}팀 {teamCount}개
             </span>
           </div>
           <button type="button" className="btn btn--sm btn--ghost no-shrink" style={{ fontSize: 12 }} onClick={soon}>
@@ -121,9 +131,9 @@ export default function MePage() {
         </section>
 
         <div className="hstack gap-4" style={{ justifyContent: "center", marginTop: 4 }}>
-          <Link href="/login" className="t-14 t-ink2" style={{ padding: "12px 14px" }}>
+          <button type="button" className="t-14 t-ink2" style={{ padding: "12px 14px", border: 0, background: "none" }} onClick={() => void logout()}>
             로그아웃
-          </Link>
+          </button>
           <span className="t-14" style={{ padding: "12px 0", color: "var(--line-strong)" }}>|</span>
           <button type="button" className="t-14 t-muted" style={{ padding: "12px 14px", border: 0, background: "none" }} onClick={soon}>
             회원 탈퇴

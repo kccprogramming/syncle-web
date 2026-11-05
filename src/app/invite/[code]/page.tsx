@@ -37,7 +37,7 @@ export default function InvitePage() {
 
         <p className="t-14 t-ink2">로그인하면 바로 이 팀에 참여해요</p>
       </div>
-      <LoginButtons href={`/join?code=${code}`} />
+      <LoginButtons href={`/join?code=${code}`} next={`/join?code=${code}`} />
     </main>
   );
 }

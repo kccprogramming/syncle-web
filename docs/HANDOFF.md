@@ -102,13 +102,16 @@
 
 1. **A 연결 (현서님)**: Supabase 로그인 · 팀 · 대화 메시지 · 프로필 출발지 저장.
    - 11/6 현서님 공유: 프로젝트 URL `https://rlldzrffwbpydhaxxyzs.supabase.co`. 공개키는 각자 `.env.local`·Vercel에 직접 넣어요.
-   - DB: `profiles`, `teams`, `team_members`, `messages`와 주요 열은 있음 (단 `schema-draft.sql`을 실행한 기록이 남아 있다는 뜻은 아님). 004(확정 메시지 · 비공개 링크)는 실행 완료. 002·003은 004의 전제라 적용된 것으로 보이고, **005(팀원 출발지 계산용)는 실행 여부를 현서님께 확인**해야 해요.
+   - DB: `profiles`, `teams`, `team_members`, `messages`와 주요 열은 있음 (단 `schema-draft.sql`을 실행한 기록이 남아 있다는 뜻은 아님). 004(확정 메시지 · 비공개 링크)와 005(팀원 출발지 계산용)는 실행 완료 (005는 11/6 희원). 002·003은 004의 전제라 적용된 것으로 보여요.
    - A 코드: `just_keeping` PR #2. Supabase 접속(`lib/supabase/client.ts`, `server-api.ts`)과 API(`/api/tasks`, `/api/notifications`, `/api/account`). 서버 API는 로그인 토큰을 `Authorization: Bearer`로 받아요.
    - 확정 메시지: 일반 사용자는 `messages`에 `confirmed`를 직접 못 넣어요. 서버가 **로그인한 방장의 토큰으로** `create_confirmed_message(p_team_id, p_content, p_visible_to)`를 불러야 해요 (C 확정과 같이 연결).
+   - **Google 로그인 연결 완료 (11/6)**: `src/lib/supabase.ts`(접속·로그인·로그아웃·`useAuthUser`), 0-1·0-2 로그인 버튼, 돌아오는 화면 `/auth/callback`(팀 있으면 1, 없으면 1-0), 1-1 내 정보의 계정 표시·로그아웃. 키가 없으면 예전 데모로 움직여요. Supabase Redirect URLs에 `http://localhost:3000/**` 넣음 (Vercel 주소는 배포 때 추가).
+   - 다음: 홈 팀 목록 · 팀 만들기/참여 · 대화 메시지 · 출발지 저장을 `data.ts`에서 Supabase로.
    - 팀원 출발지: D 계산용 정확한 출발지는 `profile_private_locations`에 있고, 서버만 `get_team_private_origins_for_calculation`(005, service role 키)으로 읽어요. 브라우저에서 부르지 않아요.
    - `src/lib/data.ts`의 함수 안쪽만 API 호출로 바꿔요 (각 함수 위에 담당·API 주소 주석). `saveMyOrigin`이 출발지 저장 자리예요
    - `src/mocks/member-origins.json`(팀원 출발지 임시값)과 `demo-store`의 서버 저장 대상(확정, 응답, 출발지, 할 일)을 A API로 바꾸기
-2. **C의 응답 · 확정 저장**: `src/server/c/features/proposals/proposal-flow.ts`(castVote, confirmProposal)와 `meeting-calendar.ts`(.ics)는 들어왔지만 화면과 연결 전이에요. 지금 5의 응답·확정은 브라우저 예시 상태(demo-store)예요.
+2. **C의 응답 · 확정 저장**: 지우님이 우리 앱용 연결 묶음을 만들었어요 → `just_keeping`의 `share/jiwoo-c-code`(`a9c6fb0`) `jiwoo_C_code/integration/syncle-web/` (README에 형식 정리). `/api/scheduling/*` 라우트, `src/server/scheduling`, `src/features/scheduling`, C 저장 SQL(`c-scheduling-review.sql`, **검토용·미적용**). 우리 `main`(`a035210`) 기준이라 `integration/b-d`에는 비교하며 합쳐야 해요. 실제 제안의 6번은 C `POST /api/scheduling/proposals/{id}/places`(`searchAreas` 1~3곳 = 우리 지역 찾기의 역 이름)로 찾고, 그 결과의 장소 ID로만 확정할 수 있어요 (아니면 `C_PLACE_REQUIRED`).
+   - 예전 메모: `src/server/c/features/proposals/proposal-flow.ts`(castVote, confirmProposal)와 `meeting-calendar.ts`(.ics)는 들어왔지만 화면과 연결 전이에요. 지금 5의 응답·확정은 브라우저 예시 상태(demo-store)예요.
    - 순서: A 기본 DB → C 저장 SQL 검토·적용 → 화면을 API에 연결. 그래야 팀원끼리 실제로 공유돼요.
    - 확정할 때 넘길 값은 앱에 준비돼 있어요: `ConfirmRequest`(`src/types.ts`) = 제안 ID + **C의 시간 후보 ID**(`TimeOption.cTimeCandidateId`) + **6에서 고른 장소 ID** + 미응답자 있어도 확정 여부. 5의 `confirm()`이 `data.ts`의 `confirmProposal()`을 불러요 (지금은 아무것도 안 하고 `demo-store`의 `confirmRequest`에 기억). API 주소가 정해지면 그 함수 안만 fetch로 바꿔요.
 3. **Gemini 키로 B 실제 확인**: 키를 받으면 '@AI 회의 잡아줘'로 실제 조건 카드가 나오는지 확인.
