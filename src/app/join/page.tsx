@@ -3,16 +3,22 @@
 /**
  * 2-1 초대 링크로 참여하기.
  * ?code=7K2Q-HCI4 처럼 들어오면 코드 칸에 채워 두고, 없으면 예시 코드를 넣어 둬요.
+ * 들어오는 사람이 '주로 출발하는 곳'을 직접 골라요 → 6 장소 추천(D)의 이동시간 계산에 써요.
+ * 데모에서는 서연님이 들어오는 장면이에요 (JOINING_MEMBER_ID).
  */
 import { Suspense, useState } from "react";
-import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Icon } from "@/components/Icon";
+import { OriginPickerSheet } from "@/components/home/OriginPickerSheet";
+import { useDemo } from "@/lib/demo-store";
 import { TopBar } from "@/components/TopBar";
 import { AvatarStack, TeamBadge } from "@/components/Avatar";
 import { Toast, useToast } from "@/components/Toast";
-import { getInvite, getMembers, getTeams } from "@/lib/data";
+import { getInvite, getMembers, getTeams, saveMyOrigin } from "@/lib/data";
 
 const DEFAULT_CODE = "7K2Q-HCI4";
+// 데모에서 팀에 들어오는 사람 (실제로는 로그인한 계정)
+const JOINING_MEMBER_ID = "u-seoyeon";
 
 export default function JoinPage() {
   return (
@@ -29,16 +35,27 @@ function toCode(value: string) {
 
 function Inner() {
   const sp = useSearchParams();
+  const router = useRouter();
   const toast = useToast();
+  const { state, update } = useDemo();
   const [value, setValue] = useState(sp.get("code") || DEFAULT_CODE);
   const [nick, setNick] = useState("서연");
-  const [origin, setOrigin] = useState("신촌역");
+  const [origin, setOrigin] = useState(state.memberOrigins[JOINING_MEMBER_ID] ?? null);
+  const [originOpen, setOriginOpen] = useState(false);
 
   const code = toCode(value);
   const found = getTeams().some((t) => t.inviteCode.toUpperCase() === code.toUpperCase());
   const invite = getInvite(code.toUpperCase());
   const { team } = invite;
   const members = getMembers(team.memberIds).filter((m) => invite.memberNames.includes(m.name));
+
+  async function join() {
+    if (origin) {
+      update((s) => ({ memberOrigins: { ...s.memberOrigins, [JOINING_MEMBER_ID]: origin } }));
+      await saveMyOrigin(JOINING_MEMBER_ID, origin);
+    }
+    router.push(`/teams/${team.id}`);
+  }
 
   async function paste() {
     try {
@@ -113,17 +130,38 @@ function Inner() {
         </div>
 
         <div className="field">
-          <label htmlFor="origin" className="field__label">주로 출발하는 곳</label>
-          <input id="origin" className="input" type="text" value={origin} onChange={(e) => setOrigin(e.target.value)} />
-          <span className="field__hint">팀원에게는 동네 단위까지만 보여요 · 나중에 바꿀 수 있어요</span>
+          <span className="field__label">주로 출발하는 곳</span>
+          <button
+            type="button"
+            aria-label={`주로 출발하는 곳 ${origin ? `${origin.name}, ${origin.roadAddress}. 바꾸기` : "찾기"}`}
+            onClick={() => setOriginOpen(true)}
+            className="input hstack gap-10"
+            style={{ height: "auto", minHeight: 56, padding: "8px 14px", textAlign: "left" }}
+          >
+            <span style={{ color: "var(--accent)", display: "inline-flex", flexShrink: 0 }}>
+              <Icon name="pin" size={20} />
+            </span>
+            {origin ? (
+              <span className="stack gap-2" style={{ flex: "1 1 auto", minWidth: 0 }}>
+                <span className="t-15 t-strong t-ellipsis">{origin.name}</span>
+                <span className="t-12 t-muted t-ellipsis">{origin.roadAddress}</span>
+              </span>
+            ) : (
+              <span className="t-15 t-muted" style={{ flex: "1 1 auto" }}>역이나 건물 이름으로 찾기</span>
+            )}
+            <span className="t-13 t-accent t-strong" style={{ flexShrink: 0 }}>{origin ? "변경" : "찾기"}</span>
+          </button>
+          <span className="field__hint">
+            {origin ? `팀원에게는 ‘${origin.area}’까지만 보여요` : "회의 장소를 정할 때 이동시간 계산에 써요 · 팀원에게는 동네까지만 보여요"} · 나중에 바꿀 수 있어요
+          </span>
         </div>
       </div>
 
       <footer className="footer footer--bare" style={{ padding: "12px 20px 24px" }}>
         {found ? (
-          <Link href={`/teams/${team.id}`} className="btn btn--primary btn--lg btn--block">
+          <button type="button" className="btn btn--primary btn--lg btn--block" onClick={join}>
             팀 참여하기
-          </Link>
+          </button>
         ) : (
           <button type="button" className="btn btn--lg btn--block" disabled>
             팀 참여하기
@@ -132,6 +170,17 @@ function Inner() {
       </footer>
 
       <Toast {...toast} />
+
+      {originOpen ? (
+        <OriginPickerSheet
+          initial={origin}
+          onClose={() => setOriginOpen(false)}
+          onPick={(place) => {
+            setOrigin(place);
+            setOriginOpen(false);
+          }}
+        />
+      ) : null}
     </main>
   );
 }

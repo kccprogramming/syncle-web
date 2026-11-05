@@ -27,8 +27,12 @@ export interface DemoState {
   chosenPlace: PlaceOption | null;
   /** 7-1에서 직접 추가한 조건 */
   addedConditions: Condition[];
-  /** 주로 출발하는 곳 (2, 1-1, 7) */
+  /** 주로 출발하는 곳 (2, 1-1, 7) — 나(민지) */
   origin: PlaceSearchResult | null;
+  /** 다른 팀원이 팀에 들어오며 직접 정한 출발지 (2-1). 실제로는 각자 계정의 프로필에 저장돼요 */
+  memberOrigins: Record<string, PlaceSearchResult>;
+  /** 6 장소 후보에서 찾을 장소 종류 (스터디룸, 합주실 …) */
+  placeKeyword: string;
   /** 매주 안 되는 시간 (2-2, 1-1) */
   weeklyBlocks: WeeklyBlock[];
   /** 알림 모두 읽음 */
@@ -56,6 +60,8 @@ const initialState = (): DemoState => ({
   chosenPlace: null,
   addedConditions: [],
   origin: getMyOrigin(),
+  memberOrigins: {},
+  placeKeyword: "스터디룸",
   weeklyBlocks: getMe().weeklyBlocks,
   notificationsRead: false,
   taskDone: { "t-3": true },

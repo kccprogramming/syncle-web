@@ -11,7 +11,7 @@ import { WeeklyBlockSheet, formatBlock } from "@/components/home/WeeklyBlockShee
 import { OriginPickerSheet } from "@/components/home/OriginPickerSheet";
 import { Icon } from "@/components/Icon";
 import { useDemo } from "@/lib/demo-store";
-import { getMe, getTeams } from "@/lib/data";
+import { getMe, getTeams, saveMyOrigin } from "@/lib/data";
 
 export default function MePage() {
   const me = getMe();
@@ -137,6 +137,7 @@ export default function MePage() {
           onClose={() => setOriginOpen(false)}
           onPick={(place) => {
             update({ origin: place });
+            void saveMyOrigin(me.id, place);
             setOriginOpen(false);
             toast.show("출발하는 곳을 바꿨어요");
           }}

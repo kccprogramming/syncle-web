@@ -12,6 +12,7 @@ import { TopBar } from "@/components/TopBar";
 import { Toast, useToast } from "@/components/Toast";
 import { EMPTY_DRAFT, WeeklyBlockSheet, formatBlock, type WeeklyDraft } from "@/components/home/WeeklyBlockSheet";
 import { OriginPickerSheet } from "@/components/home/OriginPickerSheet";
+import { getMe, saveMyOrigin } from "@/lib/data";
 import { useDemo } from "@/lib/demo-store";
 import type { WeeklyBlock } from "@/types";
 
@@ -166,6 +167,7 @@ function Inner() {
           onClose={() => setOriginOpen(false)}
           onPick={(place) => {
             update({ origin: place });
+            void saveMyOrigin(getMe().id, place);
             setOriginOpen(false);
           }}
         />

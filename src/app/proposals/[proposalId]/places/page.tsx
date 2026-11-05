@@ -9,13 +9,14 @@
  * '공평한 순'은 D의 rankPlacesByFairness와 같은 기준이에요:
  * 가장 오래 걸리는 사람의 이동시간 → 같으면 사람 간 차이(최장−최단) → 같으면 맞는 선호 조건 수.
  */
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { TopBar } from "@/components/TopBar";
 import { Spinner } from "@/components/Icon";
+import { Sheet } from "@/components/Sheet";
 import { useDemo } from "@/lib/demo-store";
-import { getProposal, recommendPlaces, type PlaceRecommendation } from "@/lib/data";
-import type { PlaceOption, PlaceSearchResult } from "@/types";
+import { getMe, getProposal, originForD, recommendPlaces, type PlaceRecommendation } from "@/lib/data";
+import type { PlaceOption } from "@/types";
 import { PlaceMap } from "@/components/meeting/PlaceMap";
 import { walkMinutes } from "@/components/meeting/proposal-utils";
 
@@ -45,11 +46,8 @@ function sortPlaces(list: PlaceOption[], sort: SortId) {
   return copy;
 }
 
-/** D에 보낼 내 출발지: 역 이름이면 이름 그대로, 아니면 도로명 주소 (D resolveOrigin이 역/주소를 나눠서 찾아요) */
-function originForD(o: PlaceSearchResult | null): string | undefined {
-  if (!o) return undefined;
-  return /역(\s+\S+선)?$/.test(o.name) ? o.name : o.roadAddress;
-}
+/** 자주 찾는 장소 종류. 그 밖의 것은 '직접 입력'으로 */
+const PLACE_KEYWORDS = ["스터디룸", "스터디카페", "카페", "합주실", "회의실"];
 
 export default function PlacesPage() {
   const { proposalId } = useParams<{ proposalId: string }>();
@@ -63,13 +61,25 @@ export default function PlacesPage() {
   const [selId, setSelId] = useState(state.placeId);
   const [sort, setSort] = useState<SortId>("fair");
 
-  // 장소 추천 불러오기 (내 출발지가 바뀌면 다시)
-  const myOrigin = originForD(state.origin);
+  const [keywordSheet, setKeywordSheet] = useState(false);
+  const keyword = state.placeKeyword;
+
+  // 팀원이 직접 정한 출발지 (나 + 팀에 들어오며 정한 사람들)
+  const meId = getMe().id;
+  const originsKey = JSON.stringify([state.origin && originForD(state.origin), state.memberOrigins]);
+  const origins = useMemo(() => {
+    const o: Record<string, string> = {};
+    for (const [id, place] of Object.entries(state.memberOrigins)) o[id] = originForD(place);
+    if (state.origin) o[meId] = originForD(state.origin);
+    return o;
+  }, [originsKey, meId]);
+
+  // 장소 추천 불러오기 (장소 종류나 출발지가 바뀌면 다시)
   useEffect(() => {
     const ctrl = new AbortController();
     setData(null);
     setError(null);
-    recommendPlaces(proposal.id, myOrigin, ctrl.signal)
+    recommendPlaces(proposal.id, { keyword, origins }, ctrl.signal)
       .then((d) => {
         setData(d);
         // 전에 고른 장소가 목록에 없으면 1위 장소를 골라 둬요
@@ -79,7 +89,7 @@ export default function PlacesPage() {
         if ((e as Error).name !== "AbortError") setError((e as Error).message || "장소를 찾지 못했어요");
       });
     return () => ctrl.abort();
-  }, [proposal.id, myOrigin, retry]);
+  }, [proposal.id, keyword, origins, retry]);
 
   const live = data?.source === "kakao";
   const sorts = live ? SORTS.filter((s) => s.id === "fair") : SORTS; // 실제 결과에는 도보 시간이 없어서 '가까운 순'은 숨겨요
@@ -138,6 +148,26 @@ export default function PlacesPage() {
               {live ? null : <span className="tag tag--gray no-shrink">예시 데이터</span>}
             </div>
 
+            {live ? (
+              <div className="hstack gap-6 no-shrink" role="group" aria-label="장소 종류" style={{ overflowX: "auto", flexWrap: "nowrap", margin: "0 -16px", padding: "0 16px" }}>
+                {[...PLACE_KEYWORDS, ...(PLACE_KEYWORDS.includes(keyword) ? [] : [keyword])].map((k) => (
+                  <button
+                    key={k}
+                    type="button"
+                    aria-pressed={keyword === k}
+                    onClick={() => update({ placeKeyword: k })}
+                    className={`chip no-shrink${keyword === k ? " chip--on" : ""}`}
+                    style={{ minHeight: 30, padding: "0 10px", fontSize: 12, borderRadius: 14 }}
+                  >
+                    {k}
+                  </button>
+                ))}
+                <button type="button" className="chip chip--dashed no-shrink" style={{ minHeight: 30, padding: "0 10px", fontSize: 12, borderRadius: 14 }} onClick={() => setKeywordSheet(true)}>
+                  + 직접 입력
+                </button>
+              </div>
+            ) : null}
+
             {sorts.length > 1 ? (
               <div className="hstack gap-6 no-shrink" role="group" aria-label="정렬">
                 {sorts.map((s) => (
@@ -179,7 +209,44 @@ export default function PlacesPage() {
           {data?.unverified ? "시설·수용 인원은 아직 확인 전이에요 · 확정 뒤 장소 사이트에서 확인해요" : "시설·인원·예약은 확정 뒤 회의 카드에서 장소 사이트로 확인해요"}
         </span>
       </footer>
+
+      {keywordSheet ? (
+        <KeywordSheet
+          initial={PLACE_KEYWORDS.includes(keyword) ? "" : keyword}
+          onClose={() => setKeywordSheet(false)}
+          onSave={(k) => {
+            update({ placeKeyword: k });
+            setKeywordSheet(false);
+          }}
+        />
+      ) : null}
     </main>
+  );
+}
+
+/** 찾을 장소 종류 직접 입력 (예: 보드게임카페, 공유오피스) */
+function KeywordSheet({ initial, onClose, onSave }: { initial: string; onClose: () => void; onSave: (keyword: string) => void }) {
+  const [value, setValue] = useState(initial);
+  const v = value.trim();
+  return (
+    <Sheet open onClose={onClose} title="어떤 장소를 찾을까요?" sub="카카오맵에서 검색할 장소 종류예요 · 예: 보드게임카페, 공유오피스, 강의실">
+      <input
+        className="input"
+        type="text"
+        autoFocus
+        maxLength={20}
+        aria-label="장소 종류"
+        placeholder="장소 종류 입력"
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && v) onSave(v);
+        }}
+      />
+      <button type="button" className="btn btn--primary" style={{ height: 50 }} disabled={!v} onClick={() => onSave(v)}>
+        이 장소로 찾기
+      </button>
+    </Sheet>
   );
 }
 

@@ -13,24 +13,30 @@ type DResult = Awaited<ReturnType<typeof findPlaces>>;
 type DPlace = Extract<DResult, { status: "ok" }>["places"][number];
 
 /**
- * D는 "검색 지역 + 장소 종류"로 카카오 키워드 검색을 해요 (예: "서울역 스터디룸").
- * 회의 목적("중간발표 자료 역할 분담")을 그대로 넣으면 검색이 잘 안 돼서, 장소 종류를 따로 정해요.
- * TODO: C와 합의 — 목적에서 장소 종류를 뽑을지, 사용자가 고르게 할지 (D_CONTRACT.md 8장)
+ * D는 "검색 지역 + 장소 종류"로 카카오 키워드 검색을 해요 (예: "서울역 합주실").
+ * 회의 목적("중간발표 자료 역할 분담")을 그대로 넣으면 검색이 잘 안 돼서, 장소 종류는 6 화면에서 사용자가 골라요.
  */
 export const DEFAULT_PLACE_KEYWORD = "스터디룸";
+
+/** 화면에서 받은 장소 종류를 검사해요 (빈 값이나 너무 긴 값이면 기본값) */
+export function cleanKeyword(value: unknown): string {
+  const v = typeof value === "string" ? value.trim().replace(/\s+/g, " ") : "";
+  return v && v.length <= 20 ? v : DEFAULT_PLACE_KEYWORD;
+}
 
 export function toDRequest(args: {
   proposal: Proposal;
   time: TimeOption;
   searchArea: string;
+  keyword: string;
   members: { memberId: string; origin?: string }[];
 }) {
-  const { proposal, time, searchArea, members } = args;
+  const { proposal, time, searchArea, keyword, members } = args;
   return {
     teamId: proposal.teamId,
     proposalId: proposal.id,
     timeOptionId: time.id,
-    meetingPurpose: DEFAULT_PLACE_KEYWORD,
+    meetingPurpose: keyword,
     startAt: time.startAt,
     endAt: time.endAt,
     meetingMode: proposal.mode,

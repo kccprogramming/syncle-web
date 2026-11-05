@@ -114,6 +114,20 @@ export function getMemberOrigin(memberId: string): string | undefined {
   return (memberOriginsJson as Record<string, string>)[memberId];
 }
 
+/**
+ * 내 출발지 저장 — A (PATCH /api/me  { departureStation, departureLat, departureLng })
+ * 2 새 팀 만들기, 2-1 팀 참여, 1-1 내 정보에서 출발지를 고르면 불러요.
+ * 지금은 서버가 없어서 아무것도 하지 않고, 화면은 데모 상태(demo-store)에 기억해요.
+ */
+export async function saveMyOrigin(_memberId: string, _place: PlaceSearchResult): Promise<void> {
+  // TODO: A 연결 시 fetch("/api/me", { method: "PATCH", body: JSON.stringify({ ... }) })
+}
+
+/** D에 보낼 출발지 글자: 역 이름이면 이름 그대로, 아니면 도로명 주소 (D resolveOrigin이 역/주소를 나눠서 찾아요) */
+export function originForD(o: PlaceSearchResult): string {
+  return /역(\s+\S+선)?$/.test(o.name) ? o.name : o.roadAddress;
+}
+
 /** 6 장소 후보 응답 (POST /api/places/recommend) */
 export interface PlaceRecommendation {
   /** kakao = D가 실제로 찾은 결과, mock = 카카오 키가 없어서 가짜 데이터 */
@@ -129,13 +143,19 @@ export interface PlaceRecommendation {
 /**
  * 장소 후보 추천 — D (POST /api/places/recommend)
  * 서버가 D의 findPlaces로 장소를 찾고 팀원별 대중교통 시간을 계산해요.
- * myOrigin: 1-1·2에서 고른 내 출발지 (이름 또는 도로명 주소). 없으면 서버에 저장된 값을 써요.
+ * keyword: 찾을 장소 종류 (스터디룸, 합주실 …)
+ * origins: 팀원이 직접 정한 출발지 { memberId: 역 이름 또는 도로명 주소 }.
+ *   데모에서는 이 브라우저에서 정한 값을 같이 보내요. 백엔드를 붙이면 서버가 각자의 프로필(A)에서 읽어요.
  */
-export async function recommendPlaces(proposalId: string, myOrigin?: string, signal?: AbortSignal): Promise<PlaceRecommendation> {
+export async function recommendPlaces(
+  proposalId: string,
+  opts: { keyword: string; origins: Record<string, string> },
+  signal?: AbortSignal,
+): Promise<PlaceRecommendation> {
   const res = await fetch("/api/places/recommend", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ proposalId, myOrigin }),
+    body: JSON.stringify({ proposalId, keyword: opts.keyword, origins: opts.origins }),
     signal,
   });
   const body = await res.json().catch(() => null);
