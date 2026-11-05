@@ -9,7 +9,7 @@
 import { useEffect, useState } from "react";
 import { Icon } from "@/components/Icon";
 import { Sheet } from "@/components/Sheet";
-import { searchPlaces } from "@/lib/data";
+import { checkOrigin, searchPlaces } from "@/lib/data";
 import type { PlaceSearchResult } from "@/types";
 
 export function OriginPickerSheet({
@@ -26,6 +26,17 @@ export function OriginPickerSheet({
   const [results, setResults] = useState<PlaceSearchResult[]>([]);
   const [status, setStatus] = useState<"idle" | "loading" | "done" | "error">("idle");
   const [retry, setRetry] = useState(0);
+  // 고른 곳으로 이동시간을 계산할 수 있는지 (주소가 동네까지만 있으면 안 돼요)
+  const [usable, setUsable] = useState<"checking" | "ok" | "no">("ok");
+  useEffect(() => {
+    if (!picked) return;
+    let gone = false;
+    setUsable("checking");
+    checkOrigin(picked).then((ok) => !gone && setUsable(ok ? "ok" : "no"));
+    return () => {
+      gone = true;
+    };
+  }, [picked]);
 
   // 입력을 멈추고 0.25초 뒤에 찾아요. 새로 입력하면 이전 요청은 취소해요.
   useEffect(() => {
@@ -82,8 +93,13 @@ export function OriginPickerSheet({
             <span className="t-13 t-ink2">{picked.roadAddress}</span>
             <span className="t-12 t-muted">팀원에게는 ‘{picked.area}’까지만 보여요</span>
           </div>
-          <button type="button" className="btn btn--primary btn--lg btn--block" onClick={() => onPick(picked)}>
-            여기서 출발해요
+          {usable === "no" ? (
+            <span role="alert" className="t-13 t-warn" style={{ lineHeight: 1.5 }}>
+              이 곳은 위치를 하나로 정할 수 없어서 이동시간을 계산할 수 없어요 · 역은 ‘구로역 1호선’처럼 노선이 붙은 것을, 아니면 번지가 있는 건물을 골라 주세요
+            </span>
+          ) : null}
+          <button type="button" className="btn btn--primary btn--lg btn--block" disabled={usable !== "ok"} onClick={() => onPick(picked)}>
+            {usable === "checking" ? "위치 확인 중…" : "여기서 출발해요"}
           </button>
         </>
       ) : (

@@ -123,7 +123,13 @@
    - 팀원 출발지: D 계산용 정확한 출발지는 `profile_private_locations`에 있고, 서버만 `get_team_private_origins_for_calculation`(005, service role 키)으로 읽어요. 브라우저에서 부르지 않아요.
    - `src/lib/data.ts`의 함수 안쪽만 API 호출로 바꿔요 (각 함수 위에 담당·API 주소 주석). `saveMyOrigin`이 출발지 저장 자리예요
    - `src/mocks/member-origins.json`(팀원 출발지 임시값)과 `demo-store`의 서버 저장 대상(확정, 응답, 출발지, 할 일)을 A API로 바꾸기
-2. **C의 응답 · 확정 저장 — 코드 합침 (11/6), SQL 적용·실제 확인 남음**
+2. **C 실제 일정 — 끝까지 동작 확인 (11/6)**: 지우님 SQL `55ec72e`를 kcc에 적용(A 006은 실행 안 함). 실제 두 계정으로 제안 만들기 → 응답 → 장소 찾기 → 방장 확정 → 새로고침까지 확인 (KCC해커톤 '회의' 11/10(화) 16:00 · 서울역 삼경교육센터, 대화방 확정 카드는 A `create_confirmed_message`로).
+   - 켜야 하는 서버 설정: `GEMINI_API_KEY`, `SCHEDULE_LIVE_AI_ENABLED=true`, `SCHEDULE_LIVE_PLACES_ENABLED=true` (`.env.example` 설명).
+   - 제안 만들기: 대화방 '@AI … 잡아줘' → `CreateProposalSheet`(목적 · 길이 · 대면/온라인 + 접힌 기간 · 응답 마감 · 자료 마감). 누르면 '@AI 회의 잡아줘 · 목적 … · 1시간 · 대면으로' 메시지를 남긴 뒤 `createLiveProposal` (B가 목적 · 길이를 다시 묻지 않게). 기간 끝은 다음 날 0시. 만들어지면 앱이 `ai_proposal` 카드를 남겨요(C는 공개 카드를 안 남김).
+   - 대화방 카드(`live-card`): 제안(응답 중) · 확정 · 나에게만 온 질문 → 누르면 C 화면. 팀 메뉴 · 전체 보기 '회의'는 `loadTeamProposals`(c_schedule_list).
+   - C 화면(`LiveProposal`)을 5번 모양으로 다시 그림: 시간 카드를 누르면 바로 '나 돼요' 체크 → 0.6초 뒤 `/respond` 저장(version 포함), '다 안 돼요', '후보에 맞는 시간이 없나요? · 다른 시간 알려주기'(custom 응답 + 이번 회의 조건). 방장의 확정할 시간은 된다고 한 사람이 가장 많은 시간으로 자동(장소 카드 '시간 바꾸기'). 장소는 '이 시간의 장소 찾기'가 팀원 출발지 가운데 역 3곳(`/api/places/areas`)을 그 자리에서 구해 바로 찾고, 못 구하면 `AreaPickerSheet`(카카오 위치 검색으로 최대 3곳). 장소 카드에 사람별 대중교통 시간. 확정 버튼 위에 못 누르는 이유.
+   - 출발지 확인: 출발지를 고를 때 `/api/places/check-origin`(D `resolveOrigin`)으로 위치를 정할 수 있는지 확인하고, 안 되면 막아요('구로역광장'처럼 동네까지만 있는 주소 → 가운데 지역을 못 구했던 원인). 저장은 번지 있는 주소를 먼저.
+   - 이전 기록 (코드 합친 방법):
    - 합친 방법 (지우님 묶음 `a9c6fb0`은 예전 `main` 기준이라 덮어쓰지 않았어요):
      - 새 파일만 그대로 추가: `/api/scheduling/*`, `src/server/scheduling`, `src/features/scheduling`, `src/components/scheduling/LiveProposal.tsx`, `src/lib/scheduling-client.ts`, `supabase/c-scheduling-review.sql`, `tests/c-*.test.ts` (`npm run test:c`, 9개 통과)
      - 묶음의 `vendor/b`, `vendor/d`는 우리 `src/server/b`, `src/server/d`와 같은 코드라 넣지 않고 그쪽을 가리키게 import만 바꿨어요. `vendor/a` → `src/server/a`. `features/shared/b-c-contract.ts`도 우리 B 것과 같아서 B 것을 써요.
@@ -151,6 +157,7 @@
 
 - **성하님 (B) — AI 기능 전부 (11/6 정리)**. 지금 B는 '회의 잡기'만 돼요. '요약'은 알아듣지만 "아직 준비 중"이고, 할 일 · 자료 · 회의록은 분류도 없어요 ("@AI 할 일 정리해줘"는 '정리' 때문에 요약으로 잘못 분류돼요).
   - 공통: 대화 메시지(+ 필요하면 팀 자료 · 할 일 · 확정 회의)를 받아 **제안만** 돌려주기 (저장은 사람이 '추가'를 눌러야). 결과마다 근거 메시지 ID(`sourceMessageIds`). 팀 설정 'AI 읽는 범위'(`ai_read_scope`: 전체 / @AI만)와 AI 꺼짐 지키기. 비공개 메시지(`visible_to`)는 읽지 않기. 화면 카드 모양은 `src/types.ts`의 `AiReply` { kind, title, basis(무엇을 보고 답했는지), items[{ text, sub, tag }] }에 맞춰 주면 바로 붙어요.
+  - **(11/6 실제 테스트에서 발견) 시간 정리 실패**: "나는 7시 이후에 가능해"를 AI가 `11/8 19:00 ~ 11/14 23:59:59` 한 덩어리로 써서 B 검사(`초는 00`, 기간 안)에 걸려요 → C가 "입력 형식과 회의 조건을 확인해 주세요"만 돌려줘요. 부탁: ① AI 출력의 초를 00으로 맞추기(또는 23:59:59 → 다음 날 00:00:00) ② '매일 N시 이후' 같은 반복 시간은 날짜별 구간으로 나누기 ③ 검사에 걸리면 오류 대신 확인 질문(needs_confirmation)으로 돌려주기. 날짜 · 시간을 구체적으로 쓰면("11/10(화) 19:00~22:00 가능") 지금도 통과해요.
   - 요청 분류(`classifyRequest`)에 종류 추가: `tasks`(할 일 정리), `files`(자료 모아줘), `minutes`(회의록 정리). '합주 · 회식 · 모임 잡아줘'도 `schedule`로.
   - ① 회의 잡기 (있음): 출력에 장소 종류(`placeType`) 추가 → `place-intent.ts` 낱말 규칙 대신.
   - ② 대화 요약 (분류만 있음, 출력 없음): 기간(오늘 / 마지막 요약 뒤) 기준 요약 3~5줄 + 정해진 것 / 아직 안 정해진 것.
@@ -162,6 +169,7 @@
   - 새 추천 기준(1시간 제한 → 차이 → 최장)을 D 코드에 반영할지. 지금 D의 `rankPlacesByFairness`는 예전 기준(최장 우선)이라 앱은 `place-ranking.ts`를 써요
   - `findPlaces`가 글자로만 검색해서 다른 동네 장소가 섞여요 → 좌표·반경 검색 (`area-search.ts` 참고)
   - 걸어갈 만큼 가까우면 대중교통 경로가 없어 '미확인'이 돼요 → 도보 시간으로 처리
+  - (11/6 실제 테스트) `resolveOrigin`이 위치를 못 정하는 출발지가 많아요: 동네까지만 있는 주소('서울 구로구 구로동' ← '구로역광장'), 노선 없는 역 이름('구로역'), 노선이 있어도 결과가 여러 개인 역('서울역 1호선'). 앱은 출발지를 고를 때 `/api/places/check-origin`으로 미리 확인해 막고 있어요. D에서 카카오 장소 ID나 좌표로 받는 방법을 같이 정하면 좋아요.
 - **지우님 (C)** — C SQL 확인 부탁: 확정할 때 `c_schedule_action('confirm')`이 `messages`에 확정 카드를 직접 넣어요 (security definer). 현서님은 확정 메시지를 `create_confirmed_message`(방장 확인)로만 만들자고 했어요 → 둘 중 어느 쪽으로 할지 현서님과 맞추기.
 - **지우님 (C)** — 11/6 답변으로 정리됨
   - C의 장소 부분은 따로 알고리즘이 아니라 D `findPlaces`를 부르고 결과를 저장하는 연결부라 그대로 둬요.

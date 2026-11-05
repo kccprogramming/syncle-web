@@ -64,6 +64,11 @@ export type Message =
   | { id: string; type: "file"; senderId: UserId; fileName: string; size: string; at: string; /** 이 기기에서 올리는 중 (끝나면 진짜 메시지로 바뀌어요) */ uploading?: boolean }
   | { id: string; type: "mention-ai"; senderId: UserId; text: string; at: string }
   | { id: string; type: "system"; text: string; at: string }
+  /**
+   * 진짜 팀의 C 카드 (제안 · 확정 · 개인 질문). 누르면 C 화면(/proposals/{id})으로 가요.
+   * question은 받는 사람에게만 와요 (A의 비공개 메시지 규칙).
+   */
+  | { id: string; type: "live-card"; kind: "proposal" | "confirmed" | "question"; proposalId: string; title: string; sub: string; at: string }
   | { id: string; type: "ai-proposal"; proposalId: string; at: string }
   | { id: string; type: "ai-confirmed"; meetingId: string; at: string }
   | {

@@ -17,6 +17,7 @@ async function dbFixture(){
  create function public.is_team_member(t uuid) returns boolean language sql security definer as $$select exists(select 1 from public.team_members where team_id=t and member_id=auth.uid())$$;
  create function public.is_team_owner(t uuid) returns boolean language sql security definer as $$select exists(select 1 from public.team_members where team_id=t and member_id=auth.uid() and member_role='owner')$$;
  create function public.create_team_notification(t uuid,r uuid,ty text,ti text,b text,ref text) returns uuid language plpgsql security definer as $$begin insert into public.app_notifications values(r);return gen_random_uuid();end$$;
+ create function public.create_confirmed_message(t uuid,content text,recipients uuid[] default null) returns uuid language plpgsql security definer as $$declare new_id uuid;begin if not public.is_team_owner(t) then raise exception 'OWNER_REQUIRED'; end if; insert into public.messages(team_id,sender_id,content,message_type,visible_to) values(t,auth.uid(),content,'confirmed',recipients) returning id into new_id; return new_id;end$$;
  insert into auth.users values('${owner}'),('${member}'),('${outsider}');insert into public.teams values('${team}');
  insert into public.team_members values('${team}','${owner}','owner'),('${team}','${member}','member');
  `);
@@ -87,5 +88,40 @@ test('DB: only the owner can replace a selected time place result; other times r
   assert.equal(replaced.placeResults.find((r:any)=>r.timeOptionId===id).places[0].id,'unranked');
   const responded=await call(owner,'c_schedule_action',[p.id,'respond',{kind:'selected',selectedCandidateIds:[id],customSlots:[]},replaced.version]);
   await assert.rejects(call(owner,'c_schedule_action',[p.id,'confirm',{candidateId:id,placeId:'unranked',allowPartial:true},responded.version]),/C_PLACE_REQUIRED/);
+ }finally{await db.close()}
+});
+
+test('DB: nested origin aliases and provider extras never enter stored proposals',async()=>{
+ const {db,call,state}=await dbFixture();try{
+  const untrusted=structuredClone(state) as any;
+  untrusted.conditions.schedule.members[0].homeAddress='비공개 집 주소';
+  untrusted.conditions.schedule.members[0].availableSlots[0].departureAddress='비공개 출발지';
+  untrusted.conditions.schedule.secretOrigin='비공개 위치';
+  untrusted.candidates[0].station='비공개 역';
+  const p=await call(owner,'c_schedule_create',[team,untrusted,[]]);
+  assert.equal(JSON.stringify(p).includes('비공개'),false);
+  const offline=await call(owner,'c_schedule_action',[p.id,'mode',{mode:'offline'},p.version]);
+  const place={timeOptionId:id,status:'ok',places:[{id:'place-a',name:'장소',url:null,rank:1,homeAddress:'비공개 집 주소',travel:[{memberId:owner,minutes:25,status:'ok',originAddress:'비공개 출발지'}]}],providerSecret:'비공개 위치'};
+  const saved=await call(owner,'c_schedule_action',[p.id,'places',{results:[place]},offline.version]);
+  assert.equal(JSON.stringify(saved).includes('비공개'),false);
+  const custom=await call(member,'c_schedule_action',[p.id,'respond',{kind:'custom',selectedCandidateIds:[],customSlots:[{startAt:start,endAt:end,originAddress:'비공개 출발지'}],extraCandidates:[]},saved.version]);
+  assert.equal(JSON.stringify(custom).includes('비공개'),false);
+  const conditioned=await call(member,'c_schedule_action',[p.id,'condition',{kind:'preferred',slot:{startAt:start,endAt:end,originAddress:'비공개 출발지'}},custom.version]);
+  assert.equal(JSON.stringify(conditioned).includes('비공개'),false);
+  assert.equal(JSON.stringify((await call(owner,'c_schedule_get',[p.id])).placeResults).includes('비공개'),false);
+ }finally{await db.close()}
+});
+
+test('DB: missing team ID, meeting mode and response status are rejected',async()=>{
+ const {db,call,state}=await dbFixture();try{
+  const noTeam=structuredClone(state) as any;
+  delete noTeam.conditions.schedule.teamId;
+  await assert.rejects(call(owner,'c_schedule_create',[team,noTeam,[]]),/C_MEMBER_MISMATCH/);
+  const noMode=structuredClone(state) as any;
+  delete noMode.conditions.meetingMode;
+  await assert.rejects(call(owner,'c_schedule_create',[team,noMode,[]]),/C_INVALID_INPUT/);
+  const noStatus=structuredClone(state) as any;
+  delete noStatus.conditions.schedule.members[0].responseStatus;
+  await assert.rejects(call(owner,'c_schedule_create',[team,noStatus,[]]),/C_INVALID_INPUT/);
  }finally{await db.close()}
 });

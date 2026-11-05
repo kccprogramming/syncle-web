@@ -269,3 +269,27 @@ export function AiReplyCard({ reply }: { reply: AiReply }) {
     </section>
   );
 }
+
+/**
+ * 진짜 팀의 C 카드 — 제안(응답하기) · 확정 · 나에게만 온 질문. 누르면 C 화면(/proposals/{id})으로 가요.
+ */
+export function LiveCard({ kind, proposalId, title, sub }: { kind: "proposal" | "confirmed" | "question"; proposalId: string; title: string; sub: string }) {
+  const tone =
+    kind === "confirmed"
+      ? { border: "1.5px solid var(--ok)", tag: "확정", tagColor: "var(--ok)", cta: "회의 보기 ›" }
+      : kind === "question"
+        ? { border: "1.5px dashed var(--accent)", tag: "나에게만", tagColor: "var(--accent)", cta: "응답하기 ›" }
+        : { border: "1.5px solid var(--accent)", tag: "응답 중", tagColor: "var(--accent)", cta: "되는 시간 고르기 ›" };
+  return (
+    <Link href={`/proposals/${proposalId}`} aria-label={`${title} · ${tone.cta}`} style={{ ...cardBase, border: tone.border, color: "var(--ink)" }}>
+      <div className="hstack gap-8">
+        <span className="t-15 t-strong grow">{title}</span>
+        <span className="tag" style={{ fontSize: 12, borderRadius: 10, padding: "2px 8px", color: tone.tagColor, border: `1px solid ${tone.tagColor}` }}>
+          {tone.tag}
+        </span>
+      </div>
+      {sub ? <span className="t-13 t-ink2">{sub}</span> : null}
+      <span className="t-13 t-accent t-strong">{tone.cta}</span>
+    </Link>
+  );
+}

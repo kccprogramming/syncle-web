@@ -232,8 +232,67 @@ export function toChatMessage(r: MessageRow): Message {
       ? { id: r.id, type: "mention-ai", senderId: r.sender_id, text: text.replace(/@AI\s*/i, "").trim(), at }
       : { id: r.id, type: "text", senderId: r.sender_id, text, at };
   }
-  if (r.message_type === "confirmed") return { id: r.id, type: "system", text: "회의가 확정됐어요", at };
-  return { id: r.id, type: "system", text: String(r.content), at };
+  return liveCard(r, at) ?? { id: r.id, type: "system", text: r.message_type === "confirmed" ? "회의가 확정됐어요" : String(r.content), at };
+}
+
+/** "2026-11-11T19:00:00+09:00" → "11/11(수) 19:00" (서울 시간) */
+export function seoulLabel(iso: string): string {
+  const d = new Date(Date.parse(iso) + 9 * 3600_000);
+  if (!Number.isFinite(d.getTime())) return "";
+  return `${d.getUTCMonth() + 1}/${d.getUTCDate()}(${"일월화수목금토"[d.getUTCDay()]}) ${d.toISOString().slice(11, 16)}`;
+}
+
+/** C가 남긴 메시지(JSON 글) → 대화방 카드. 모양이 다르면 null */
+function liveCard(r: MessageRow, at: string): Message | null {
+  let c: Record<string, unknown>;
+  try {
+    c = JSON.parse(String(r.content));
+  } catch {
+    return null;
+  }
+  const proposalId = typeof c.proposalId === "string" ? c.proposalId : "";
+  if (!proposalId) return null;
+  if (r.message_type === "ai_proposal") {
+    const deadline = typeof c.responseDeadline === "string" ? seoulLabel(c.responseDeadline) : "";
+    return { id: r.id, type: "live-card", kind: "proposal", proposalId, title: String(c.title ?? "회의 제안"), sub: deadline ? `응답 마감 ${deadline} · 되는 시간을 골라 주세요` : "되는 시간을 골라 주세요", at };
+  }
+  if (r.message_type === "confirmed") {
+    const m = (c.meeting ?? {}) as { startAt?: string; mode?: string; place?: { name?: string } | null };
+    const where = m.mode === "online" ? "온라인" : (m.place?.name ?? "");
+    return { id: r.id, type: "live-card", kind: "confirmed", proposalId, title: "회의가 확정됐어요", sub: [m.startAt ? seoulLabel(m.startAt) : "", where].filter(Boolean).join(" · "), at };
+  }
+  if (r.message_type === "confirmation_question") {
+    return { id: r.id, type: "live-card", kind: "question", proposalId, title: String(c.question ?? "이 시간 괜찮으세요?"), sub: "나에게만 보이는 질문이에요 · 눌러서 응답해요", at };
+  }
+  return null;
+}
+
+/**
+ * 제안을 만들었다고 대화방에 카드 남기기 — C가 만든 제안은 따로 공개 카드를 남기지 않아서 앱이 남겨요.
+ * (A 규칙: 내가 보내는 메시지, confirmed가 아닌 종류는 남길 수 있어요)
+ */
+export async function postProposalCard(teamId: string, p: { proposalId: string; title: string; responseDeadline: string }): Promise<Message> {
+  const { supabase, id } = await signedIn();
+  if (!supabase || !id) throw new Error("로그인이 필요해요");
+  const { data, error } = await supabase
+    .from("messages")
+    .insert({ team_id: teamId, sender_id: id, message_type: "ai_proposal", content: JSON.stringify({ type: "proposal_created", ...p }) })
+    .select("id,sender_id,content,message_type,created_at")
+    .single();
+  if (error) throw new Error(error.message);
+  return toChatMessage(data as MessageRow);
+}
+
+/** 팀의 진짜 회의 제안 목록 (C · c_schedule_list) — 팀 메뉴 · 홈에서 써요 */
+export async function loadTeamProposals(teamId: string): Promise<{ id: string; title: string; status: "collecting" | "confirmed"; responseDeadline: string; meeting: { startAt: string; endAt: string; place: { name: string } | null; mode: string } | null; respondedCount: number; totalCount: number }[]> {
+  const supabase = getSupabase();
+  if (!supabase) return [];
+  const { data: s } = await supabase.auth.getSession();
+  if (!s.session) return [];
+  const res = await fetch(`/api/scheduling/teams/${teamId}`, { headers: { Authorization: `Bearer ${s.session.access_token}` } });
+  const body = await res.json().catch(() => null);
+  if (!res.ok || !body?.ok) throw new Error(body?.error?.message ?? "회의 목록을 불러오지 못했어요");
+  return body.data;
 }
 
 /** 팀원 이름 불러와서 getMember가 쓰게 기억해요 (프로필은 같은 팀원끼리만 보여요) */
@@ -681,7 +740,23 @@ async function signedIn() {
 
 /** D에 보낼 출발지 글자: 역 이름이면 이름 그대로, 아니면 도로명 주소 (D resolveOrigin이 역/주소를 나눠서 찾아요) */
 export function originForD(o: PlaceSearchResult): string {
-  return /역(\s+\S+선)?$/.test(o.name) ? o.name : o.roadAddress;
+  if (/역(\s+\S+선)?$/.test(o.name)) return o.name;
+  // 번지(숫자)까지 있는 주소를 먼저 써요. '서울 구로구 구로동'처럼 동네까지만 있으면 D가 위치를 정할 수 없어요
+  const exact = (a: string) => /\d+(-\d+)?$/.test(a.trim());
+  if (exact(o.roadAddress)) return o.roadAddress;
+  if (exact(o.address)) return o.address;
+  return o.roadAddress || o.address;
+}
+
+/** 이 출발지로 이동시간을 계산할 수 있는지 (D가 위치를 정확히 찾는지) — /api/places/check-origin */
+export async function checkOrigin(o: PlaceSearchResult): Promise<boolean> {
+  try {
+    const res = await fetch(`/api/places/check-origin?q=${encodeURIComponent(originForD(o))}`);
+    const body = (await res.json()) as { ok?: boolean };
+    return body.ok !== false;
+  } catch {
+    return true; // 확인이 안 되면 막지 않아요
+  }
 }
 
 /**

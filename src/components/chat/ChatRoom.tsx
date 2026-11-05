@@ -10,7 +10,7 @@ import { TopBar } from "@/components/TopBar";
 import { Icon } from "@/components/Icon";
 import { AiAvatar } from "@/components/Logo";
 import { Toast, useToast } from "@/components/Toast";
-import { MAX_UPLOAD_BYTES, fileSizeLabel, isImageName, teamImageUrls, getAiReply, getFiles, getMe, getMessages, getTeam, loadTeamMembers, loadTeamMessages, myUserId, requestAi, sendTeamMessage, subscribeTeamMessages, teamFileUrl, uploadTeamFile } from "@/lib/data";
+import { MAX_UPLOAD_BYTES, fileSizeLabel, isImageName, teamImageUrls, getAiReply, getFiles, getMe, getMessages, getTeam, loadTeamMembers, postProposalCard, loadTeamMessages, myUserId, requestAi, sendTeamMessage, subscribeTeamMessages, teamFileUrl, uploadTeamFile } from "@/lib/data";
 import type { Message, Team } from "@/types";
 import { isSchedulingRequest } from "@/lib/place-intent";
 import { useDemo } from "@/lib/demo-store";
@@ -19,6 +19,7 @@ import { ChatMessages, type ChatItem } from "./ChatMessages";
 import { Composer } from "./Composer";
 import { ShareSheet, type UploadKind } from "./ShareSheet";
 import { TaskSheet } from "./TaskSheet";
+import { CreateProposalSheet } from "./CreateProposalSheet";
 import { SummaryBar } from "./SummaryBar";
 import { TeamDrawer } from "./TeamDrawer";
 import { DEMO_TEAM_ID, getTeamMeetings, getTeamProposal, meetingLine, shortTitle, taskSummary, useTeamAi } from "./team-info";
@@ -71,6 +72,7 @@ export function ChatRoom({
   const [menuOpen, setMenuOpen] = useState(startMenu);
   const [uploading, setUploading] = useState<UploadKind | null>(null); // 올리는 중인 버튼 (사진 / 파일)
   const [taskOpen, setTaskOpen] = useState(false); // + 메뉴 → 할 일 추가 시트 (진짜 팀)
+  const [proposalText, setProposalText] = useState<string | null>(null); // '@AI 회의 잡아줘' → 제안 만들기 시트 (진짜 팀)
   // 사진 메시지의 미리보기 주소 { 메시지 id: 주소 }
   const [imageUrls, setImageUrls] = useState<Record<string, string>>({});
   const inputRef = useRef<HTMLInputElement>(null);
@@ -173,7 +175,12 @@ export function ChatRoom({
           setDraft(text);
           toast.show("메시지를 보내지 못했어요 · 다시 보내 주세요");
         });
-      if (text.includes("@AI")) toast.show("진짜 팀의 AI 회의 잡기는 C 저장을 연결한 뒤에 열려요");
+      // '@AI … 잡아줘'면 마감을 정하는 시트를 열어 C에 제안을 만들어요 (요약 · 할 일 같은 다른 부탁은 B 준비 뒤)
+      if (text.includes("@AI")) {
+        if (!aiOn) toast.show("AI 도우미가 꺼져 있어요");
+        else if (isSchedulingRequest(text)) setProposalText(text);
+        else toast.show("지금은 '회의 잡아줘'만 돼요 · 요약 · 할 일 정리는 준비 중이에요");
+      }
       return;
     }
     const at = nowLabel();
@@ -413,6 +420,21 @@ export function ChatRoom({
             : undefined
         }
       />
+
+      {proposalText !== null && liveTeam ? (
+        <CreateProposalSheet
+          teamId={liveTeam.id}
+          teamName={liveTeam.name}
+          onClose={() => setProposalText(null)}
+          onMessage={(m) => setLiveMsgs((prev) => (prev.some((x) => x.id === m.id) ? prev : [...prev, m]))}
+          onCreated={(p) => {
+            setProposalText(null);
+            postProposalCard(liveTeam.id, p)
+              .then((m) => setLiveMsgs((prev) => (prev.some((x) => x.id === m.id) ? prev : [...prev, m])))
+              .catch(() => toast.show("제안은 만들었지만 대화방 카드를 남기지 못했어요 · 팀 메뉴의 회의에서 열 수 있어요"));
+          }}
+        />
+      ) : null}
 
       {taskOpen && liveTeam ? (
         <TaskSheet

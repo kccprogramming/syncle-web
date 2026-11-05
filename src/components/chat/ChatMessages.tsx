@@ -10,7 +10,7 @@ import { AiAvatar } from "@/components/Logo";
 import { Icon } from "@/components/Icon";
 import { getMember } from "@/lib/data";
 import type { AiReply, Message } from "@/types";
-import { AiFailedCard, AiReplyCard, AiThinkingCard, AiWorkingCard, ConfirmedCard, ProposalCard } from "./AiCards";
+import { AiFailedCard, AiReplyCard, AiThinkingCard, AiWorkingCard, ConfirmedCard, LiveCard, ProposalCard } from "./AiCards";
 import { AskQuestionCard } from "./AskQuestionCard";
 
 /** 화면에서만 잠깐 쓰는 AI 상태 카드 (서버 메시지가 아니에요) */
@@ -22,7 +22,7 @@ export type ChatItem =
   /** 요약·할 일·자료·회의록·도움말 답 */
   | { id: string; type: "ai-reply"; reply: AiReply; at: string };
 
-const AI_TYPES = ["ai-proposal", "ai-confirmed", "ai-question", "ai-working", "ai-failed", "ai-thinking", "ai-reply"];
+const AI_TYPES = ["ai-proposal", "ai-confirmed", "ai-question", "ai-working", "ai-failed", "ai-thinking", "ai-reply", "live-card"];
 
 /** 누가 보낸 메시지인지 (AI 카드는 "ai", 시스템 줄은 매번 따로) */
 function senderKey(item: ChatItem): string {
@@ -143,6 +143,8 @@ function renderAiCard(
       return <AiThinkingCard />;
     case "ai-reply":
       return <AiReplyCard reply={m.reply} />;
+    case "live-card":
+      return <LiveCard kind={m.kind} proposalId={m.proposalId} title={m.title} sub={m.sub} />;
     case "ai-failed":
       return <AiFailedCard proposalId={m.proposalId} onRetry={o.onRetry ?? (() => {})} onTimeOnly={o.onTimeOnly ?? (() => {})} />;
     default:

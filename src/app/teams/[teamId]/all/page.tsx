@@ -10,8 +10,9 @@ import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
 import { TopBar } from "@/components/TopBar";
 import { CheckBox } from "@/components/Controls";
-import { getFiles, getMember, getTeam, loadTeam, loadTeamMaterials, loadTeamMembers, loadTeamTasks, materialUrl, myUserId, setTaskDone, type LiveTask } from "@/lib/data";
+import { getFiles, getMember, getTeam, loadTeam, loadTeamMaterials, loadTeamMembers, loadTeamProposals, loadTeamTasks, materialUrl, myUserId, setTaskDone, type LiveTask } from "@/lib/data";
 import { TaskSheet } from "@/components/chat/TaskSheet";
+import { LiveMeetingList, type LiveProposalRow } from "@/components/chat/LiveMeetingList";
 import { isLiveId } from "@/lib/scheduling-client";
 import { useDemo } from "@/lib/demo-store";
 import type { Team, TeamFile } from "@/types";
@@ -54,6 +55,7 @@ function Inner() {
   const [liveTeam, setLiveTeam] = useState<Team | null>(null);
   const [liveFiles, setLiveFiles] = useState<TeamFile[] | null>(null);
   const [liveTasks, setLiveTasks] = useState<LiveTask[] | null>(null);
+  const [liveMeetings, setLiveMeetings] = useState<LiveProposalRow[] | null>(null);
   const [meId, setMeId] = useState<string | null>(null);
   const [taskSheet, setTaskSheet] = useState(false);
   const [toast, setToast] = useState("");
@@ -65,8 +67,14 @@ function Inner() {
         if (gone || !t) return;
         setLiveTeam(t);
         await loadTeamMembers(t.memberIds).catch(() => undefined); // 올린 사람 · 맡은 사람 이름
-        const [list, tasks, id] = await Promise.all([loadTeamMaterials(teamId), loadTeamTasks(teamId).catch(() => []), myUserId()]);
+        const [list, tasks, id, meetingRows] = await Promise.all([
+          loadTeamMaterials(teamId),
+          loadTeamTasks(teamId).catch(() => []),
+          myUserId(),
+          loadTeamProposals(teamId).catch(() => []),
+        ]);
         if (gone) return;
+        setLiveMeetings(meetingRows);
         setLiveFiles(list);
         setLiveTasks(tasks);
         setMeId(id);
@@ -110,7 +118,7 @@ function Inner() {
   const suggestion = live ? null : demoTasks.suggestion;
 
   const tabs: { id: Tab; label: string }[] = [
-    { id: "meet", label: `회의 ${(meetings.proposal ? 1 : 0) + meetings.upcoming.length + meetings.past.length}` },
+    { id: "meet", label: `회의 ${live ? (liveMeetings?.length ?? 0) : (meetings.proposal ? 1 : 0) + meetings.upcoming.length + meetings.past.length}` },
     ...(live ? [{ id: "photos" as const, label: `사진 ${photos.length}` }] : []),
     { id: "files", label: `자료 ${files.length}` },
     { id: "tasks", label: `할 일 ${tasks.length}` },
@@ -164,7 +172,12 @@ function Inner() {
 
       <div className="screen__body" role="tabpanel">
         {/* ── 회의 탭 ── */}
-        {tab === "meet" ? (
+        {tab === "meet" && live ? (
+          <>
+            <LiveMeetingList list={liveMeetings} empty="아직 회의가 없어요 · 대화방에서 ‘@AI 회의 잡아줘’로 시작해요" />
+          </>
+        ) : null}
+        {tab === "meet" && !live ? (
           <>
             <span className="section-label">진행 중</span>
             {meetings.proposal ? (

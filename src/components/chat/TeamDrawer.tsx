@@ -6,7 +6,8 @@ import Link from "next/link";
 import { AvatarStack } from "@/components/Avatar";
 import { CheckBox, Switch } from "@/components/Controls";
 import { Icon, type IconName } from "@/components/Icon";
-import { getFiles, getMember, getMembers, loadTeamMaterials, loadTeamTasks, materialUrl, myUserId, setTaskDone, type LiveTask } from "@/lib/data";
+import { LiveMeetingList, type LiveProposalRow } from "./LiveMeetingList";
+import { getFiles, getMember, getMembers, loadTeamMaterials, loadTeamProposals, loadTeamTasks, materialUrl, myUserId, setTaskDone, type LiveTask } from "@/lib/data";
 import { isLiveId } from "@/lib/scheduling-client";
 import { useDemo } from "@/lib/demo-store";
 import type { Team, TeamFile } from "@/types";
@@ -66,6 +67,7 @@ export function TeamDrawer({
   const live = isLiveId(team.id);
   const [liveFiles, setLiveFiles] = useState<TeamFile[] | null>(null);
   const [liveTasks, setLiveTasks] = useState<LiveTask[] | null>(null);
+  const [liveMeetings, setLiveMeetings] = useState<LiveProposalRow[] | null>(null);
   const [meId, setMeId] = useState<string | null>(null);
   // 메뉴를 열 때 이미 끝나 있던 할 일 (메뉴에는 안 보여요. 방금 체크한 건 줄 그은 채로 남아요)
   const [doneAtOpen, setDoneAtOpen] = useState<Set<string>>(new Set());
@@ -75,6 +77,9 @@ export function TeamDrawer({
     loadTeamMaterials(team.id)
       .then((list) => !gone && setLiveFiles(list))
       .catch(() => !gone && setLiveFiles([]));
+    loadTeamProposals(team.id)
+      .then((list) => !gone && setLiveMeetings(list))
+      .catch(() => !gone && setLiveMeetings([]));
     Promise.all([myUserId(), loadTeamTasks(team.id)])
       .then(([id, list]) => {
         if (gone) return;
@@ -128,7 +133,7 @@ export function TeamDrawer({
   };
   // 드로어에는 아직 안 끝난 할 일만 (방금 체크한 건 줄이 그어진 채로 남아요)
   const openTasks = tasks.filter((t) => (live ? !doneAtOpen.has(t.id) : !t.wasDone));
-  const meetingCount = (meetings.proposal ? 1 : 0) + meetings.upcoming.length + (lastPast ? 1 : 0);
+  const meetingCount = live ? (liveMeetings?.length ?? 0) : (meetings.proposal ? 1 : 0) + meetings.upcoming.length + (lastPast ? 1 : 0);
 
   return (
     <>
@@ -174,7 +179,8 @@ export function TeamDrawer({
           {/* 회의 */}
           <section className="stack gap-8">
             <SectionHead title="회의" count={meetingCount} href={`${base}/all?tab=meet`} />
-            {meetings.proposal ? (
+            {live ? <LiveMeetingList list={liveMeetings?.slice(0, 3) ?? null} empty="아직 회의가 없어요 · 대화방에서 @AI로 잡아 보세요" /> : null}
+            {!live && meetings.proposal ? (
               <Link
                 href={`/proposals/${meetings.proposal.id}`}
                 className="hstack gap-10"
@@ -189,7 +195,7 @@ export function TeamDrawer({
                 <Badge label="새" />
               </Link>
             ) : null}
-            {meetings.upcoming.map((m) => (
+            {!live && meetings.upcoming.map((m) => (
               <Link
                 key={m.id}
                 href={`/meetings/${m.id}`}
@@ -205,7 +211,7 @@ export function TeamDrawer({
                 <Badge label="확정" color="var(--ok)" />
               </Link>
             ))}
-            {lastPast ? (
+            {!live && lastPast ? (
               <Link
                 href={`/meetings/${lastPast.id}/minutes`}
                 className="stack gap-2"
@@ -217,7 +223,7 @@ export function TeamDrawer({
                 </span>
               </Link>
             ) : null}
-            {meetingCount === 0 ? <span className="t-13 t-muted">아직 회의가 없어요 · 대화방에서 @AI로 잡아 보세요</span> : null}
+            {!live && meetingCount === 0 ? <span className="t-13 t-muted">아직 회의가 없어요 · 대화방에서 @AI로 잡아 보세요</span> : null}
           </section>
 
           {/* 사진 (진짜 팀) */}
