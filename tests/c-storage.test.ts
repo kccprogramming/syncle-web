@@ -125,3 +125,18 @@ test('DB: missing team ID, meeting mode and response status are rejected',async(
   await assert.rejects(call(owner,'c_schedule_create',[team,noStatus,[]]),/C_INVALID_INPUT/);
  }finally{await db.close()}
 });
+
+test('DB: B placeType is stored for offline meetings and rejected for online meetings',async()=>{
+ const {db,call,state}=await dbFixture();try{
+  await db.exec(readFileSync('supabase/c-place-type-migration.sql','utf8'));
+  const offline=structuredClone(state) as any;
+  offline.mode='offline';offline.conditions.meetingMode='offline';offline.conditions.placeType='합주실';
+  const saved=await call(owner,'c_schedule_create',[team,offline,[]]);
+  assert.equal(saved.conditions.placeType,'합주실');
+  const online=structuredClone(state) as any;
+  online.conditions.placeType='합주실';
+  await assert.rejects(call(owner,'c_schedule_create',[team,online,[]]),/C_INVALID_INPUT/);
+  offline.conditions.placeType={secretOrigin:'비공개 위치'};
+  await assert.rejects(call(owner,'c_schedule_create',[team,offline,[]]),/C_INVALID_INPUT/);
+ }finally{await db.close()}
+});

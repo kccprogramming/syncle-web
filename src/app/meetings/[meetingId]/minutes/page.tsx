@@ -1,6 +1,9 @@
 "use client";
 
-/** 9 AI 회의록 — 요약, 정한 것, 회의에서 나온 할 일(골라서 팀 할 일에 추가) */
+/**
+ * 9 AI 회의록 — 요약, 정한 것, 회의에서 나온 할 일(골라서 팀 할 일에 추가)
+ * 진짜 제안 ID(/meetings/{UUID}/minutes)면 LiveMinutes(회의 메모 + 회의 시간 대화 → B 회의록)
+ */
 import { useState } from "react";
 import { useParams } from "next/navigation";
 import { TopBar } from "@/components/TopBar";
@@ -8,9 +11,15 @@ import { CheckBox } from "@/components/Controls";
 import { Toast, useToast } from "@/components/Toast";
 import { useDemo } from "@/lib/demo-store";
 import { getMeeting, getMinutes } from "@/lib/data";
+import { LiveMinutes } from "@/components/meeting/LiveMinutes";
+import { isLiveId } from "@/lib/scheduling-client";
 
 export default function MinutesPage() {
   const { meetingId } = useParams<{ meetingId: string }>();
+  return isLiveId(meetingId) ? <LiveMinutes proposalId={meetingId} /> : <DemoMinutes meetingId={meetingId} />;
+}
+
+function DemoMinutes({ meetingId }: { meetingId: string }) {
   const { state, update } = useDemo();
   const toast = useToast();
 

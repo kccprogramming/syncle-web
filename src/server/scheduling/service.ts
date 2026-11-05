@@ -4,7 +4,7 @@ import type { Conditions, ExtractionInput, Slot } from '@/server/b/b-c-contract'
 import { calculateTimeCandidates } from '@/features/scheduling/calculate-time-candidates';
 import { ScheduleError, assertDeadlines, projectProposal, type StoredProposal, type PlaceResult } from '@/features/scheduling/proposals';
 import { handleAiRequest, buildConfirmationCards } from '@/server/b/mvp';
-import { geminiGenerate } from '@/server/gemini-generate';
+import { AI_BUSY_MESSAGE, geminiGenerate, isAiBusy } from '@/server/gemini-generate';
 import { findPlaces } from '@/server/d/findPlaces';
 import { combineRegionPlaces } from '@/features/scheduling/region-places';
 import { loadPrivateTeamOriginsForCalculation, TeamOriginLoadError } from '@/server/a/private-team-origins';
@@ -43,6 +43,8 @@ export async function jsonBody(request: Request): Promise<Record<string, unknown
 }
 export function errorResponse(error: unknown) {
   if (error instanceof ScheduleError) return Response.json({ok:false,error:{code:error.code,message:error.message}},{status:error.status});
+  // Gemini 사용량 한도(429)는 알기 쉬운 안내로 (발표 시연 중 여러 명이 연달아 부르면 생겨요)
+  if (isAiBusy(error)) return Response.json({ok:false,error:{code:'AI_BUSY',message:AI_BUSY_MESSAGE}},{status:503});
   if (error && typeof error==='object' && 'status' in error && [429,503].includes(Number(error.status))) {
     return Response.json({ok:false,error:{code:'AI_UNAVAILABLE',message:'AI 요청이 제한되었거나 일시적으로 사용할 수 없어요. 잠시 후 다시 시도해 주세요.'}},{status:503});
   }
@@ -55,7 +57,7 @@ export function ok(data: unknown) { return Response.json({ok:true,data}); }
 const text = (v:unknown) => typeof v==='string' ? v : '';
 function safeConditions(value: Conditions): Conditions {
   const s=value.schedule;
-  return { purpose:value.purpose,meetingMode:value.meetingMode,agenda:value.agenda,sourceMessageIds:value.sourceMessageIds,origins:[],placeRequirements:value.placeRequirements,placeType:value.placeType??null,
+  return { purpose:value.purpose,meetingMode:value.meetingMode,agenda:value.agenda,sourceMessageIds:value.sourceMessageIds,origins:[],placeRequirements:value.placeRequirements,placeType:value.meetingMode==='offline'&&typeof value.placeType==='string'?value.placeType.trim().slice(0,100)||null:null,
     schedule:{teamId:s.teamId,timezone:s.timezone,searchWindow:s.searchWindow,durationMinutes:s.durationMinutes,requiredMemberIds:s.requiredMemberIds,stepMinutes:30,maxCandidates:3,
       members:s.members.map(m=>({memberId:m.memberId,responseStatus:m.responseStatus,availableSlots:m.availableSlots,unavailableSlots:m.unavailableSlots,...(m.preferredSlots?{preferredSlots:m.preferredSlots}:{})}))} };
 }
@@ -144,7 +146,7 @@ export async function retryPlaces(db:SupabaseClient,proposal:StoredProposal,body
   const searches=[];
   for(const area of areas){
     try {
-      const result=await findPlaces({teamId:proposal.teamId,proposalId:proposal.id,timeOptionId,meetingMode:'offline',meetingPurpose:text(body.keyword).trim().slice(0,100)||'회의 공간',searchArea:area,expectedAttendeeCount:Math.max(1,candidate.availableCount),startAt:candidate.startAt,endAt:candidate.endAt,dataMode:'api',requiredConditions:proposal.conditions.placeRequirements,members},{previewUnverified:true});
+      const result=await findPlaces({teamId:proposal.teamId,proposalId:proposal.id,timeOptionId,meetingMode:'offline',meetingPurpose:text(body.keyword).trim().slice(0,100)||text(proposal.conditions.placeType).trim().slice(0,100)||'회의 공간',searchArea:area,expectedAttendeeCount:Math.max(1,candidate.availableCount),startAt:candidate.startAt,endAt:candidate.endAt,dataMode:'api',requiredConditions:proposal.conditions.placeRequirements,members},{previewUnverified:true});
       searches.push({area,status:result.status==='ok'?'ok' as const:'error' as const,places:result.status==='ok'?result.places:[]});
     } catch { searches.push({area,status:'error' as const,places:[]}); }
   }

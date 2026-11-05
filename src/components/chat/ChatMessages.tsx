@@ -52,6 +52,7 @@ export function ChatMessages({
   onRetry,
   onTimeOnly,
   onToast,
+  onAddTask,
 }: {
   items: ChatItem[];
   /** 지금 화면을 보는 사람. 이 사람이 보낸 메시지는 오른쪽에 파랗게 보여요. */
@@ -64,6 +65,8 @@ export function ChatMessages({
   onRetry?: () => void;
   onTimeOnly?: () => void;
   onToast: (text: string) => void;
+  /** 진짜 팀: AI 할 일 카드의 '추가'를 누르면 팀 할 일로 저장해요 */
+  onAddTask?: (item: AiReply["items"][number]) => Promise<void>;
 }) {
   // 받는 사람이 아니면 ai-question은 그리지 않아요
   const visible = items.filter((m) => m.type !== "ai-question" || m.visibleTo.includes(viewerId));
@@ -101,7 +104,7 @@ export function ChatMessages({
               <div className="msg__col msg__col--wide">
                 <span className="msg__name">싱클 AI{onlyFor}</span>
                 {g.items.map((m) => (
-                  <Fragment key={m.id}>{renderAiCard(m, { teamId, viewerId, onRetry, onTimeOnly, onToast })}</Fragment>
+                  <Fragment key={m.id}>{renderAiCard(m, { teamId, viewerId, onRetry, onTimeOnly, onToast, onAddTask })}</Fragment>
                 ))}
               </div>
             </div>
@@ -128,7 +131,7 @@ export function ChatMessages({
 
 function renderAiCard(
   m: ChatItem,
-  o: { teamId: string; viewerId: string; onRetry?: () => void; onTimeOnly?: () => void; onToast: (t: string) => void },
+  o: { teamId: string; viewerId: string; onRetry?: () => void; onTimeOnly?: () => void; onToast: (t: string) => void; onAddTask?: (item: AiReply["items"][number]) => Promise<void> },
 ) {
   switch (m.type) {
     case "ai-proposal":
@@ -142,7 +145,7 @@ function renderAiCard(
     case "ai-thinking":
       return <AiThinkingCard />;
     case "ai-reply":
-      return <AiReplyCard reply={m.reply} />;
+      return <AiReplyCard reply={m.reply} onAddTask={m.reply.kind === "tasks" ? o.onAddTask : undefined} />;
     case "live-card":
       return <LiveCard kind={m.kind} proposalId={m.proposalId} title={m.title} sub={m.sub} />;
     case "ai-failed":

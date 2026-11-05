@@ -235,8 +235,14 @@ export function AiThinkingCard() {
   );
 }
 
-/** '@AI 요약해줘', '할 일 정리해줘' 같은 부탁에 대한 답 카드 */
-export function AiReplyCard({ reply }: { reply: AiReply }) {
+/**
+ * '@AI 요약해줘', '할 일 정리해줘' 같은 부탁에 대한 답 카드.
+ * onAddTask가 있으면(진짜 팀의 할 일 카드) 줄마다 '+ 추가' 버튼 — 눌러야 팀 할 일로 저장돼요 (AI는 제안만 해요).
+ */
+export function AiReplyCard({ reply, onAddTask }: { reply: AiReply; onAddTask?: (item: AiReply["items"][number]) => Promise<void> }) {
+  const [added, setAdded] = useState<number[]>([]);
+  const [busy, setBusy] = useState<number | null>(null);
+  const canAdd = !!onAddTask && reply.items.some((it) => it.assigneeId !== undefined);
   return (
     <section aria-label={reply.title} style={{ ...cardBase, gap: 10 }}>
       <span className="t-15 t-strong">{reply.title}</span>
@@ -255,6 +261,28 @@ export function AiReplyCard({ reply }: { reply: AiReply }) {
               </span>
               {it.sub ? <span className="t-12 t-muted">{it.sub}</span> : null}
             </span>
+            {canAdd && it.assigneeId !== undefined ? (
+              <button
+                type="button"
+                className="btn btn--sm btn--ghost no-shrink"
+                style={{ fontSize: 12, height: 30, padding: "0 10px", alignSelf: "center" }}
+                disabled={added.includes(i) || busy !== null}
+                aria-label={`${it.text} 팀 할 일에 추가`}
+                onClick={async () => {
+                  setBusy(i);
+                  try {
+                    await onAddTask!(it);
+                    setAdded((a) => [...a, i]);
+                  } catch {
+                    // 실패 안내는 onAddTask가 토스트로 보여줘요
+                  } finally {
+                    setBusy(null);
+                  }
+                }}
+              >
+                {added.includes(i) ? "추가됨" : busy === i ? "추가 중…" : "+ 추가"}
+              </button>
+            ) : null}
           </li>
         ))}
       </ul>
@@ -271,7 +299,7 @@ export function AiReplyCard({ reply }: { reply: AiReply }) {
 }
 
 /**
- * 진짜 팀의 C 카드 — 제안(응답하기) · 확정 · 나에게만 온 질문. 누르면 C 화면(/proposals/{id})으로 가요.
+ * 진짜 팀의 C 카드 — 제안(응답하기) · 확정 · 나에게만 온 질문. 누르면 C 화면(/proposals/{id}), 확정이면 회의 카드(/meetings/{id})로 가요.
  */
 export function LiveCard({ kind, proposalId, title, sub }: { kind: "proposal" | "confirmed" | "question"; proposalId: string; title: string; sub: string }) {
   const tone =
@@ -281,7 +309,7 @@ export function LiveCard({ kind, proposalId, title, sub }: { kind: "proposal" | 
         ? { border: "1.5px dashed var(--accent)", tag: "나에게만", tagColor: "var(--accent)", cta: "응답하기 ›" }
         : { border: "1.5px solid var(--accent)", tag: "응답 중", tagColor: "var(--accent)", cta: "되는 시간 고르기 ›" };
   return (
-    <Link href={`/proposals/${proposalId}`} aria-label={`${title} · ${tone.cta}`} style={{ ...cardBase, border: tone.border, color: "var(--ink)" }}>
+    <Link href={kind === "confirmed" ? `/meetings/${proposalId}` : `/proposals/${proposalId}`} aria-label={`${title} · ${tone.cta}`} style={{ ...cardBase, border: tone.border, color: "var(--ink)" }}>
       <div className="hstack gap-8">
         <span className="t-15 t-strong grow">{title}</span>
         <span className="tag" style={{ fontSize: 12, borderRadius: 10, padding: "2px 8px", color: tone.tagColor, border: `1px solid ${tone.tagColor}` }}>

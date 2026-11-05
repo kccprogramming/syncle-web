@@ -144,7 +144,7 @@ function LiveMeetingCard({ item }: { item: UpcomingItem }) {
   const when = item.startAt ? seoulLabel(item.startAt).replace(/^\d+\/\d+\((.)\)\s*/, "$1 ") : "";
   return (
     <Link
-      href={`/proposals/${item.proposalId}`}
+      href={confirmed ? `/meetings/${item.proposalId}` : `/proposals/${item.proposalId}`}
       className={`card${confirmed ? "" : " card--accent"}`}
       style={{ flexDirection: "row", alignItems: "center", gap: 14, color: "var(--ink)" }}
     >

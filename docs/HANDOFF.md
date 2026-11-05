@@ -18,15 +18,18 @@
 
 로그인하면 **진짜 데이터로 처음부터 끝까지** 돼요 (두 계정으로 확인):
 Google 로그인 → 내 정보(출발지 · 매주 안 되는 시간 · 알림 설정) → 팀 만들기 · 초대 링크 참여 → 팀 설정(이름 · AI · 방장 넘기기 · 나가기) → 실시간 대화 · 사진 · 파일 · 할 일 → '@AI 회의 잡아줘'(B Gemini) → C 제안 저장 → 시간 응답 → 공평한 지역 · 장소(D) → 방장 확정 → 대화방 확정 카드 · 홈 다가오는 회의 → 앱 알림(🔔).
+11/6 밤 추가: 8 확정 회의 카드(Google 캘린더 추가) · 9 AI 회의록 · 7 내 조건 · 대화방 '@AI 요약 · 할 일 · 자료 정리' 카드도 진짜 데이터로 돼요 (희원 확인). B 장소 종류(합주실 등)가 C 저장 → 장소 찾기까지 끝까지 전달돼요. Vercel 미리보기에서도 로그인 · 제안 만들기 확인.
 로그인 안 하면 예전 가짜 데이터 데모 그대로예요. 자세한 내용은 6장.
 
 ### 다음에 할 일 (새 대화는 여기부터)
 
-1. **내 정보(1-1)**: '이름 수정' 연결 완료 (6장 1번). 로그인한 계정으로 한 번 확인. **회원 탈퇴는 이번 범위에서 뺐어요** (11/6 결정 — 버튼도 없앰).
-2. **Vercel 미리보기 배포**: Vercel 환경 변수 7개(`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `KAKAO_REST_API_KEY`, `GEMINI_API_KEY`, `SCHEDULE_LIVE_AI_ENABLED`, `SCHEDULE_LIVE_PLACES_ENABLED`) + Supabase Authentication → URL Configuration → Redirect URLs에 Vercel 주소(`https://syncle-web-*.vercel.app/**`) 추가 → 미리보기에서 로그인 · 제안까지 확인.
-3. 팀원 코드: **B `86eed61` · D `4a829da` 최신으로 바꿔 끼움 (11/6)**. 성하님께 B 테스트 5개 실패 · 시간 정리 보완 전달(7장). 대화방에서 '@AI 요약 · 할 일 정리'를 B 카드로 여는 화면 연결은 아직이에요.
-4. 남은 데모 화면: 8 확정 회의 카드 · 9 회의록 · 7 내 조건은 아직 가짜 데이터(진짜 제안은 C 화면 하나로 처리 중).
-5. `integration/b-d` → `final` 저장소 (팀 확인 뒤).
+1. **답 기다리는 중 (11/6 밤 전달함)**
+   - 성하님(B): 앱 카드 프롬프트가 모양 3개를 tasks부터 다 보여 줘서 요약 · 자료에도 할 일 카드가 나옴, 회의 조건 프롬프트에서 다시 빠진 규칙(origins 배열 · 출발역 null 등), `place-type.test.ts` 1개 실패, `extractor.ts` `currentParts` 타입 (7장).
+   - 지우님(C): **한밤중 시간 후보** — '하루 종일 가능'이면 00:00–01:00 후보가 나와 그대로 확정될 수 있음 (7장).
+   - 답이 오면 `just_keeping`에서 가져와 `src/server/b` · C 파일만 바꿔 끼우고 테스트(4장 방법).
+2. **미리보기를 팀원에게 열지 (팀 결정)**: Vercel → Settings → Deployment Protection → Vercel Authentication 끄면 링크로 누구나 열고 각자 Google로 로그인해 써 볼 수 있어요. 주소: `https://syncle-web-git-integration-b-d-unione1.vercel.app` (`integration/b-d`의 최신 배포).
+3. **push 뒤 미리보기가 안 생기면**: Vercel이 GitHub push를 놓친 적이 있어요(11/6 `bcec398`). Deployments → `⋯` → Create Deployment → `integration/b-d`, 또는 Settings → Git → Deploy Hooks의 `b-d` 훅 주소를 POST (주소는 비밀이라 문서에 안 적어요 · 희원이 가지고 있음).
+4. `integration/b-d` → `final` 저장소 (팀 확인 뒤).
 
 ### `integration/b-d` 커밋 (오래된 것부터)
 
@@ -82,7 +85,7 @@ Google 로그인 → 내 정보(출발지 · 매주 안 되는 시간 · 알림 
 
 받은 코드에서 바꾼 것: 각 파일 끝의 단독 실행 예시(`if (import.meta.main) {…}`) 삭제, C의 `shared/b-c-contract.ts`를 B 최신 규격으로 연결, D `resolveOrigin.ts`의 `points` 변수에 타입 한 줄(우리 TypeScript 설정에서 오류가 나서, 동작은 그대로).
 
-B 최신(`placeType` 필수)에 맞춰 연결 쪽에서 고친 것: C `src/server/scheduling/service.ts`(조건에 `placeType` 넣기 · B의 새 `card` 응답이면 제안을 만들지 않고 돌려주기), `tests/c-flow.test.ts`(`placeType: null`), `ai-adapter.ts`(`card` → 대화방 답 카드), `place-intent.ts`의 `placeIntentFrom`(B `placeType`을 먼저 쓰고 없으면 낱말 규칙). C 저장 SQL은 모르는 칸을 버려서 **`placeType`이 DB에 저장되지 않아요** → 실제 제안의 장소 종류는 아직 낱말 규칙으로 골라요 (11/6 지우님께 `safe_conditions`에 `placeType` 추가 부탁 전달함 · 답 기다리는 중).
+B 최신(`placeType` 필수)에 맞춰 연결 쪽에서 고친 것: C `src/server/scheduling/service.ts`(조건에 `placeType` 넣기 · B의 새 `card` 응답이면 제안을 만들지 않고 돌려주기), `tests/c-flow.test.ts`(`placeType: null`), `ai-adapter.ts`(`card` → 대화방 답 카드), `place-intent.ts`의 `placeIntentFrom`(B `placeType`을 먼저 쓰고 없으면 낱말 규칙). **11/6 밤 지우님 `de98361` 반영**: C가 대면 회의의 `placeType`을 저장하고(`safeConditions`, SQL `safe_conditions`), 방장이 검색어를 바꾸지 않으면 저장된 `placeType`으로 D 장소를 찾아요. **Supabase에 `supabase/c-place-type-migration.sql`을 한 번 실행해야** 실제 DB에 저장돼요 (안 하면 예전처럼 버려지고 낱말 규칙으로 찾아요).
 
 ---
 
@@ -91,8 +94,8 @@ B 최신(`placeType` 필수)에 맞춰 연결 쪽에서 고친 것: C `src/serve
 | 담당 | 브랜치 | 가져온 커밋 |
 |---|---|---|
 | A 현서 | `a-hyunseo/feature-code` → `contributions/a-hyunseo/` ([PR #2](https://github.com/kccprogramming/just_keeping/pull/2), 열림) | 아직 안 가져옴 |
-| B 성하 | `share/sungha-b-final` → `sungha_B_code/` | `43f89ea` 코드 기준 (11/6 밤). 그 뒤 `41a62e0`은 테스트 파일만 고침 — 앱에 넣을 것 없음 — 테스트 파일 · `schedule.ts` · `check-ai.ts`는 안 가져옴 |
-| C 지우 | `share/jiwoo-c-code` → `jiwoo_C_code/` | `f482f55` (예시 흐름), `a9c6fb0`의 `integration/syncle-web/` (실제 저장) |
+| B 성하 | `share/sungha-b-final` → `sungha_B_code/` | `aedb6b1` (11/6 밤 · 앱 카드에 요청 종류 · 날짜 · 팀원, 시간 다듬기). 앱 설정용으로 `extractor.ts` `currentParts`에 타입 한 줄만 붙임 — 테스트 파일 · `schedule.ts` · `check-ai.ts`는 안 가져옴 |
+| C 지우 | `share/jiwoo-c-code` → `jiwoo_C_code/` | `f482f55` (예시 흐름), `a9c6fb0`의 `integration/syncle-web/` (실제 저장), SQL `55ec72e`, `de98361`(placeType · 11/6 밤 — `c-place-type-migration.sql` Supabase 적용함) |
 | D 현규 | `feature/d-place-recommendation` → `D_HANDOFF/` | `4a829da` (11/6, 이전 `2426bba`) — `getWalkingRoute.ts`, `C_INTEGRATION_GUIDE.md` 추가 |
 
 팀원이 코드를 고치면 해당 폴더(`src/server/b|c|d`)만 새 버전으로 바꿔 끼우고, 연결 파일이 깨지는지 확인하면 돼요.
@@ -137,6 +140,13 @@ B 최신(`placeType` 필수)에 맞춰 연결 쪽에서 고친 것: C `src/serve
    - **팀 설정 (11/6)**: 진짜 팀이면 이름 · AI 도우미 · AI가 읽는 범위(`updateTeam`, **방장만** — 권한 없으면 0줄이 바뀌는 걸로 알아채요), 방장 넘기기(`transfer_team_owner`), 팀 나가기(`leave_team`). 팀 메뉴의 AI 스위치도 저장돼요. **혼자 남은 방장이 나가면 A가 팀을 통째로 지워요** → 확인 시트에서 "팀 지우고 나가기"로 분명히 알리고, 나간 뒤 정말 빠졌는지 다시 확인해요.
    - **내 정보 이름 (11/6)**: '이름 수정' 시트 → `saveMyNickname`(`profiles.nickname`, 팀원에게 보이는 이름). 화면 이름은 nickname → 없으면 Google 이름. 실패하면 이전 이름으로 되돌려요.
    - **회원 탈퇴: 뺐어요 (11/6 결정)**. 1-1의 '회원 탈퇴' 버튼도 없앴어요. 다시 넣는다면: A `DELETE /api/account`(PR #2)를 옮기되 ① 파일 정리는 계정 삭제 **뒤에**(파일 목록은 먼저 적어 두기) ② C 테이블 `scheduling.responses.member_id`, `scheduling.proposals.created_by`가 `auth.users`를 삭제 규칙 없이 가리켜서 제안·응답한 사람은 계정 삭제가 막혀요 → 지우님과 `on delete cascade` / `set null` 먼저 정하기.
+   - **장소 종류 끝까지 전달 (11/6 밤, 지우님 요청)**: B `placeType` → C 제안 저장 → 5 화면 '찾을 장소' 기본값 → C 장소 찾기 검색어. 5 화면(`LiveProposal`)의 검색어 기본값이 예전엔 `스터디룸`이라 저장된 B 값을 덮어쓸 수 있었어요 → 기본값을 저장된 `placeType`으로 바꾸고, **방장이 바꾸지 않았으면 검색어를 보내지 않아요**(C가 저장값 사용). 지역 추천(`/api/places/areas`)도 `placeType`을 그대로 검색어로 써요(`placeIntentFrom`). 테스트: 지우님 DB 테스트(대면 저장 · 온라인 거절) 포함 C 13개 통과. **남은 것**: Supabase에 `c-place-type-migration.sql` 실행 → 실제 계정으로 대면 제안 만들기 → 5 화면 '…에서 ○○ 찾기'가 B 장소 종류인지 → 장소 찾기 결과 확인.
+   - **화면 다듬기 (11/6 밤)**: 제안 만들기 시트의 목적 기본값을 '@AI 합주 잡아줘' → "합주"처럼 부탁한 내용으로(팀 이름을 넣으면 B가 장소 종류를 '회의 장소'로 고를 수 있었음, `purposeFromRequest`). `@ai` 소문자도 AI 호출로 알아들음. 5 화면 장소 칸: '○/○ ○○:00 기준 · 지역 · 장소 종류' 칸 + '시간 바꾸기' 버튼, 결과 아래 '지역 · 장소 종류 바꿔서 다시 찾기', 찾는 동안 버튼을 회색으로 바꾸지 않음. 확정 칸 버튼은 세로로(주 버튼 '회의 카드 보기' 하나). Gemini 사용량 한도(429)면 "AI 사용량이 잠시 많아요 · 1분 뒤 다시 부탁해 주세요"(`isAiBusy`).
+   - **남은 데모 화면 연결 (11/6 밤)**: 진짜 ID(UUID)면 새 화면, 데모 ID(`m-1`, `p-1`)면 예전 데모 그대로.
+     - **대화방 '@AI 요약 · 할 일 정리 · 자료 정리'**: `POST /api/teams/{teamId}/ai`(`src/server/team-ai.ts`) → B `handleAiRequest`(앱 카드) → `cardReply`(`ai-adapter.ts`) → 대화방 답 카드. 대화는 부른 사람 권한으로 읽고(비공개 · AI 꺼짐 · @AI만 읽기 지킴), 답 카드는 부른 사람 화면에만 보여요(저장 안 함). 할 일 카드는 줄마다 '+ 추가' → `createTeamTask`(담당자 알림). B의 앱 카드 프롬프트에 '요청 종류'가 없어서 앱이 요청 종류 · 오늘 날짜 · 팀원 이름/id · 근거 형식을 덧붙여요 (7장 성하님).
+     - **8 확정 회의 카드** `/meetings/{제안 ID}` (`LiveMeeting.tsx`): C 제안의 확정 시간 · 장소 · 참석자 · 안건 · 내 대중교통 시간(장소 찾기 결과) · 캘린더(`CalendarSheet`: Google 캘린더 '일정 추가' 화면을 새 탭으로 → 로그인된 Google 계정에 저장만 누르면 됨, 앱은 캘린더 권한을 받지 않음 / 다른 앱은 .ics) · 길찾기 · 장소 사이트 예약 / 온라인이면 회의 들어가기. '참석이 어려워요'는 대화방에 한 줄(이유는 안 남김). 홈 · 대화방 확정 카드 · 팀 메뉴 회의 · 5 확정 화면의 '회의 카드 보기'가 여기로 와요.
+     - **9 회의록** `/meetings/{제안 ID}/minutes` (`LiveMinutes.tsx`): 회의 메모(선택) + 회의 시간 앞뒤 30분 대화 → B 회의록 카드 → 요약 · 정한 것 · 할 일(골라서 팀 할 일 추가). 회의록은 저장하지 않고 '대화방에 올리기'로 남겨요. 녹음은 범위 밖.
+     - **7 내 조건** `/proposals/{제안 ID}/conditions` (`LiveConditions.tsx`): AI가 이해한 내 시간(C 조건의 나) · 내 응답 · 매주 안 되는 시간(내 정보) · 출발 위치(바로 수정). '+ 이번 회의 조건 추가' → C `condition`(안 돼요 · 되면 좋아요, 찾는 기간 안). 5 화면 아래 'AI가 이해한 내 조건 보기 ›'로 들어가요.
    - **알림 (11/6)**: 1-2 알림은 `loadMyNotifications`(A `app_notifications`, 최근 100개), 하나 열면 그것만 · '모두 읽음'은 전부 `markNotificationsRead`. 홈 🔔은 `countUnreadNotifications` + `subscribeMyNotifications`(실시간). 지금 생기는 알림: `task_assigned`(할 일 배정 → 그 팀 할 일 탭), `meeting_response`(C '다시 알림' → 제안 화면). 실제 두 계정으로 확인.
    - 화면 크기: 컴퓨터(500px 이상)에서는 휴대폰 화면 높이를 `min(844px, 창 높이 − 32px)`로 고정하고 페이지 스크롤을 막아요. 화면 안(`.screen__body`)만 스크롤.
    - 아직: 팀 메뉴의 회의는 데모 함수라 진짜 팀에서는 비어 있어요 (C 저장 뒤 `c_schedule_list`로). AI가 대화로 할 일 찾기는 B 요청 중 (7장).
@@ -177,7 +187,10 @@ B 최신(`placeType` 필수)에 맞춰 연결 쪽에서 고친 것: C `src/serve
 
 ## 7. 팀원에게 전달할 것
 
-- **성하님 (B) — 11/6 `86eed61`을 가져와서 확인한 것** (11/6 희원이 성하님께 전달함 · 답 기다리는 중)
+- **성하님 (B) — 11/6 밤 `aedb6b1` 받음 · 확인 결과 (희원이 전달함 · 답 기다리는 중)**
+  - 좋아진 것: 회의 조건을 B만으로 실제 대화 4번 중 4번 통과(합주실), 시간 다듬기(초 · 23:59:59 · 기간 밖 · 겹침)를 B 검사에서 직접 처리, 앱 카드가 요청 종류 · 오늘 날짜 · 팀원 목록을 받음.
+  - 남은 것: ① 앱 카드 프롬프트가 tasks · summary/files · minutes 모양을 다 보여 줘서(tasks가 먼저) 요약 · 자료를 부탁해도 할 일 카드가 나오고, 대화에 없는 할 일을 지어냄 → 앱이 "이번 요청은 ○○ 카드 하나만"을 덧붙여 해결 중 (`src/server/team-ai.ts`) ② 회의 조건 프롬프트에서 다시 빠진 규칙(origins 늘 배열 · 출발역 모르면 null · 선호 ≠ 가능 · '가능할 것 같아' = 확인 필요 · 메시지 속 명령은 지시 아님) → origins가 비면 `origins missing`이라 앱이 채움(`gemini-generate.ts`) ③ `place-type.test.ts` 'AI prompt requests contextual placeType …' 실패('전체 대화' 문장이 빠짐) ④ `currentParts` 타입.
+- **성하님 (B) — 11/6 `86eed61`을 가져와서 확인한 것** (예전 메모)
   - 반영됨: `placeType`(장소 종류), '합주 · 회식 · 모임 잡아줘', 요청 분류(`tasks` · `files` · `minutes`), 앱 카드(`analyzeAiCard`), 비공개 메시지 · AI 읽는 범위 거르기.
   - B 자체 테스트 5개 실패 (받은 코드 그대로 돌림): `mvp.test.ts` 'mention routing and ambiguous requests'(이제 여러 뜻이면 첫 번째로 정해서 `clarify`가 안 나옴), `place-type.test.ts` 'AI prompt requests contextual placeType …', `revision.test.ts` '@AI 대화 요약' · '@AI 회의 요약'(요약이 이제 AI를 불러요), 'ignored/ambiguous requests avoid API …'. 바뀐 동작에 맞게 테스트를 고칠지, 동작을 되돌릴지 확인 부탁.
   - 회의 조건 프롬프트의 [중요] 규칙이 많이 빠졌어요 (초 00 · +09:00, 모르면 null, 불가 시간만 말하면 가능으로 채우지 않기, 정정 반영 등) → 아래 '시간 정리 실패'가 더 자주 날 수 있어요. 빠진 규칙을 되살려 달라고 부탁.
@@ -187,6 +200,7 @@ B 최신(`placeType` 필수)에 맞춰 연결 쪽에서 고친 것: C `src/serve
   - **앱 쪽 임시 해결 (11/6)**: B를 부를 때 `src/server/gemini-generate.ts`의 `geminiGenerate`를 넘겨요 (`handleAiRequest(text, input, geminiGenerate)`, C 제안 만들기 · `/api/ai/request` 둘 다). ① 모델 기본값 `gemini-3.1-flash-lite`(`GEMINI_MODEL`로 바꿀 수 있음) ② AI 답의 시각을 분 단위로 맞춤(`23:59:59` → 다음 날 `00:00:00`) ③ `origins`에 빠진 팀원을 `station: null`로 채움 ④ 한 사람의 되는/안 되는 시간이 겹치면 겹친 부분을 되는 시간에서 뺌(안 된다고 한 때에 안 잡게) ⑤ 모든 시간 구간을 찾는 기간 안으로 자름. 실제 'KCC해커톤' 대화로 5번 연속 `ready` 확인. 성하님이 B 검사에서 이런 경우를 오류 대신 다듬거나 확인 질문으로 돌려주면 ②~⑤는 지워도 돼요.
   - 실패 원인은 화면에 안 보이고(C가 '입력 형식과 회의 조건을 확인해 주세요'로 감춰요) 개발 서버 기록에 `[scheduling] request failed: …` 한 줄로 남아요.
   - 아직: '나는 7시 이후' 같은 시간 정리 보완(아래), 앱 카드 `basis`는 메시지 ID 목록이라 앱은 'N개 근거'로만 보여줘요.
+  - **(11/6 밤 실제 테스트) 앱 카드 `analyzeAiCard`**: 프롬프트에 '이번에 무슨 요청인지'가 없어서 '할 일 정리해줘'에도 자료 · 일정 카드를 배열로 여러 장 주고, basis가 메시지 id가 아닌 글, 사람은 '사용자 1', 날짜는 2024년으로 나와요. 앱이 프롬프트 끝에 요청 종류 · 오늘 날짜 · 팀원 id=이름 · 담당자는 id로 · basis는 id로를 덧붙여서 해결 중 (`src/server/team-ai.ts`). B에서 `analyzeAiCard(input, kind, …)`처럼 요청 종류와 팀원 이름을 받아 주면 덧붙이는 부분을 뺄 수 있어요.
 - **성하님 (B) — AI 기능 전부 (11/6 정리)**. 지금 B는 '회의 잡기'만 돼요. '요약'은 알아듣지만 "아직 준비 중"이고, 할 일 · 자료 · 회의록은 분류도 없어요 ("@AI 할 일 정리해줘"는 '정리' 때문에 요약으로 잘못 분류돼요).
   - 공통: 대화 메시지(+ 필요하면 팀 자료 · 할 일 · 확정 회의)를 받아 **제안만** 돌려주기 (저장은 사람이 '추가'를 눌러야). 결과마다 근거 메시지 ID(`sourceMessageIds`). 팀 설정 'AI 읽는 범위'(`ai_read_scope`: 전체 / @AI만)와 AI 꺼짐 지키기. 비공개 메시지(`visible_to`)는 읽지 않기. 화면 카드 모양은 `src/types.ts`의 `AiReply` { kind, title, basis(무엇을 보고 답했는지), items[{ text, sub, tag }] }에 맞춰 주면 바로 붙어요.
   - **(11/6 실제 테스트에서 발견) 시간 정리 실패**: "나는 7시 이후에 가능해"를 AI가 `11/8 19:00 ~ 11/14 23:59:59` 한 덩어리로 써서 B 검사(`초는 00`, 기간 안)에 걸려요 → C가 "입력 형식과 회의 조건을 확인해 주세요"만 돌려줘요. 부탁: ① AI 출력의 초를 00으로 맞추기(또는 23:59:59 → 다음 날 00:00:00) ② '매일 N시 이후' 같은 반복 시간은 날짜별 구간으로 나누기 ③ 검사에 걸리면 오류 대신 확인 질문(needs_confirmation)으로 돌려주기. 날짜 · 시간을 구체적으로 쓰면("11/10(화) 19:00~22:00 가능") 지금도 통과해요.
@@ -204,6 +218,7 @@ B 최신(`placeType` 필수)에 맞춰 연결 쪽에서 고친 것: C `src/serve
   - 걸어갈 만큼 가까우면 대중교통 경로가 없어 '미확인'이 돼요 → 도보 시간으로 처리
   - (11/6 실제 테스트) `resolveOrigin`이 위치를 못 정하는 출발지가 많아요: 동네까지만 있는 주소('서울 구로구 구로동' ← '구로역광장'), 노선 없는 역 이름('구로역'), 노선이 있어도 결과가 여러 개인 역('서울역 1호선'). 앱은 출발지를 고를 때 `/api/places/check-origin`으로 미리 확인해 막고 있어요. D에서 카카오 장소 ID나 좌표로 받는 방법을 같이 정하면 좋아요.
 - **지우님 (C)** — C SQL 확인 부탁: 확정할 때 `c_schedule_action('confirm')`이 `messages`에 확정 카드를 직접 넣어요 (security definer). 현서님은 확정 메시지를 `create_confirmed_message`(방장 확인)로만 만들자고 했어요 → 둘 중 어느 쪽으로 할지 현서님과 맞추기.
+- **지우님 (C)** — 11/6 밤 전달함 · 답 기다리는 중: **한밤중 시간 후보**. AI가 '11/9 하루 종일 가능'을 00:00~24:00으로 이해하면 C가 가장 이른 00:00–01:00을 후보로 내서 그대로 확정될 수 있어요 (실제로 '합주' 11/9(월) 00:00 확정 · 23:10 출발 권장이 나옴). 만날 만한 시간(예: 09:00~22:00) 안에서만 후보를 찾게 부탁.
 - **지우님 (C)** — 11/6 답변으로 정리됨
   - C의 장소 부분은 따로 알고리즘이 아니라 D `findPlaces`를 부르고 결과를 저장하는 연결부라 그대로 둬요.
   - 장소는 **6 장소 화면을 써요**. 앱은 선택한 시간 후보 ID와 장소 ID를 C 확정 API에 넘겨요 (위 6장 2번, 앱 쪽 준비 끝).

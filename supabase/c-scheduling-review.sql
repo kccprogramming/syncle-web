@@ -59,6 +59,9 @@ declare s jsonb; member jsonb; members jsonb := '[]'::jsonb;
 begin
  if jsonb_typeof(c) is distinct from 'object' or jsonb_typeof(c->'purpose') is distinct from 'string'
   or (c->>'meetingMode' is distinct from 'online' and c->>'meetingMode' is distinct from 'offline')
+  or (c ? 'placeType' and jsonb_typeof(c->'placeType') not in ('null','string'))
+  or (c->>'meetingMode'='online' and c ? 'placeType' and c->'placeType'<>'null'::jsonb)
+  or length(c->>'placeType')>100
   or jsonb_typeof(c->'schedule') is distinct from 'object'
   or jsonb_typeof(c#>'{schedule,members}') is distinct from 'array' then raise exception 'C_INVALID_INPUT'; end if;
  s := c->'schedule';
@@ -74,6 +77,7 @@ begin
  end loop;
  return jsonb_build_object(
   'purpose',c->'purpose','meetingMode',c->'meetingMode',
+  'placeType',case when jsonb_typeof(c->'placeType')='string' then c->'placeType' else 'null'::jsonb end,
   'agenda',scheduling.safe_text_array(c->'agenda'),
   'sourceMessageIds',scheduling.safe_text_array(c->'sourceMessageIds'),
   'placeRequirements',scheduling.safe_text_array(c->'placeRequirements'),

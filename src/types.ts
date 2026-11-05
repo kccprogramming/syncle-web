@@ -330,7 +330,8 @@ export interface AiReply {
   title: string;
   /** 무엇을 보고 답했는지 (디자인 원칙 5: AI는 근거를 같이 보여줘요) */
   basis: string;
-  items: { text: string; sub?: string; tag?: string }[];
+  /** 할 일 카드는 '추가'에 쓰는 assigneeId · due(YYYY-MM-DD)를 같이 받아요 (진짜 팀) */
+  items: { text: string; sub?: string; tag?: string; assigneeId?: string | null; due?: string | null }[];
   /** 카드 아래 '자세히 보기' 링크 */
   link?: { label: string; href: string };
 }

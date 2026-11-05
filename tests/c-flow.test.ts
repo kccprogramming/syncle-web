@@ -2,11 +2,19 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { calculateTimeCandidates } from '../src/features/scheduling/calculate-time-candidates';
 import { assertDeadlines, projectProposal, type StoredProposal } from '../src/features/scheduling/proposals';
+// 지우님 de98361 테스트 — 우리 통합본은 B를 src/server/b에 두고, B 예시 출력의 placeType이 '회의 장소'라서 그 값과 비교해요
+import { analyzeMessagesMock } from '../src/server/b/extractor';
+import { EXAMPLE_B_INPUT, EXAMPLE_B_OUTPUT } from '../src/server/b/b-c-contract';
 
 const startAt = '2030-11-10T19:00:00+09:00';
 const endAt = '2030-11-10T20:00:00+09:00';
 const slot = { startAt, endAt };
 const id = `time:${startAt}/${endAt}`;
+
+test('B example remains valid after adopting placeType', async () => {
+  const result = await analyzeMessagesMock(EXAMPLE_B_INPUT);
+  assert.equal(result.placeType, EXAMPLE_B_OUTPUT.placeType);
+});
 const proposal: StoredProposal = {
   id: 'proposal', teamId: 'team', ownerId: 'u1', memberIds: ['u1', 'u2'], version: 0,
   title: '회의', mode: 'online', responseDeadline: '2030-11-09T18:00:00+09:00', materialDeadline: '2030-11-10T18:00:00+09:00',

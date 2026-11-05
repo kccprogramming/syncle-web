@@ -58,7 +58,8 @@ export function LiveProposal({ proposalId }: { proposalId: string }) {
   const inFlight = useRef(false);
   const chosenTouched = useRef(false); // 방장이 확정할 시간을 직접 바꿨는지
   const [areasText, setAreasText] = useState('');
-  const [keyword, setKeyword] = useState('스터디룸');
+  // 찾을 장소: 비워 두면 C가 저장된 B 장소 종류(conditions.placeType)로 찾아요. 방장이 바꾼 경우에만 보내요
+  const [keyword, setKeyword] = useState('');
   const [areaNote, setAreaNote] = useState('');
   const [, setNamesReady] = useState(0);
 
@@ -182,6 +183,11 @@ export function LiveProposal({ proposalId }: { proposalId: string }) {
 
   const owner = !!data && data.viewerId === data.ownerId;
   const needAreas = !!data && owner && data.mode === 'offline' && !data.meeting;
+  /** B가 대화를 보고 정해 C에 저장된 장소 종류 (온라인 · 미정 · 예전 제안이면 null) */
+  const storedType = data?.conditions.placeType?.trim() || null;
+  useEffect(() => {
+    if (storedType) setKeyword((k) => k || storedType);
+  }, [storedType]);
   // 방장이 대면 회의를 볼 때 '비교할 지역'(팀원 출발지 가운데 역 3곳)과 '찾을 장소'(대화로 고른 종류)를 미리 채워요
   useEffect(() => {
     if (!needAreas) return;
@@ -190,7 +196,7 @@ export function LiveProposal({ proposalId }: { proposalId: string }) {
       .then((s) => {
         if (gone) return;
         setAreasText((t) => t || s.areas.join(', '));
-        setKeyword(s.keyword);
+        setKeyword((k) => k || s.keyword);
         setAreaNote(`팀원 출발지 가운데 역이에요${s.unknownCount ? ` · 출발지를 모르는 ${s.unknownCount}명은 빼고 계산` : ''}`);
       })
       .catch((e) => !gone && setAreaNote(e instanceof Error ? `${e.message} · 지역을 직접 입력해 주세요` : '지역을 직접 입력해 주세요'));
@@ -325,15 +331,21 @@ export function LiveProposal({ proposalId }: { proposalId: string }) {
             <span className="t-13 t-ink2">
               {data.meeting.mode === 'online' ? '온라인 회의' : (data.meeting.place?.name ?? '장소 미정')} · 참석 {data.meeting.attendeeIds.length}명
             </span>
-            <div className="btn-row">
+            {/* 주 버튼은 회의 카드 하나, 바깥으로 나가는 링크는 아래에 같은 크기의 보조 버튼으로 (세로로 쌓아요) */}
+            <div className="stack gap-8" style={{ marginTop: 4 }}>
+              <Link className="btn btn--primary" style={{ height: 48 }} href={`/meetings/${data.id}`}>
+                회의 카드 보기
+              </Link>
               {safeUrl(data.meeting.place?.url) ? (
-                <a className="btn btn--soft" href={safeUrl(data.meeting.place?.url)} target="_blank" rel="noreferrer">
+                <a className="btn btn--ghost" style={{ height: 44, border: '1px solid var(--line)', fontSize: 14 }} href={safeUrl(data.meeting.place?.url)} target="_blank" rel="noreferrer">
                   장소 사이트에서 예약하기
+                  <Icon name="external" size={14} strokeWidth={2.2} />
                 </a>
               ) : null}
               {safeUrl(data.meeting.meetingUrl) ? (
-                <a className="btn btn--soft" href={safeUrl(data.meeting.meetingUrl)} target="_blank" rel="noreferrer">
+                <a className="btn btn--ghost" style={{ height: 44, border: '1px solid var(--line)', fontSize: 14 }} href={safeUrl(data.meeting.meetingUrl)} target="_blank" rel="noreferrer">
                   회의 링크 열기
+                  <Icon name="external" size={14} strokeWidth={2.2} />
                 </a>
               ) : null}
             </div>
@@ -408,18 +420,27 @@ export function LiveProposal({ proposalId }: { proposalId: string }) {
               <section className="card" style={{ gap: 8 }}>
                 <div className="hstack gap-8">
                   <Icon name="pin" size={18} strokeWidth={1.8} color="var(--accent)" />
-                  <span className="t-14 t-strong grow">장소{candidate ? ` · ${seoulLabel(candidate.startAt)}` : ''}</span>
-                  {owner && data.candidates.length > 1 ? (
-                    <button type="button" className="t-13 t-accent" style={{ border: 0, background: 'none', padding: 0 }} onClick={() => setSheet('time')}>
-                      시간 바꾸기
-                    </button>
-                  ) : null}
-                  {owner && candidate ? (
-                    <button type="button" className="t-13 t-accent" style={{ border: 0, background: 'none', padding: 0 }} onClick={() => setSheet('areas')}>
-                      {ranked.length ? '다시 찾기' : '지역 바꾸기'}
-                    </button>
-                  ) : null}
+                  <span className="t-14 t-strong grow">장소</span>
                 </div>
+                {/* 어떤 시간 · 지역 · 장소 종류로 찾았는지 한 칸에 모으고, 시간은 여기서 바꿔요 */}
+                {candidate ? (
+                  <div className="hstack gap-8" style={{ background: 'var(--bg)', borderRadius: 10, padding: '8px 8px 8px 12px' }}>
+                    <span className="stack grow" style={{ gap: 2, minWidth: 0 }}>
+                      <span className="t-13 t-strong">{seoulLabel(candidate.startAt)} 기준</span>
+                      <span className="t-12 t-muted t-ellipsis">
+                        {(places?.searchAreas ?? []).join(' · ') ||
+                          (areasText ? areasText.split(',').map((v) => v.trim()).filter(Boolean).join(' · ') : '팀원 출발지 가운데')}
+                        {' · '}
+                        {keyword || '회의 장소'}
+                      </span>
+                    </span>
+                    {owner && data.candidates.length > 1 ? (
+                      <button type="button" className="btn btn--sm btn--ghost no-shrink" style={{ height: 34, fontSize: 13, border: '1px solid var(--line)' }} onClick={() => (busy ? toast.show('장소를 찾는 중이에요 · 끝나면 바꿀 수 있어요') : setSheet('time'))}>
+                        시간 바꾸기
+                      </button>
+                    ) : null}
+                  </div>
+                ) : null}
                 {places?.status === 'error' ? <span className="t-12 t-warn">{places.error?.message ?? '일부 지역에서 찾지 못했어요'} · 시간과 응답은 그대로예요</span> : null}
                 {ranked.length ? (
                   <div role="radiogroup" aria-label="장소 후보" className="stack gap-8">
@@ -453,9 +474,6 @@ export function LiveProposal({ proposalId }: { proposalId: string }) {
                   </div>
                 ) : owner ? (
                   <>
-                    <span className="t-12 t-muted" style={{ lineHeight: 1.5 }}>
-                      {areasText ? `${areasText}에서 ${keyword} 찾기` : `팀원 출발지 가운데에서 ${keyword} 찾기`}
-                    </span>
                     <button
                       type="button"
                       className="btn btn--outline"
@@ -469,6 +487,18 @@ export function LiveProposal({ proposalId }: { proposalId: string }) {
                 ) : (
                   <span className="t-12 t-muted">방장이 장소를 찾으면 여기에 보여요</span>
                 )}
+                {/* 결과가 마음에 안 들 때: 지역 · 장소 종류를 바꿔서 다시 찾기 (결과 아래에 한 줄로) */}
+                {owner && candidate ? (
+                  <button
+                    type="button"
+                    className="btn btn--ghost"
+                    style={{ height: 40, fontSize: 13, border: '1px dashed var(--line-strong)', color: 'var(--ink-2)', fontWeight: 400 }}
+                    // 찾는 동안에도 회색으로 바꾸지 않고, 누르면 안내만 해요
+                    onClick={() => (busy ? toast.show('장소를 찾는 중이에요 · 끝나면 바꿀 수 있어요') : setSheet('areas'))}
+                  >
+                    {ranked.length ? '지역 · 장소 종류 바꿔서 다시 찾기' : '지역 · 장소 종류 직접 고르기'}
+                  </button>
+                ) : null}
                 <span className="t-12 t-muted" style={{ lineHeight: 1.5 }}>최대 이동 1시간 · 시설과 이동시간은 예상값이에요</span>
               </section>
             ) : (
@@ -492,6 +522,11 @@ export function LiveProposal({ proposalId }: { proposalId: string }) {
                 <span className="t-14 t-strong grow">후보에 맞는 시간이 없나요?</span>
                 <span className="t-13 t-accent no-shrink">다른 시간 알려주기 ›</span>
               </button>
+              <div className="divider" style={{ margin: '0 16px' }} />
+              <Link href={`/proposals/${proposalId}/conditions`} className="row">
+                <span className="t-14 grow">AI가 이해한 내 조건</span>
+                <span className="t-13 t-accent no-shrink">보기 ›</span>
+              </Link>
             </section>
           </>
         )}
@@ -609,7 +644,7 @@ export function LiveProposal({ proposalId }: { proposalId: string }) {
     try {
       const s = await suggestPlaceSearch(proposalId);
       areas = s.areas;
-      kw = s.keyword;
+      kw = kw || s.keyword;
       setAreasText(areas.join(', '));
       setKeyword(kw);
       setAreaNote(`팀원 출발지 가운데 역이에요${s.unknownCount ? ` · 출발지를 모르는 ${s.unknownCount}명은 빼고 계산` : ''}`);
@@ -625,7 +660,10 @@ export function LiveProposal({ proposalId }: { proposalId: string }) {
   function searchPlaces(areas?: string[], kw?: string) {
     const list = areas ?? areasText.split(',');
     const searchAreas = [...new Set(list.map((v) => v.trim()).filter(Boolean))].slice(0, 3);
-    return action('places', { timeOptionId: chosen, searchAreas, maxTravelMinutes: 60, keyword: kw ?? keyword }, '이 시간의 장소를 찾았어요');
+    // 저장된 B 장소 종류와 같으면 검색어를 보내지 않아요 → C가 conditions.placeType으로 찾아요 (화면 값이 B 결과를 덮어쓰지 않게)
+    const send = (kw ?? keyword).trim();
+    const payload = { timeOptionId: chosen, searchAreas, maxTravelMinutes: 60, ...(send && send !== storedType ? { keyword: send } : {}) };
+    return action('places', payload, '이 시간의 장소를 찾았어요');
   }
 }
 

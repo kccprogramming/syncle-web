@@ -143,3 +143,13 @@ export async function geminiGenerate(prompt: string): Promise<string> {
     return text; // JSON이 아니면 B가 알아서 실패 처리해요
   }
 }
+
+/** Gemini 사용량 한도(분당 · 하루)에 걸렸는지 — 무료 키는 여러 명이 연달아 부르면 잠깐 막혀요 */
+export function isAiBusy(error: unknown): boolean {
+  const status = error && typeof error === "object" && "status" in error ? Number((error as { status: unknown }).status) : NaN;
+  const message = error instanceof Error ? error.message : String(error ?? "");
+  return status === 429 || /\b429\b|quota|rate.?limit|RESOURCE_EXHAUSTED/i.test(message);
+}
+
+/** 화면에 보여줄 사용량 초과 안내 */
+export const AI_BUSY_MESSAGE = "AI 사용량이 잠시 많아요 · 1분 뒤 다시 부탁해 주세요";

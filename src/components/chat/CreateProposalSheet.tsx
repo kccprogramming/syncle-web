@@ -43,16 +43,31 @@ type Result =
   | { status: string; proposal?: { id: string; title: string; responseDeadline: string }; message?: string; questions?: { question?: string; text?: string }[] }
   | undefined;
 
+/**
+ * '@AI 합주 잡아줘' → "합주". 부탁한 내용이 없으면("@AI 회의 잡아줘", + 메뉴) 빈 글자.
+ * 목적 칸 기본값에 써요 — 팀 이름을 넣으면 B가 그 목적만 보고 장소 종류를 '회의 장소'로 고를 수 있어서요.
+ */
+export function purposeFromRequest(text: string | null | undefined): string {
+  const t = (text ?? "")
+    .replace(/@AI/gi, "")
+    .replace(/(?:[을를]\s*)?(?:좀\s*)?(?:잡아\s*줘|잡아\s*주세요|잡아\s*줄래|잡자|잡아|정해\s*줘|정해\s*주세요)\s*[.!?~]*\s*$/, "")
+    .trim();
+  return /^(?:회의|미팅|일정|시간|약속)?$/.test(t) ? "" : t.slice(0, 40);
+}
+
 export function CreateProposalSheet({
   teamId,
   teamName,
+  request,
   onClose,
   onCreated,
   onMessage,
 }: {
   teamId: string;
-  /** 목적 칸 기본값에 써요 ("KCC해커톤 회의") */
+  /** 부탁한 내용이 없을 때 목적 칸 기본값에 써요 ("KCC해커톤 회의") */
   teamName: string;
+  /** 대화방에서 보낸 '@AI … 잡아줘' 글 (+ 메뉴로 열었으면 빈 글자) */
+  request?: string;
   onClose: () => void;
   onCreated: (p: { proposalId: string; title: string; responseDeadline: string }) => void;
   /** 조건 메시지를 대화방에 남겼을 때 (바로 화면에 보이게) */
@@ -67,7 +82,7 @@ export function CreateProposalSheet({
     };
     return { from: day(2), to: day(8), response: `${day(1)}T21:00`, material: `${day(2)}T09:00` };
   }, []);
-  const [purpose, setPurpose] = useState(`${teamName} 회의`);
+  const [purpose, setPurpose] = useState(() => purposeFromRequest(request) || `${teamName} 회의`);
   const [length, setLength] = useState(60);
   const [mode, setMode] = useState<"offline" | "online">("offline");
   const [from, setFrom] = useState(defaults.from);

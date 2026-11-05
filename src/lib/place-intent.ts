@@ -49,7 +49,7 @@ export function inferPlaceIntent(texts: (string | null | undefined)[]): PlaceInt
 
 /**
  * B가 대화를 보고 정한 장소 종류(placeType, 예: "합주실" · "회식 장소")가 있으면 그걸 먼저 써요.
- * 카카오 검색 낱말은 위 규칙으로 맞추고(회의 장소 → 스터디룸), 규칙에 없으면 B의 말 그대로 찾아요.
+ * 카카오 검색어는 B의 말 그대로 써요 (C도 저장된 placeType으로 찾아요 — 지우님 de98361). 화면 이름만 위 규칙으로 맞춰요.
  * placeType이 없으면(온라인 · 모름 · 예전 제안) 예전처럼 낱말 규칙으로 골라요.
  */
 export function placeIntentFrom(placeType: string | null | undefined, texts: (string | null | undefined)[]): PlaceIntent {
@@ -57,7 +57,7 @@ export function placeIntentFrom(placeType: string | null | undefined, texts: (st
   if (!type) return inferPlaceIntent(texts);
   const rule = RULES.find((r) => r.test.test(type));
   return {
-    keyword: rule?.keyword ?? type,
+    keyword: type,
     label: rule?.label ?? type,
     reason: `AI가 대화를 보고 ‘${type}’${hasBatchim(type) ? "을" : "를"} 골랐어요`,
   };

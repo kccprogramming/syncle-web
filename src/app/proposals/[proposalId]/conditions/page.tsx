@@ -2,6 +2,7 @@
 
 /**
  * 7 AI가 이해한 내 조건 (+ 7-1 조건 직접 추가 시트)
+ * /proposals/{제안 UUID}/conditions  진짜 팀: C 제안의 내 조건 (LiveConditions)
  * /proposals/p-1/conditions           기본
  * /proposals/p-1/conditions?sheet=add 추가 시트를 연 채로 시작
  */
@@ -16,6 +17,8 @@ import { useDemo, useProposal } from "@/lib/demo-store";
 import { getConditions, getMe } from "@/lib/data";
 import type { Condition } from "@/types";
 import { AddConditionSheet, type ConditionKind } from "@/components/meeting/AddConditionSheet";
+import { LiveConditions } from "@/components/scheduling/LiveConditions";
+import { isLiveId } from "@/lib/scheduling-client";
 
 // 선호 칩 (AI가 대화에서 이해한 것)
 // TODO: API 연결 시 data.ts로 옮기기
@@ -24,9 +27,15 @@ const PREFERENCES = ["평일 저녁 선호", "이동 1시간 이내"];
 export default function ConditionsPage() {
   return (
     <Suspense fallback={null}>
-      <ConditionsInner />
+      <ConditionsSwitch />
     </Suspense>
   );
+}
+
+/** 진짜 제안 ID면 C 제안의 내 조건, 아니면 데모 */
+function ConditionsSwitch() {
+  const { proposalId } = useParams<{ proposalId: string }>();
+  return isLiveId(proposalId) ? <LiveConditions proposalId={proposalId} /> : <ConditionsInner />;
 }
 
 /** 연필 버튼이 붙은 조건 한 줄 */

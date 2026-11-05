@@ -3,6 +3,7 @@
 /**
  * 8 확정 회의 카드 (+ 8-2 참석 어려움 시트)
  * 예약은 앱에서 하지 않고, '장소 사이트에서 예약하기'로 장소 사이트(카카오맵 장소 페이지)를 새 탭으로 열어요.
+ * /meetings/{제안 UUID}        진짜 팀: C 제안이 확정된 회의 (LiveMeeting)
  * /meetings/m-1               기본
  * /meetings/m-1?sheet=absent  참석 어려움 시트를 연 채로 시작
  */
@@ -16,7 +17,9 @@ import { getMe, getMeeting, getMember, getMembers, getTeam } from "@/lib/data";
 import { getChosenPlace } from "@/components/chat/team-info";
 import { StatusPill } from "@/components/meeting/StatusPill";
 import { AbsentSheet } from "@/components/meeting/AbsentSheet";
-import { downloadIcs } from "@/components/meeting/ics";
+import { CalendarSheet } from "@/components/meeting/CalendarSheet";
+import { LiveMeeting } from "@/components/meeting/LiveMeeting";
+import { isLiveId } from "@/lib/scheduling-client";
 
 // 캘린더 파일에 넣을 정확한 시각 (한국 시간)
 // TODO: API 연결 시 data.ts로 옮기기 (회의 데이터에 시작·끝 시각 넣기)
@@ -33,9 +36,15 @@ function leaveAt(startMin: number, travelMin: number) {
 export default function MeetingPage() {
   return (
     <Suspense fallback={null}>
-      <MeetingInner />
+      <MeetingSwitch />
     </Suspense>
   );
+}
+
+/** 진짜 제안 ID면 C 확정 회의, 아니면 데모 회의 */
+function MeetingSwitch() {
+  const { meetingId } = useParams<{ meetingId: string }>();
+  return isLiveId(meetingId) ? <LiveMeeting proposalId={meetingId} /> : <MeetingInner />;
 }
 
 function MeetingInner() {
@@ -59,19 +68,14 @@ function MeetingInner() {
 
   const [sheet, setSheet] = useState<string | null>(sp.get("sheet"));
 
-  function addToCalendar() {
-    downloadIcs(
-      {
-        uid: `${meeting.id}-${state.placeId}`,
-        title: meeting.title,
-        location: placeName,
-        start: times.start,
-        end: times.end,
-        description: `${team.name} · 안건: ${meeting.agenda.join(", ")}`,
-      },
-      `syncle-${meeting.id}.ics`,
-    );
-  }
+  const calendarEvent = {
+    uid: `${meeting.id}-${state.placeId}`,
+    title: meeting.title,
+    location: placeName,
+    start: times.start,
+    end: times.end,
+    description: `${team.name} · 안건: ${meeting.agenda.join(", ")}`,
+  };
 
   return (
     <main className="screen">
@@ -139,7 +143,7 @@ function MeetingInner() {
         )}
 
         <div className="no-shrink" style={{ display: "grid", gridTemplateColumns: online ? "1fr" : "repeat(2, minmax(0, 1fr))", gap: 8 }}>
-          <button type="button" className="btn btn--ghost t-13" style={{ height: 72, flexDirection: "column", border: "1px solid var(--line)", fontSize: 13 }} onClick={addToCalendar}>
+          <button type="button" className="btn btn--ghost t-13" style={{ height: 72, flexDirection: "column", border: "1px solid var(--line)", fontSize: 13 }} onClick={() => setSheet("calendar")}>
             <Icon name="calendarAdd" strokeWidth={1.8} />
             캘린더 추가
           </button>
@@ -168,6 +172,7 @@ function MeetingInner() {
         </button>
       </div>
 
+      {sheet === "calendar" ? <CalendarSheet event={calendarEvent} fileName={`syncle-${meeting.id}.ics`} onClose={() => setSheet(null)} /> : null}
       {sheet === "absent" ? (
         // 데모에서는 서연님 화면으로 보여줘요
         <AbsentSheet onClose={() => setSheet(null)} dayLabel={meeting.shortLabel.split(" ")[0]} viewerName={getMember("u-seoyeon").name} ownerName={owner.name} chatHref={chatHref} />

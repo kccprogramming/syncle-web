@@ -2,7 +2,7 @@
 
 /**
  * 진짜 팀의 회의 목록 (C · c_schedule_list) — 팀 메뉴의 '회의'와 전체 보기 회의 탭에서 써요.
- * 응답 중인 제안은 파란 테두리, 확정된 회의는 초록 테두리. 누르면 C 화면(/proposals/{id}).
+ * 응답 중인 제안은 파란 테두리, 확정된 회의는 초록 테두리. 누르면 C 화면(/proposals/{id}), 확정이면 회의 카드(/meetings/{id}).
  */
 import Link from "next/link";
 import { seoulLabel, type loadTeamProposals } from "@/lib/data";
@@ -20,7 +20,7 @@ export function LiveMeetingList({ list, empty }: { list: LiveProposalRow[] | nul
         return (
           <Link
             key={p.id}
-            href={`/proposals/${p.id}`}
+            href={confirmed ? `/meetings/${p.id}` : `/proposals/${p.id}`}
             className="stack gap-2"
             style={{
               border: `1.5px solid ${confirmed ? "var(--ok)" : "var(--accent)"}`,

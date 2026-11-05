@@ -60,7 +60,7 @@ export function toReply(result: MvpRequestResult, nameOf: (memberId: string) => 
     case "clarify_request":
       return { kind: "notice", title: result.message, basis: "지금은 회의 잡기만 AI가 직접 정리해요", items: [{ text: "@AI 회의 잡아줘" }] };
     case "card":
-      return cardReply(result.card);
+      return cardReply(result.card, nameOf);
     case "ready":
       return conditionsReply(result.conditions, nameOf, intent);
     case "needs_confirmation":
@@ -75,22 +75,74 @@ export function toReply(result: MvpRequestResult, nameOf: (memberId: string) => 
   }
 }
 
-/** B의 앱 카드(요약 · 할 일 · 자료 · 회의록) → 대화방 답 카드 */
-function cardReply(card: Extract<MvpRequestResult, { status: "card" }>["card"]): AiReply {
-  const basis = `메시지 ${card.basis.length}개를 근거로 정리했어요`;
+export type CardKind = "summary" | "tasks" | "files" | "minutes";
+const UUID = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi;
+const isDate = (v: unknown): v is string => typeof v === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v);
+const str = (v: unknown) => (typeof v === "string" ? v.trim() : "");
+
+/**
+ * B의 앱 카드(요약 · 할 일 · 자료 · 회의록) → 대화방 답 카드.
+ * B가 카드를 여러 장(배열) 주면 부탁한 종류(wanted) 한 장을 골라요. 글 속 팀원 id는 이름으로 바꿔요.
+ * 할 일 카드는 '추가' 버튼에 쓰도록 assigneeId · due를 같이 넘겨요.
+ */
+export function cardReply(
+  raw: unknown,
+  nameOf: (memberId: string) => string = () => "팀원",
+  wanted?: CardKind,
+  /** AI가 담당자를 id 대신 이름으로 쓴 경우 이름 → id */
+  idOf: (name: string) => string | null = () => null,
+): AiReply {
+  const list = (Array.isArray(raw) ? raw : [raw]).filter((c): c is Record<string, unknown> => !!c && typeof c === "object");
+  const card = list.find((c) => c.kind === wanted) ?? (wanted ? undefined : list[0]);
+  if (!card) {
+    return { kind: "notice", title: "AI가 부탁한 내용을 찾지 못했어요", basis: "대화가 조금 더 쌓인 뒤 다시 부탁해 주세요", items: [] };
+  }
+  const named = (t: unknown) => str(t).replace(UUID, (id) => nameOf(id.toLowerCase()));
+  const toId = (v: unknown) => {
+    const s = str(v);
+    return /^[0-9a-f-]{36}$/i.test(s) ? s.toLowerCase() : s ? idOf(s) : null;
+  };
+  const basisCount = Array.isArray(card.basis) ? card.basis.length : 0;
+  const basis = basisCount ? `메시지 ${basisCount}개를 근거로 정리했어요 · AI 정리라 틀릴 수 있어요` : "AI 정리라 틀릴 수 있어요";
+  const title = named(card.title) || "AI 정리";
   if (card.kind === "minutes") {
+    const arr = (v: unknown) => (Array.isArray(v) ? v : []);
     return {
       kind: "minutes",
-      title: card.title,
+      title,
       basis,
       items: [
-        ...card.summary.map((text) => ({ text })),
-        ...card.decided.map((d) => ({ text: d.text, tag: d.settled ? "확정" : "미정" })),
-        ...card.tasks.map((t) => ({ text: t.taskName, sub: t.dueDate || undefined, tag: "할 일" })),
-      ],
+        ...arr(card.summary).map((t) => ({ text: named(t) })),
+        ...arr(card.decided).map((d: Record<string, unknown>) => ({ text: named(d?.text), tag: d?.settled ? "정함" : "미정" })),
+        ...arr(card.tasks).map((t: Record<string, unknown>) => ({
+          text: named(t?.taskName),
+          sub: [str(t?.assignee) ? named(t.assignee) : "", isDate(t?.dueDate) ? t.dueDate : ""].filter(Boolean).join(" · ") || undefined,
+          tag: "할 일",
+          assigneeId: toId(t?.assignee),
+          due: isDate(t?.dueDate) ? (t.dueDate as string) : null,
+        })),
+      ].filter((it) => it.text),
     };
   }
-  return { kind: card.kind === "schedule" ? "notice" : card.kind, title: card.title, basis, items: card.items };
+  const kind = (["summary", "tasks", "files"] as const).find((k) => k === card.kind) ?? "notice";
+  const items = (Array.isArray(card.items) ? card.items : [])
+    .filter((it): it is Record<string, unknown> => !!it && typeof it === "object")
+    .map((it) => {
+      return {
+        text: named(it.text),
+        sub: named(it.sub) || undefined,
+        tag: named(it.tag) || undefined,
+        ...(kind === "tasks"
+          ? { assigneeId: toId(it.assigneeId), due: isDate(it.due) ? (it.due as string) : null }
+          : {}),
+      };
+    })
+    .filter((it) => it.text);
+  if (!items.length) {
+    const empty: Record<string, string> = { summary: "요약할 대화가 아직 없어요", tasks: "대화에서 새 할 일을 찾지 못했어요", files: "공유된 자료가 아직 없어요" };
+    return { kind, title, basis: "이미 있는 할 일과 겹치는 것은 빼요", items: [{ text: empty[kind] ?? "정리할 내용이 없어요" }] };
+  }
+  return { kind, title, basis, items };
 }
 
 type Conditions = Extract<MvpRequestResult, { status: "ready" }>["conditions"];

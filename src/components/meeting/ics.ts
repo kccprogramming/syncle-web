@@ -61,3 +61,20 @@ export function downloadIcs(ev: IcsEvent, fileName: string) {
   a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
+
+/**
+ * Google 캘린더 '일정 추가' 화면 주소 — 새 탭으로 열면 브라우저에 로그인된 Google 계정 캘린더에
+ * 제목 · 시간 · 장소가 채워진 채로 열리고, 사용자가 '저장'만 누르면 돼요.
+ * (앱이 캘린더에 직접 쓰려면 Google 캘린더 권한과 Google 앱 심사가 필요해서 이 방법을 써요)
+ */
+export function googleCalendarUrl(ev: IcsEvent) {
+  const q = new URLSearchParams({
+    action: "TEMPLATE",
+    text: ev.title,
+    dates: `${ev.start}/${ev.end}`,
+    ctz: "Asia/Seoul",
+    location: ev.location,
+    details: ev.description ?? "",
+  });
+  return `https://calendar.google.com/calendar/render?${q.toString()}`;
+}

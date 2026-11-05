@@ -10,7 +10,7 @@ import { TopBar } from "@/components/TopBar";
 import { Icon } from "@/components/Icon";
 import { AiAvatar } from "@/components/Logo";
 import { Toast, useToast } from "@/components/Toast";
-import { MAX_UPLOAD_BYTES, fileSizeLabel, isImageName, teamImageUrls, getAiReply, getFiles, getMe, getMessages, getTeam, loadTeamMembers, postProposalCard, loadTeamMessages, myUserId, requestAi, sendTeamMessage, subscribeTeamMessages, teamFileUrl, uploadTeamFile } from "@/lib/data";
+import { MAX_UPLOAD_BYTES, fileSizeLabel, isImageName, teamImageUrls, askTeamAi, createTeamTask, getAiReply, getFiles, getMe, getMessages, getTeam, loadTeamMembers, postProposalCard, loadTeamMessages, myUserId, requestAi, sendTeamMessage, subscribeTeamMessages, teamFileUrl, uploadTeamFile } from "@/lib/data";
 import type { Message, Team } from "@/types";
 import { isSchedulingRequest } from "@/lib/place-intent";
 import { useDemo } from "@/lib/demo-store";
@@ -163,7 +163,8 @@ export function ChatRoom({
   );
 
   const send = () => {
-    const text = draft.trim();
+    // '@ai', '@Ai'처럼 직접 쳐도 AI를 부른 걸로 알아들어요 (B · 화면은 '@AI'를 찾아요)
+    const text = draft.trim().replace(/@ai(?![A-Za-z0-9_])/gi, "@AI");
     if (!text) return;
     if (liveTeam) {
       // 진짜 팀: Supabase에 저장하면 실시간으로 팀원 화면에도 떠요
@@ -175,11 +176,25 @@ export function ChatRoom({
           setDraft(text);
           toast.show("메시지를 보내지 못했어요 · 다시 보내 주세요");
         });
-      // '@AI … 잡아줘'면 마감을 정하는 시트를 열어 C에 제안을 만들어요 (요약 · 할 일 같은 다른 부탁은 B 준비 뒤)
+      // '@AI … 잡아줘'면 마감을 정하는 시트를 열어 C에 제안을 만들어요.
+      // 요약 · 할 일 · 자료 정리는 B 앱 카드를 내 화면에만 보여줘요 (저장하지 않아요)
       if (text.includes("@AI")) {
         if (!aiOn) toast.show("AI 도우미가 꺼져 있어요");
         else if (isSchedulingRequest(text)) setProposalText(text);
-        else toast.show("지금은 '회의 잡아줘'만 돼요 · 요약 · 할 일 정리는 준비 중이에요");
+        else {
+          const thinkingId = newId();
+          setExtra((prev) => [...prev, { id: thinkingId, type: "ai-thinking", at: nowLabel() }]);
+          askTeamAi(liveTeam.id, text)
+            .then((reply) => replaceItem(thinkingId, { id: newId(), type: "ai-reply", reply, at: nowLabel() }))
+            .catch((e) =>
+              replaceItem(thinkingId, {
+                id: newId(),
+                type: "ai-reply",
+                reply: { kind: "notice", title: e instanceof Error ? e.message : "AI가 정리하지 못했어요", basis: "잠시 뒤 다시 부탁해 주세요 · 그동안 대화는 계속할 수 있어요", items: [] },
+                at: nowLabel(),
+              }),
+            );
+        }
       }
       return;
     }
@@ -374,6 +389,19 @@ export function ChatRoom({
             onRetry={retry}
             onTimeOnly={timeOnly}
             onToast={toast.show}
+            onAddTask={
+              liveTeam
+                ? async (it) => {
+                    try {
+                      await createTeamTask(liveTeam.id, { title: it.text, assigneeId: it.assigneeId ?? null, due: it.due ?? null });
+                      toast.show(`할 일을 추가했어요 · ${it.text}`);
+                    } catch (e) {
+                      toast.show(e instanceof Error ? e.message : "할 일을 추가하지 못했어요");
+                      throw e;
+                    }
+                  }
+                : undefined
+            }
           />
         )}
       </div>
@@ -425,6 +453,7 @@ export function ChatRoom({
         <CreateProposalSheet
           teamId={liveTeam.id}
           teamName={liveTeam.name}
+          request={proposalText}
           onClose={() => setProposalText(null)}
           onMessage={(m) => setLiveMsgs((prev) => (prev.some((x) => x.id === m.id) ? prev : [...prev, m]))}
           onCreated={(p) => {

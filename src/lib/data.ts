@@ -604,6 +604,25 @@ export async function createTeamTask(teamId: string, input: { title: string; ass
   return { id: String(data.id), title: String(data.title), assigneeId: data.assigned_to ? String(data.assigned_to) : null, dueAt: data.due_at ? String(data.due_at) : null, done: !!data.is_complete };
 }
 
+/**
+ * 진짜 팀 '@AI 요약 · 할 일 정리 · 자료 정리' — B 앱 카드 (POST /api/teams/{teamId}/ai).
+ * 답 카드는 부탁한 사람 화면에만 보여요 (저장하지 않아요). 할 일은 카드의 '추가'를 눌러야 저장돼요.
+ */
+export async function askTeamAi(teamId: string, text: string, extra: { memo?: string; window?: { startAt: string; endAt: string } } = {}): Promise<AiReply> {
+  const supabase = getSupabase();
+  const { data } = supabase ? await supabase.auth.getSession() : { data: { session: null } };
+  const token = data.session?.access_token;
+  if (!token) throw new Error("먼저 로그인해 주세요");
+  const res = await fetch(`/api/teams/${teamId}/ai`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ text, ...extra }),
+  });
+  const body = (await res.json().catch(() => null)) as { ok?: boolean; data?: AiReply; error?: { message?: string } } | null;
+  if (!res.ok || !body?.ok || !body.data) throw new Error(body?.error?.message ?? "AI가 정리하지 못했어요");
+  return body.data;
+}
+
 /** 할 일 완료 체크 — A */
 export async function setTaskDone(taskId: string, done: boolean): Promise<void> {
   const supabase = getSupabase();
