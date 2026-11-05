@@ -428,12 +428,13 @@ export function LiveProposal({ proposalId }: { proposalId: string }) {
                   <div className="hstack gap-8" style={{ background: 'var(--bg)', borderRadius: 10, padding: '8px 8px 8px 12px' }}>
                     <span className="stack grow" style={{ gap: 2, minWidth: 0 }}>
                       <span className="t-13 t-strong">{seoulLabel(candidate.startAt)} 기준</span>
-                      <span className="t-12 t-muted t-ellipsis">
+                      {/* 팀원 출발지 가운데에서 고른 후보 지역(역) · 찾는 장소 종류 — 줄이지 않고 다 보여줘요 */}
+                      <span className="t-12 t-muted" style={{ lineHeight: 1.5, wordBreak: 'keep-all' }}>
+                        찾은 지역{' '}
                         {(places?.searchAreas ?? []).join(' · ') ||
                           (areasText ? areasText.split(',').map((v) => v.trim()).filter(Boolean).join(' · ') : '팀원 출발지 가운데')}
-                        {' · '}
-                        {keyword || '회의 장소'}
                       </span>
+                      <span className="t-12 t-muted">장소 종류 {keyword || '회의 장소'}</span>
                     </span>
                     {owner && data.candidates.length > 1 ? (
                       <button type="button" className="btn btn--sm btn--ghost no-shrink" style={{ height: 34, fontSize: 13, border: '1px solid var(--line)' }} onClick={() => (busy ? toast.show('장소를 찾는 중이에요 · 끝나면 바꿀 수 있어요') : setSheet('time'))}>
