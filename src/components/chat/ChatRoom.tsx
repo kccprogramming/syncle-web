@@ -10,7 +10,7 @@ import { TopBar } from "@/components/TopBar";
 import { Icon } from "@/components/Icon";
 import { AiAvatar } from "@/components/Logo";
 import { Toast, useToast } from "@/components/Toast";
-import { getAiReply, getFiles, getMe, getMessages, getTeam, requestAi } from "@/lib/data";
+import { getAiReply, getFiles, getMe, getMessages, getTeam, loadTeamMembers, loadTeamMessages, myUserId, requestAi, sendTeamMessage, subscribeTeamMessages } from "@/lib/data";
 import type { Message, Team } from "@/types";
 import { isSchedulingRequest } from "@/lib/place-intent";
 import { useDemo } from "@/lib/demo-store";
@@ -44,7 +44,7 @@ export function ChatRoom({
   startMenu = false,
 }: {
   teamId: string;
-  /** 진짜 팀(A · Supabase). 있으면 데모 대화 · 요약 대신 이 팀 정보를 보여줘요 (대화 메시지 연결은 다음 단계) */
+  /** 진짜 팀(A · Supabase). 있으면 데모 대화 대신 이 팀의 진짜 메시지를 읽고 보내요 (실시간) */
   liveTeam?: Team;
   /** 회의가 확정됐는지 (데모 팀에서만 의미가 있어요) */
   confirmed: boolean;
@@ -75,9 +75,40 @@ export function ChatRoom({
   // 화면을 떠나면 기다리던 타이머 정리
   useEffect(() => () => timers.current.forEach(clearTimeout), []);
 
+  // ── 진짜 팀: 메시지 읽기 · 실시간 받기 (A · Supabase) ──
+  const [liveMsgs, setLiveMsgs] = useState<Message[]>([]);
+  const [meId, setMeId] = useState<string | null>(null);
+  const [, setMembersVersion] = useState(0); // 팀원 이름을 새로 불러오면 다시 그려요
+  useEffect(() => {
+    if (!liveTeam) return;
+    let gone = false;
+    const addOnce = (m: Message) => setLiveMsgs((prev) => (prev.some((x) => x.id === m.id) ? prev : [...prev, m]));
+    const known = new Set(liveTeam.memberIds);
+    Promise.all([myUserId(), loadTeamMembers(liveTeam.memberIds), loadTeamMessages(liveTeam.id)])
+      .then(([id, , msgs]) => {
+        if (gone) return;
+        setMeId(id);
+        setMembersVersion((v) => v + 1);
+        setLiveMsgs(msgs);
+      })
+      .catch(() => !gone && toast.show("대화를 불러오지 못했어요 · 새로고침해 주세요"));
+    const stop = subscribeTeamMessages(liveTeam.id, (m, senderId) => {
+      // 새로 들어온 팀원이 보낸 메시지면 이름을 다시 불러와요
+      if (senderId && !known.has(senderId)) {
+        known.add(senderId);
+        void loadTeamMembers([senderId]).then(() => setMembersVersion((v) => v + 1));
+      }
+      addOnce(m);
+    });
+    return () => {
+      gone = true;
+      stop();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [liveTeam]);
+
   // 서버 메시지 + 이 화면에서 보낸 메시지
-  // 진짜 팀은 아직 데모 대화를 보여주지 않아요 (A 메시지 연결 전)
-  let base: ChatItem[] = liveTeam ? [] : getMessages(teamId, isConfirmed);
+  let base: ChatItem[] = liveTeam ? liveMsgs : getMessages(teamId, isConfirmed);
   if (fresh && !isConfirmed) base = base.filter((m) => m.type === "text" || m.type === "file");
   const items = [...base, ...extra];
 
@@ -85,7 +116,7 @@ export function ChatRoom({
   useEffect(() => {
     const el = bodyRef.current;
     if (el) el.scrollTop = el.scrollHeight;
-  }, [extra, helpOpen]);
+  }, [extra, helpOpen, liveMsgs]);
 
   /** 목록에서 id가 같은 카드를 다른 카드로 바꾸기 */
   const replaceItem = useCallback((id: string, next: ChatItem) => {
@@ -107,6 +138,19 @@ export function ChatRoom({
   const send = () => {
     const text = draft.trim();
     if (!text) return;
+    if (liveTeam) {
+      // 진짜 팀: Supabase에 저장하면 실시간으로 팀원 화면에도 떠요
+      setDraft("");
+      setHelpOpen(false);
+      sendTeamMessage(liveTeam.id, text)
+        .then((m) => setLiveMsgs((prev) => (prev.some((x) => x.id === m.id) ? prev : [...prev, m])))
+        .catch(() => {
+          setDraft(text);
+          toast.show("메시지를 보내지 못했어요 · 다시 보내 주세요");
+        });
+      if (text.includes("@AI")) toast.show("진짜 팀의 AI 회의 잡기는 C 저장을 연결한 뒤에 열려요");
+      return;
+    }
     const at = nowLabel();
     const callsAi = text.includes("@AI");
     const mine: ChatItem = callsAi
@@ -240,7 +284,7 @@ export function ChatRoom({
         ) : (
           <ChatMessages
             items={items}
-            viewerId={me.id}
+            viewerId={liveTeam ? (meId ?? "") : me.id}
             teamId={teamId}
             onOpenFiles={() => setMenuOpen(true)}
             onRetry={retry}

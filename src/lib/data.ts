@@ -68,8 +68,11 @@ export function getMe(): Me {
 
 /** 팀원 정보 (profiles) — A. 다른 팀원의 출발지는 동네까지만 받아요. */
 export function getMember(id: string): Member {
-  return members.find((m) => m.id === id) ?? { id, name: "?", initial: "?", color: "#F0F1F4", ink: "#3B414D" };
+  return liveMembers.get(id) ?? members.find((m) => m.id === id) ?? { id, name: "?", initial: "?", color: "#F0F1F4", ink: "#3B414D" };
 }
+
+/** 진짜 팀원 (A · profiles). 대화방을 열 때 채워 두면 getMember가 진짜 이름을 돌려줘요 */
+const liveMembers = new Map<string, Member>();
 export function getMembers(ids: string[]): Member[] {
   return ids.map(getMember);
 }
@@ -158,6 +161,94 @@ export async function loadMyTeams(): Promise<Team[] | null> {
   });
   // 최근에 만든 팀이 위로
   return teams.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+}
+
+/* ───────── 진짜 대화방 (A · Supabase messages) ───────── */
+
+/** "2026-11-06T13:05:00Z" → "22:05" (이 기기 시간) */
+function hhmm(iso: string) {
+  const d = new Date(iso);
+  return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+}
+
+type MessageRow = { id: string; sender_id: string | null; content: string; message_type: string; created_at: string };
+
+/** DB 메시지 한 줄 → 화면 메시지 */
+export function toChatMessage(r: MessageRow): Message {
+  const at = hhmm(r.created_at);
+  if (r.message_type === "general" && r.sender_id) {
+    const text = String(r.content);
+    return /(^|\s)@AI(\s|$)/i.test(text)
+      ? { id: r.id, type: "mention-ai", senderId: r.sender_id, text: text.replace(/@AI\s*/i, "").trim(), at }
+      : { id: r.id, type: "text", senderId: r.sender_id, text, at };
+  }
+  if (r.message_type === "confirmed") return { id: r.id, type: "system", text: "회의가 확정됐어요", at };
+  return { id: r.id, type: "system", text: String(r.content), at };
+}
+
+/** 팀원 이름 불러와서 getMember가 쓰게 기억해요 (프로필은 같은 팀원끼리만 보여요) */
+export async function loadTeamMembers(memberIds: string[]): Promise<Member[]> {
+  const supabase = getSupabase();
+  if (!supabase || memberIds.length === 0) return [];
+  const { data, error } = await supabase.from("profiles").select("id,nickname").in("id", memberIds);
+  if (error) throw new Error(error.message);
+  const list = (data ?? []).map((p) => {
+    const name = String(p.nickname || "팀원");
+    return { id: String(p.id), name, initial: Array.from(name)[0] ?? "?", ...teamColor(String(p.id)) } satisfies Member;
+  });
+  list.forEach((m) => liveMembers.set(m.id, m));
+  return list;
+}
+
+/** 대화 메시지 (오래된 것부터, 최근 200개) — A. 비공개 메시지는 받는 사람에게만 와요 (RLS) */
+export async function loadTeamMessages(teamId: string): Promise<Message[]> {
+  const supabase = getSupabase();
+  if (!supabase) return [];
+  const { data, error } = await supabase
+    .from("messages")
+    .select("id,sender_id,content,message_type,created_at")
+    .eq("team_id", teamId)
+    .order("created_at", { ascending: false })
+    .limit(200);
+  if (error) throw new Error(error.message);
+  return (data ?? []).reverse().map((r) => toChatMessage(r as MessageRow));
+}
+
+/** 메시지 보내기 — A (messages insert, 보내는 사람 = 나) */
+export async function sendTeamMessage(teamId: string, text: string): Promise<Message> {
+  const { supabase, id } = await signedIn();
+  if (!supabase || !id) throw new Error("로그인이 필요해요");
+  const { data, error } = await supabase
+    .from("messages")
+    .insert({ team_id: teamId, sender_id: id, content: text.trim(), message_type: "general" })
+    .select("id,sender_id,content,message_type,created_at")
+    .single();
+  if (error) throw new Error(error.message);
+  return toChatMessage(data as MessageRow);
+}
+
+/**
+ * 새 메시지 실시간 받기 — A (Supabase Realtime). 끊을 때 부를 함수를 돌려줘요.
+ * 내가 볼 수 없는 비공개 메시지는 Supabase가 보내지 않아요.
+ */
+export function subscribeTeamMessages(teamId: string, onMessage: (m: Message, senderId: string | null) => void): () => void {
+  const supabase = getSupabase();
+  if (!supabase) return () => {};
+  const channel = supabase
+    .channel(`team-messages:${teamId}`)
+    .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages", filter: `team_id=eq.${teamId}` }, (payload) => {
+      const row = payload.new as MessageRow;
+      onMessage(toChatMessage(row), row.sender_id);
+    })
+    .subscribe();
+  return () => {
+    void supabase.removeChannel(channel);
+  };
+}
+
+/** 지금 로그인한 내 id (A) */
+export async function myUserId(): Promise<string | null> {
+  return (await signedIn()).id ?? null;
 }
 
 /** 팀 하나 — A. 내가 속한 팀이 아니거나 로그인 안 했으면 null */

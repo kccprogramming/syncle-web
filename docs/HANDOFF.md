@@ -111,8 +111,10 @@
    - **내 정보 저장 연결 완료 (11/6)**: 로그인하면 1-1의 출발지 · 매주 안 되는 시간 · 알림을 Supabase에서 읽고 저장해요 (`data.ts`의 `loadMyProfile`, `saveMyOrigin`, `saveMyWeekly`, `saveMyNotifications`). 정확한 출발지는 `profile_private_locations.departure_origin`(D에 넘기는 글자: 역 이름 또는 도로명 주소), 동네는 `profiles.departure_neighborhood`, 매주 안 되는 시간은 A 방식대로 한 줄 글 배열(`weekly_unavailable`).
    - 주의: `data.ts`는 서버 라우트에서도 쓰여서 `supabase.ts`에는 React 훅을 넣지 않아요 (넣으면 `/api/*`가 깨져요). 로그인 사용자 훅은 `use-auth-user.ts`.
    - **팀 연결 완료 (11/6)**: 로그인하면 1 홈은 내 진짜 팀(`loadMyTeams`, 없으면 1-0), 2 새 팀 만들기는 `create_team`(만든 사람 = 방장, 진짜 초대 링크 복사, 추가한 매주 안 되는 시간은 프로필에 저장), 0-2 초대 화면은 `preview_team_invite`(로그인 전에도), 2-1 참여는 `join_team` + 이름(`profiles.nickname`) · 출발지 저장. 진짜 초대 코드는 32자리라 데모 코드(`7K2Q-HCI4`)와 구분해요 (`isLiveInviteCode`).
-   - 3 대화방: 진짜 팀(UUID)이면 `loadTeam`으로 이름 · 인원 · AI 설정을 보여주고 데모 대화 · 요약 줄은 숨겨요. **보낸 메시지는 아직 저장 안 돼요.** 팀 메뉴의 팀원 아바타 · 할 일 · 자료도 아직 데모 함수라 비어 있거나 '?'로 보여요.
-   - 다음: 대화 메시지(`messages` 읽기 · 보내기 · 실시간)를 Supabase로. 그다음 대화방 '@AI 회의 잡아줘' → C 제안 만들기(`createLiveProposal`, 응답 마감 · 자료 마감 입력).
+   - 3 대화방: 진짜 팀(UUID)이면 `loadTeam`으로 이름 · 인원 · AI 설정을 보여주고 데모 요약 줄은 숨겨요.
+   - **대화 메시지 연결 완료 (11/6)**: 진짜 팀 대화방은 `loadTeamMessages`(최근 200개) · `sendTeamMessage`(general) · `subscribeTeamMessages`(Supabase Realtime, 새 메시지 바로 표시)를 써요. 팀원 이름은 `loadTeamMembers`가 불러와 `getMember`가 진짜 이름을 돌려줘요. 확정 · 알림 같은 AI 메시지는 지금은 한 줄 안내(system)로 보여요. '@AI'는 저장만 하고 "C 연결 뒤에 열려요" 안내.
+   - 아직: 팀 메뉴의 할 일 · 자료 · 회의 목록은 데모 함수라 진짜 팀에서는 비어 있어요. 파일 보내기(+ 메뉴)도 준비 중.
+   - 다음: 대화방 '@AI 회의 잡아줘' → C 제안 만들기 (C SQL 적용 뒤). 그다음 대화방 '@AI 회의 잡아줘' → C 제안 만들기(`createLiveProposal`, 응답 마감 · 자료 마감 입력).
    - 팀원 출발지: D 계산용 정확한 출발지는 `profile_private_locations`에 있고, 서버만 `get_team_private_origins_for_calculation`(005, service role 키)으로 읽어요. 브라우저에서 부르지 않아요.
    - `src/lib/data.ts`의 함수 안쪽만 API 호출로 바꿔요 (각 함수 위에 담당·API 주소 주석). `saveMyOrigin`이 출발지 저장 자리예요
    - `src/mocks/member-origins.json`(팀원 출발지 임시값)과 `demo-store`의 서버 저장 대상(확정, 응답, 출발지, 할 일)을 A API로 바꾸기
