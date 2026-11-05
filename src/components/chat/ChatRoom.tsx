@@ -150,11 +150,38 @@ export function ChatRoom({
     setExtra((prev) => [...prev, item]);
   };
 
-  // 새 메시지가 생기면 맨 아래로
-  useEffect(() => {
+  // ── 스크롤: 맨 아래를 보고 있을 때만 새 메시지를 따라 내려가요 ──
+  // 위쪽 대화를 읽는 중이면 그대로 두고 '새 메시지 ↓' 버튼만 보여줘요. 내가 보낸 메시지는 항상 내려가요.
+  const atBottom = useRef(true);
+  const lastSeen = useRef<string | null>(null); // 마지막으로 처리한 맨 아래 항목 id
+  const [unread, setUnread] = useState(0);
+  const viewerId = liveTeam ? (meId ?? "") : me.id;
+  const scrollToBottom = useCallback((smooth = false) => {
     const el = bodyRef.current;
-    if (el) el.scrollTop = el.scrollHeight;
-  }, [extra, helpOpen, liveMsgs]);
+    if (!el) return;
+    el.scrollTo({ top: el.scrollHeight, behavior: smooth ? "smooth" : "auto" });
+    atBottom.current = true;
+    setUnread(0);
+  }, []);
+  const onBodyScroll = () => {
+    const el = bodyRef.current;
+    if (!el) return;
+    atBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+    if (atBottom.current) setUnread(0);
+  };
+  const lastItem = items.at(-1);
+  useEffect(() => {
+    if (!lastItem || lastItem.id === lastSeen.current) return;
+    const first = lastSeen.current === null;
+    lastSeen.current = lastItem.id;
+    const mine = ("senderId" in lastItem && lastItem.senderId === viewerId) || lastItem.type === "ai-thinking" || lastItem.type === "ai-working";
+    if (first || mine || atBottom.current) scrollToBottom();
+    else setUnread((n) => n + 1);
+  }, [lastItem, viewerId, scrollToBottom]);
+  // AI 도움말을 열고 닫을 때는 아래를 보고 있었을 때만 맞춰요
+  useEffect(() => {
+    if (atBottom.current) scrollToBottom();
+  }, [helpOpen, scrollToBottom]);
 
   /** 목록에서 id가 같은 카드를 다른 카드로 바꾸기 */
   const replaceItem = useCallback((id: string, next: ChatItem) => {
@@ -394,7 +421,7 @@ export function ChatRoom({
         />
       ) : null}
 
-      <div ref={bodyRef} className="screen__body" style={{ borderTop: hideBar ? "1px solid var(--line)" : undefined }} onClick={() => setHelpOpen(false)}>
+      <div ref={bodyRef} className="screen__body" style={{ borderTop: hideBar ? "1px solid var(--line)" : undefined }} onClick={() => setHelpOpen(false)} onScroll={onBodyScroll}>
         {/* 메시지를 아래쪽에 붙이는 빈칸 */}
         <div style={{ marginTop: "auto" }} />
         {items.length === 0 ? (
@@ -408,7 +435,7 @@ export function ChatRoom({
         ) : (
           <ChatMessages
             items={items}
-            viewerId={liveTeam ? (meId ?? "") : me.id}
+            viewerId={viewerId}
             teamId={teamId}
             onOpenFiles={openFile}
             imageUrls={imageUrls}
@@ -431,6 +458,18 @@ export function ChatRoom({
           />
         )}
       </div>
+      {unread > 0 ? (
+        <div style={{ position: "relative", height: 0 }}>
+          <button
+            type="button"
+            className="btn btn--sm btn--primary"
+            style={{ position: "absolute", bottom: 12, left: "50%", transform: "translateX(-50%)", boxShadow: "0 4px 12px rgba(0,0,0,.15)", zIndex: 5 }}
+            onClick={() => scrollToBottom(true)}
+          >
+            새 메시지 {unread}개 ↓
+          </button>
+        </div>
+      ) : null}
 
       {helpOpen ? <AiHelpPanel onPick={fillDraft} /> : null}
 

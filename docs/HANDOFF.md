@@ -151,6 +151,7 @@ B 최신(`placeType` 필수)에 맞춰 연결 쪽에서 고친 것: C `src/serve
      - **9 회의록** `/meetings/{제안 ID}/minutes` (`LiveMinutes.tsx`): 회의 메모(선택) + 회의 시간 앞뒤 30분 대화 → B 회의록 카드 → 요약 · 정한 것 · 할 일(골라서 팀 할 일 추가). 회의록은 저장하지 않고 '대화방에 올리기'로 남겨요. 녹음은 범위 밖.
      - **7 내 조건** `/proposals/{제안 ID}/conditions` (`LiveConditions.tsx`): AI가 이해한 내 시간(C 조건의 나) · 내 응답 · 매주 안 되는 시간(내 정보) · 출발 위치(바로 수정). '+ 이번 회의 조건 추가' → C `condition`(안 돼요 · 되면 좋아요, 찾는 기간 안). 5 화면 아래 'AI가 이해한 내 조건 보기 ›'로 들어가요.
    - **알림 (11/6)**: 1-2 알림은 `loadMyNotifications`(A `app_notifications`, 최근 100개), 하나 열면 그것만 · '모두 읽음'은 전부 `markNotificationsRead`. 홈 🔔은 `countUnreadNotifications` + `subscribeMyNotifications`(실시간). 지금 생기는 알림: `task_assigned`(할 일 배정 → 그 팀 할 일 탭), `meeting_response`(C '다시 알림' → 제안 화면). 실제 두 계정으로 확인.
+   - **대화방 스크롤 (11/6 밤)**: 맨 아래를 보고 있을 때만 새 메시지를 따라 내려가요. 위쪽을 읽는 중이면 그대로 두고 '새 메시지 N개 ↓' 버튼(누르면 맨 아래로). 내가 보낸 메시지 · AI 정리 중은 항상 내려가요.
    - 화면 크기: 컴퓨터(500px 이상)에서는 휴대폰 화면 높이를 `min(844px, 창 높이 − 32px)`로 고정하고 페이지 스크롤을 막아요. 화면 안(`.screen__body`)만 스크롤.
    - 팀 메뉴 · 전체 보기의 회의는 진짜 팀이면 `loadTeamProposals`(c_schedule_list)로 보여줘요. 대화방 '@AI 회의 잡아줘' → C 제안 만들기도 연결 끝 (아래 2번).
    - 팀원 출발지: D 계산용 정확한 출발지는 `profile_private_locations`에 있고, 서버만 `get_team_private_origins_for_calculation`(005, service role 키)으로 읽어요. 브라우저에서 부르지 않아요.
