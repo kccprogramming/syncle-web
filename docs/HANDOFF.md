@@ -106,7 +106,9 @@
    - A 코드: `just_keeping` PR #2. Supabase 접속(`lib/supabase/client.ts`, `server-api.ts`)과 API(`/api/tasks`, `/api/notifications`, `/api/account`). 서버 API는 로그인 토큰을 `Authorization: Bearer`로 받아요.
    - 확정 메시지: 일반 사용자는 `messages`에 `confirmed`를 직접 못 넣어요. 서버가 **로그인한 방장의 토큰으로** `create_confirmed_message(p_team_id, p_content, p_visible_to)`를 불러야 해요 (C 확정과 같이 연결).
    - **Google 로그인 연결 완료 (11/6)**: `src/lib/supabase.ts`(접속·로그인·로그아웃·`useAuthUser`), 0-1·0-2 로그인 버튼, 돌아오는 화면 `/auth/callback`(팀 있으면 1, 없으면 1-0), 1-1 내 정보의 계정 표시·로그아웃. 키가 없으면 예전 데모로 움직여요. Supabase Redirect URLs에 `http://localhost:3000/**` 넣음 (Vercel 주소는 배포 때 추가).
-   - 다음: 홈 팀 목록 · 팀 만들기/참여 · 대화 메시지 · 출발지 저장을 `data.ts`에서 Supabase로.
+   - **내 정보 저장 연결 완료 (11/6)**: 로그인하면 1-1의 출발지 · 매주 안 되는 시간 · 알림을 Supabase에서 읽고 저장해요 (`data.ts`의 `loadMyProfile`, `saveMyOrigin`, `saveMyWeekly`, `saveMyNotifications`). 정확한 출발지는 `profile_private_locations.departure_origin`(D에 넘기는 글자: 역 이름 또는 도로명 주소), 동네는 `profiles.departure_neighborhood`, 매주 안 되는 시간은 A 방식대로 한 줄 글 배열(`weekly_unavailable`).
+   - 주의: `data.ts`는 서버 라우트에서도 쓰여서 `supabase.ts`에는 React 훅을 넣지 않아요 (넣으면 `/api/*`가 깨져요). 로그인 사용자 훅은 `use-auth-user.ts`.
+   - 다음: 홈 팀 목록 · 팀 만들기/참여 · 대화 메시지를 `data.ts`에서 Supabase로.
    - 팀원 출발지: D 계산용 정확한 출발지는 `profile_private_locations`에 있고, 서버만 `get_team_private_origins_for_calculation`(005, service role 키)으로 읽어요. 브라우저에서 부르지 않아요.
    - `src/lib/data.ts`의 함수 안쪽만 API 호출로 바꿔요 (각 함수 위에 담당·API 주소 주석). `saveMyOrigin`이 출발지 저장 자리예요
    - `src/mocks/member-origins.json`(팀원 출발지 임시값)과 `demo-store`의 서버 저장 대상(확정, 응답, 출발지, 할 일)을 A API로 바꾸기

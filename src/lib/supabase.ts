@@ -1,15 +1,13 @@
-"use client";
-
 /**
- * Supabase 연결 (A · 현서) — 브라우저에서만 써요.
+ * Supabase 연결 (A · 현서) — 브라우저에서만 불러요.
+ * (data.ts가 서버 코드에서도 쓰여서 "use client"를 붙이지 않고, React 훅은 use-auth-user.ts에 따로 뒀어요.)
  *
  * .env.local의 NEXT_PUBLIC_SUPABASE_URL · NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY로 접속해요.
  * 둘 중 하나라도 없으면 null을 돌려주고, 화면은 지금처럼 가짜 데이터 데모로 움직여요.
  * 비밀 키(SUPABASE_SERVICE_ROLE_KEY)는 여기서 절대 쓰지 않아요 (서버 전용).
  */
 import { createBrowserClient } from "@supabase/ssr";
-import type { SupabaseClient, User } from "@supabase/supabase-js";
-import { useEffect, useState } from "react";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 let client: SupabaseClient | null | undefined;
 
@@ -38,20 +36,4 @@ export async function signInWithGoogle(next?: string): Promise<string | null> {
 
 export async function signOut(): Promise<void> {
   await getSupabase()?.auth.signOut();
-}
-
-/** 지금 로그인한 사람. undefined = 확인 중, null = 로그인 안 함(또는 Supabase 키 없음) */
-export function useAuthUser(): User | null | undefined {
-  const [user, setUser] = useState<User | null | undefined>(undefined);
-  useEffect(() => {
-    const supabase = getSupabase();
-    if (!supabase) {
-      setUser(null);
-      return;
-    }
-    void supabase.auth.getUser().then(({ data }) => setUser(data.user ?? null));
-    const { data } = supabase.auth.onAuthStateChange((_event, session) => setUser(session?.user ?? null));
-    return () => data.subscription.unsubscribe();
-  }, []);
-  return user;
 }

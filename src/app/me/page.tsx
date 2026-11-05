@@ -1,7 +1,7 @@
 "use client";
 
 /** 1-1 내 정보 — 출발지, 매주 안 되는 시간, 알림 설정, 로그아웃. */
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { TopBar } from "@/components/TopBar";
 import { Avatar } from "@/components/Avatar";
@@ -11,8 +11,9 @@ import { WeeklyBlockSheet, formatBlock } from "@/components/home/WeeklyBlockShee
 import { OriginPickerSheet } from "@/components/home/OriginPickerSheet";
 import { Icon } from "@/components/Icon";
 import { useDemo } from "@/lib/demo-store";
-import { getMe, getTeams, saveMyOrigin } from "@/lib/data";
-import { signOut, useAuthUser } from "@/lib/supabase";
+import { getMe, getTeams, loadMyProfile, originForD, saveMyNotifications, saveMyOrigin, saveMyWeekly, type MyProfile } from "@/lib/data";
+import { signOut } from "@/lib/supabase";
+import { useAuthUser } from "@/lib/use-auth-user";
 
 export default function MePage() {
   const me = getMe();
@@ -23,6 +24,37 @@ export default function MePage() {
   // 실제 Google 로그인(A)을 했으면 그 계정을 보여줘요. 아니면 가짜 데이터의 '나'
   const user = useAuthUser();
   const name = (user?.user_metadata?.full_name as string | undefined) ?? me.name;
+  // 로그인했으면 Supabase에 저장된 내 정보(A)를, 아니면 데모 값을 보여줘요
+  const [profile, setProfile] = useState<MyProfile | null>(null);
+  // 확인 중(undefined)일 때도 데모 값을 잠깐 보여주지 않게 live로 둬요
+  const live = user !== null;
+  useEffect(() => {
+    if (!user) return setProfile(null);
+    loadMyProfile()
+      .then((p) => {
+        setProfile(p);
+        if (p) setNotiOn(p.notificationsOn);
+      })
+      .catch(() => toast.show("내 정보를 불러오지 못했어요"));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
+
+  // 화면에 보일 출발지 · 매주 안 되는 시간
+  const origin = live
+    ? profile?.origin
+      ? { name: profile.origin, roadAddress: "", area: profile.area ?? "" }
+      : null
+    : state.origin;
+  const weeklyLines = live ? (profile?.weekly ?? []) : state.weeklyBlocks.map(formatBlock);
+
+  async function saveOrFail(job: Promise<void>, done: string) {
+    try {
+      await job;
+      toast.show(done);
+    } catch {
+      toast.show("저장하지 못했어요 · 잠시 후 다시 해 주세요");
+    }
+  }
 
   async function logout() {
     await signOut();
@@ -31,8 +63,6 @@ export default function MePage() {
 
   const [sheetOpen, setSheetOpen] = useState(false);
   const [originOpen, setOriginOpen] = useState(false);
-  const origin = state.origin;
-  // TODO: API 연결 시 알림 설정도 서버에 저장하기
   const [notiOn, setNotiOn] = useState(me.notificationsOn);
 
   const soon = () => toast.show("준비 중이에요");
@@ -79,8 +109,8 @@ export default function MePage() {
               </span>
               {origin ? (
                 <>
-                  <span className="t-13 t-ink2 t-ellipsis">{origin.roadAddress}</span>
-                  <span className="t-12 t-muted">팀원에게는 ‘{origin.area}’까지만 보여요</span>
+                  {origin.roadAddress ? <span className="t-13 t-ink2 t-ellipsis">{origin.roadAddress}</span> : null}
+                  {origin.area ? <span className="t-12 t-muted">팀원에게는 ‘{origin.area}’까지만 보여요</span> : null}
                 </>
               ) : null}
             </span>
@@ -90,9 +120,9 @@ export default function MePage() {
           <div className="stack gap-8" style={{ padding: "12px 16px 16px" }}>
             <span className="t-13 t-muted">매주 안 되는 시간</span>
             <div className="hstack gap-8" style={{ flexWrap: "wrap" }}>
-              {state.weeklyBlocks.map((b) => (
-                <span key={b.id} className="chip chip--soft" style={{ padding: "0 12px" }}>
-                  {formatBlock(b)}
+              {weeklyLines.map((line, i) => (
+                <span key={`${i}-${line}`} className="chip chip--soft" style={{ padding: "0 12px" }}>
+                  {line}
                 </span>
               ))}
               <button type="button" className="chip chip--dashed" onClick={() => setSheetOpen(true)}>
@@ -111,7 +141,7 @@ export default function MePage() {
               label="알림"
               onChange={(next) => {
                 setNotiOn(next);
-                toast.show(next ? "알림을 켰어요" : "알림을 껐어요");
+                void saveOrFail(saveMyNotifications(next), next ? "알림을 켰어요" : "알림을 껐어요");
               }}
             />
           </div>
@@ -143,13 +173,13 @@ export default function MePage() {
 
       {originOpen && (
         <OriginPickerSheet
-          initial={origin}
+          initial={live ? null : state.origin}
           onClose={() => setOriginOpen(false)}
           onPick={(place) => {
             update({ origin: place });
-            void saveMyOrigin(me.id, place);
             setOriginOpen(false);
-            toast.show("출발하는 곳을 바꿨어요");
+            if (live) setProfile((p) => (p ? { ...p, origin: originForD(place), area: place.area } : p));
+            void saveOrFail(saveMyOrigin(me.id, place), "출발하는 곳을 바꿨어요");
           }}
         />
       )}
@@ -159,7 +189,11 @@ export default function MePage() {
           onAdd={(block) => {
             update((s) => ({ weeklyBlocks: [...s.weeklyBlocks, block] }));
             setSheetOpen(false);
-            toast.show("매주 안 되는 시간을 추가했어요");
+            if (live && profile) {
+              const lines = [...profile.weekly, formatBlock(block)];
+              setProfile({ ...profile, weekly: lines });
+              void saveOrFail(saveMyWeekly(lines), "매주 안 되는 시간을 추가했어요");
+            } else toast.show("매주 안 되는 시간을 추가했어요");
           }}
         />
       )}

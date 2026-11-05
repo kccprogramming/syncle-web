@@ -44,6 +44,7 @@ import aiRepliesJson from "@/mocks/ai-replies.json";
 import memberOriginsJson from "@/mocks/member-origins.json";
 import bConditionsJson from "@/mocks/b-conditions.json";
 import type { PlaceIntent } from "@/lib/place-intent";
+import { getSupabase } from "@/lib/supabase";
 
 const members = membersJson as Member[];
 const teams = teamsJson as Team[];
@@ -117,13 +118,78 @@ export function getMemberOrigin(memberId: string): string | undefined {
   return (memberOriginsJson as Record<string, string>)[memberId];
 }
 
+/** 로그인한 내 프로필 (A · Supabase profiles + profile_private_locations) */
+export interface MyProfile {
+  nickname: string;
+  /** 정확한 출발지 (나만 봄). D에 넘기는 글자 그대로: 역 이름 또는 도로명 주소 */
+  origin: string | null;
+  /** 팀원에게 보이는 동네 */
+  area: string | null;
+  /** 매주 안 되는 시간 — A는 한 줄 글로 저장해요 ("화·목 14:00–18:00 수업") */
+  weekly: string[];
+  notificationsOn: boolean;
+}
+
 /**
- * 내 출발지 저장 — A (PATCH /api/me  { departureStation, departureLat, departureLng })
- * 2 새 팀 만들기, 2-1 팀 참여, 1-1 내 정보에서 출발지를 고르면 불러요.
- * 지금은 서버가 없어서 아무것도 하지 않고, 화면은 데모 상태(demo-store)에 기억해요.
+ * 내 프로필 불러오기 — A (Supabase). 로그인하지 않았거나 Supabase 키가 없으면 null (화면은 데모 값을 써요).
  */
-export async function saveMyOrigin(_memberId: string, _place: PlaceSearchResult): Promise<void> {
-  // TODO: A 연결 시 fetch("/api/me", { method: "PATCH", body: JSON.stringify({ ... }) })
+export async function loadMyProfile(): Promise<MyProfile | null> {
+  const supabase = getSupabase();
+  if (!supabase) return null;
+  const { data: auth } = await supabase.auth.getUser();
+  const id = auth.user?.id;
+  if (!id) return null;
+  const [profile, loc] = await Promise.all([
+    supabase.from("profiles").select("nickname,departure_neighborhood,weekly_unavailable,notifications_enabled").eq("id", id).maybeSingle(),
+    supabase.from("profile_private_locations").select("departure_origin").eq("user_id", id).maybeSingle(),
+  ]);
+  if (profile.error) throw new Error(profile.error.message);
+  const p = profile.data;
+  return {
+    nickname: p?.nickname ?? "",
+    origin: loc.data?.departure_origin ?? null,
+    area: p?.departure_neighborhood ?? null,
+    weekly: Array.isArray(p?.weekly_unavailable) ? (p.weekly_unavailable as unknown[]).filter((x): x is string => typeof x === "string") : [],
+    notificationsOn: p?.notifications_enabled ?? true,
+  };
+}
+
+/**
+ * 내 출발지 저장 — A (Supabase)
+ * 정확한 출발지는 나만 보는 profile_private_locations에, 동네는 팀원이 보는 profiles에 저장해요.
+ * 2 새 팀 만들기, 2-1 팀 참여, 1-1 내 정보에서 출발지를 고르면 불러요. 로그인 안 했으면 아무것도 하지 않아요 (데모).
+ */
+export async function saveMyOrigin(_memberId: string, place: PlaceSearchResult): Promise<void> {
+  const { supabase, id } = await signedIn();
+  if (!supabase || !id) return;
+  const now = new Date().toISOString();
+  const [a, b] = await Promise.all([
+    supabase.from("profile_private_locations").upsert({ user_id: id, departure_origin: originForD(place), updated_at: now }),
+    supabase.from("profiles").update({ departure_neighborhood: place.area || null, updated_at: now }).eq("id", id),
+  ]);
+  if (a.error || b.error) throw new Error((a.error ?? b.error)!.message);
+}
+
+/** 매주 안 되는 시간 저장 — A (Supabase profiles.weekly_unavailable). 로그인 안 했으면 아무것도 하지 않아요 */
+export async function saveMyWeekly(lines: string[]): Promise<void> {
+  const { supabase, id } = await signedIn();
+  if (!supabase || !id) return;
+  const { error } = await supabase.from("profiles").update({ weekly_unavailable: lines, updated_at: new Date().toISOString() }).eq("id", id);
+  if (error) throw new Error(error.message);
+}
+
+/** 알림 켜기/끄기 저장 — A (Supabase profiles.notifications_enabled) */
+export async function saveMyNotifications(on: boolean): Promise<void> {
+  const { supabase, id } = await signedIn();
+  if (!supabase || !id) return;
+  const { error } = await supabase.from("profiles").update({ notifications_enabled: on }).eq("id", id);
+  if (error) throw new Error(error.message);
+}
+
+async function signedIn() {
+  const supabase = getSupabase();
+  const id = supabase ? (await supabase.auth.getUser()).data.user?.id : undefined;
+  return { supabase, id };
 }
 
 /** D에 보낼 출발지 글자: 역 이름이면 이름 그대로, 아니면 도로명 주소 (D resolveOrigin이 역/주소를 나눠서 찾아요) */
