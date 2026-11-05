@@ -155,7 +155,18 @@ function Bubble({ item, mine, first, onOpenFiles, imageUrl }: { item: ChatItem; 
   // 묶음의 첫 말풍선만 꼬리 쪽 모서리를 덜 둥글게
   const radius = first ? undefined : 14;
 
-  // 사진: 미리보기 주소가 있으면 사진 그대로 보여줘요 (누르면 크게)
+  // 사진: 미리보기 주소가 있으면 사진 그대로 보여줘요 (누르면 크게). 올리는 중이면 흐리게 + 안내
+  if (item.type === "file" && imageUrl && item.uploading) {
+    return (
+      <div style={{ position: "relative", lineHeight: 0 }} aria-label={`${item.fileName} 올리는 중`}>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={imageUrl} alt="" style={{ width: 220, maxWidth: "100%", maxHeight: 260, objectFit: "cover", borderRadius: radius ?? 16, display: "block", opacity: 0.55 }} />
+        <span className="t-12" style={{ position: "absolute", left: 8, bottom: 8, lineHeight: 1.4, padding: "2px 8px", borderRadius: 10, background: "rgba(0,0,0,0.55)", color: "#fff" }}>
+          올리는 중…
+        </span>
+      </div>
+    );
+  }
   if (item.type === "file" && imageUrl) {
     return (
       <a href={imageUrl} target="_blank" rel="noreferrer" aria-label={`${item.fileName} 사진 크게 보기`} style={{ display: "block", lineHeight: 0 }}>
@@ -181,14 +192,20 @@ function Bubble({ item, mine, first, onOpenFiles, imageUrl }: { item: ChatItem; 
           <span className="t-14 t-strong" style={{ wordBreak: "break-all" }}>
             {item.fileName}
           </span>
-          <button
-            type="button"
-            onClick={() => onOpenFiles(item.id)}
-            className="t-12"
-            style={{ border: 0, background: "none", padding: "2px 0", textAlign: "left", color: mine ? "#fff" : "var(--accent)" }}
-          >
-            {item.size} · 팀 자료에 저장됨 ›
-          </button>
+          {item.uploading ? (
+            <span className="t-12" style={{ padding: "2px 0", color: mine ? "#fff" : "var(--muted)", opacity: 0.85 }}>
+              {item.size} · 올리는 중…
+            </span>
+          ) : (
+            <button
+              type="button"
+              onClick={() => onOpenFiles(item.id)}
+              className="t-12"
+              style={{ border: 0, background: "none", padding: "2px 0", textAlign: "left", color: mine ? "#fff" : "var(--accent)" }}
+            >
+              {item.size} · 팀 자료에 저장됨 ›
+            </button>
+          )}
         </div>
       </div>
     );

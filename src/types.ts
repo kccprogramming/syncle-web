@@ -61,7 +61,7 @@ export interface Team {
 /** 대화 메시지 (messages). type에 따라 화면에 그리는 모양이 달라요. */
 export type Message =
   | { id: string; type: "text"; senderId: UserId; text: string; at: string }
-  | { id: string; type: "file"; senderId: UserId; fileName: string; size: string; at: string }
+  | { id: string; type: "file"; senderId: UserId; fileName: string; size: string; at: string; /** 이 기기에서 올리는 중 (끝나면 진짜 메시지로 바뀌어요) */ uploading?: boolean }
   | { id: string; type: "mention-ai"; senderId: UserId; text: string; at: string }
   | { id: string; type: "system"; text: string; at: string }
   | { id: string; type: "ai-proposal"; proposalId: string; at: string }

@@ -8,6 +8,9 @@ import { useRef } from "react";
 import { Icon, type IconName } from "@/components/Icon";
 import { Sheet } from "@/components/Sheet";
 
+/** 어느 버튼으로 올리는지 */
+export type UploadKind = "photo" | "file";
+
 const tileStyle: React.CSSProperties = {
   height: 76,
   border: 0,
@@ -29,7 +32,7 @@ export function ShareSheet({
   onAiHelp,
   onSoon,
   onPickFile,
-  uploading = false,
+  uploading = null,
 }: {
   open: boolean;
   onClose: () => void;
@@ -39,10 +42,10 @@ export function ShareSheet({
   onAiHelp: () => void;
   /** 아직 없는 기능 */
   onSoon: () => void;
-  /** 사진 · 파일을 골랐을 때 */
-  onPickFile: (file: File) => void;
-  /** 올리는 중이면 사진 · 파일 버튼을 잠가요 */
-  uploading?: boolean;
+  /** 사진 · 파일을 골랐을 때 (어느 버튼으로 골랐는지 같이 넘겨요) */
+  onPickFile: (file: File, kind: UploadKind) => void;
+  /** 올리는 중인 버튼. 그 버튼만 '올리는 중…'으로 바뀌고 잠겨요 */
+  uploading?: UploadKind | null;
 }) {
   const photoRef = useRef<HTMLInputElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -52,10 +55,10 @@ export function ShareSheet({
       {label}
     </button>
   );
-  const picked = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const picked = (kind: UploadKind) => (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.currentTarget.files?.[0];
     e.currentTarget.value = ""; // 같은 파일을 다시 골라도 올라가게
-    if (file) onPickFile(file);
+    if (file) onPickFile(file, kind);
   };
 
   return (
@@ -64,13 +67,13 @@ export function ShareSheet({
         공유하기
       </span>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 8, marginTop: -4 }}>
-        {tile("image", uploading ? "올리는 중…" : "사진", () => photoRef.current?.click(), uploading)}
-        {tile("file", uploading ? "올리는 중…" : "파일", () => fileRef.current?.click(), uploading)}
+        {tile("image", uploading === "photo" ? "올리는 중…" : "사진", () => photoRef.current?.click(), uploading === "photo")}
+        {tile("file", uploading === "file" ? "올리는 중…" : "파일", () => fileRef.current?.click(), uploading === "file")}
         {tile("task", "할 일", onSoon)}
         {tile("calendarAdd", "AI로 회의 잡기", onAiMeeting)}
       </div>
-      <input ref={photoRef} type="file" accept="image/*" hidden onChange={picked} />
-      <input ref={fileRef} type="file" hidden onChange={picked} />
+      <input ref={photoRef} type="file" accept="image/*" hidden onChange={picked("photo")} />
+      <input ref={fileRef} type="file" hidden onChange={picked("file")} />
       <button
         type="button"
         onClick={onAiHelp}

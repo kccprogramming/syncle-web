@@ -17,7 +17,7 @@ import { useDemo } from "@/lib/demo-store";
 import { AI_CHIPS, AiHelpPanel } from "./AiHelpPanel";
 import { ChatMessages, type ChatItem } from "./ChatMessages";
 import { Composer } from "./Composer";
-import { ShareSheet } from "./ShareSheet";
+import { ShareSheet, type UploadKind } from "./ShareSheet";
 import { SummaryBar } from "./SummaryBar";
 import { TeamDrawer } from "./TeamDrawer";
 import { DEMO_TEAM_ID, getTeamMeetings, getTeamProposal, meetingLine, shortTitle, taskSummary, useTeamAi } from "./team-info";
@@ -68,7 +68,7 @@ export function ChatRoom({
   const [helpOpen, setHelpOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(startShare);
   const [menuOpen, setMenuOpen] = useState(startMenu);
-  const [uploading, setUploading] = useState(false);
+  const [uploading, setUploading] = useState<UploadKind | null>(null); // 올리는 중인 버튼 (사진 / 파일)
   // 사진 메시지의 미리보기 주소 { 메시지 id: 주소 }
   const [imageUrls, setImageUrls] = useState<Record<string, string>>({});
   const inputRef = useRef<HTMLInputElement>(null);
@@ -226,7 +226,7 @@ export function ChatRoom({
   };
 
   /** + 메뉴에서 사진 · 파일을 골랐을 때: 진짜 팀이면 팀 자료에 올리고 대화방에 파일 말풍선을 남겨요 */
-  const pickFile = (file: File) => {
+  const pickFile = (file: File, kind: UploadKind) => {
     if (file.size > MAX_UPLOAD_BYTES) return toast.show("20MB 이하 파일만 올릴 수 있어요");
     if (!liveTeam) {
       // 데모 팀: 올리지 않고 화면에만 보여줘요
@@ -236,17 +236,26 @@ export function ChatRoom({
       setExtra((prev) => [...prev, { id, type: "file", senderId: me.id, fileName: file.name, size: fileSizeLabel(file.size), at: nowLabel() }]);
       return toast.show("데모 팀이라 화면에만 보여요");
     }
-    setUploading(true);
+    // 고르면 바로 시트를 닫고, 대화방에 '올리는 중…' 말풍선을 먼저 보여줘요 (사진은 고른 사진 그대로)
+    setShareOpen(false);
+    setUploading(kind);
+    const tempId = newId();
+    const preview = isImageName(file.name) ? URL.createObjectURL(file) : null;
+    if (preview) setImageUrls((prev) => ({ ...prev, [tempId]: preview }));
+    setExtra((prev) => [...prev, { id: tempId, type: "file", senderId: meId ?? me.id, fileName: file.name, size: fileSizeLabel(file.size), at: nowLabel(), uploading: true }]);
+    const dropTemp = () => setExtra((prev) => prev.filter((m) => m.id !== tempId));
     uploadTeamFile(liveTeam.id, file)
       .then((m) => {
-        // 올린 사진은 내 기기에 있는 걸로 바로 보여줘요
-        if (isImageName(file.name)) setImageUrls((prev) => ({ ...prev, [m.id]: URL.createObjectURL(file) }));
+        // 올린 사진은 내 기기에 있는 걸로 계속 보여줘요
+        if (preview) setImageUrls((prev) => ({ ...prev, [m.id]: preview }));
+        dropTemp();
         setLiveMsgs((prev) => (prev.some((x) => x.id === m.id) ? prev : [...prev, m]));
-        setShareOpen(false);
-        toast.show("팀 자료에 올렸어요");
       })
-      .catch((e) => toast.show(e instanceof Error ? e.message : "파일을 올리지 못했어요"))
-      .finally(() => setUploading(false));
+      .catch((e) => {
+        dropTemp();
+        toast.show(e instanceof Error ? e.message : "파일을 올리지 못했어요");
+      })
+      .finally(() => setUploading(null));
   };
 
   /** 파일 말풍선: 진짜 팀이면 파일을 새 탭으로 열어요 (1시간 동안 열리는 주소) */
