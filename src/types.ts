@@ -29,7 +29,7 @@ export interface WeeklyBlock {
 
 /** 로그인한 나 (GET /api/me) */
 export interface Me extends Member {
-  provider: "kakao" | "google";
+  provider: "google";
   /** 정확한 출발지 (나만 봄) */
   origin: string;
   /** 다른 팀원에게 보이는 동네 */

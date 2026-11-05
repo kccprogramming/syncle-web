@@ -1,8 +1,8 @@
 "use client";
 
 /**
- * 로그인 버튼 묶음 (카카오 / Google) + 약관 안내 문구.
- * 0-1 로그인, 0-2 초대 로그인에서 같이 써요. 두 버튼 모두 href로 이동해요.
+ * 로그인 버튼 (Google) + 약관 안내 문구.
+ * 0-1 로그인, 0-2 초대 로그인에서 같이 써요. 버튼은 href로 이동해요.
  */
 import Link from "next/link";
 import { Toast, useToast } from "@/components/Toast";
@@ -12,13 +12,6 @@ export function LoginButtons({ href }: { href: string }) {
 
   return (
     <div className="stack gap-10">
-      <Link
-        href={href}
-        className="btn btn--lg btn--block"
-        style={{ background: "var(--kakao)", color: "var(--kakao-ink)" }}
-      >
-        카카오로 시작하기
-      </Link>
       <GoogleButton href={href} />
       <p className="t-12 t-muted t-center" style={{ marginTop: 6, lineHeight: 1.6 }}>
         시작하면{" "}

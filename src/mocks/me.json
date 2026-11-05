@@ -4,7 +4,7 @@
   "initial": "민",
   "color": "#D9DEFA",
   "ink": "#23307A",
-  "provider": "kakao",
+  "provider": "google",
   "origin": "대화역 (일산)",
   "originArea": "일산",
   "notificationsOn": true,

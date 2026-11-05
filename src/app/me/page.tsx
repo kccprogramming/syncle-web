@@ -38,7 +38,7 @@ export default function MePage() {
           <div className="stack gap-2 grow">
             <span style={{ fontSize: 17, fontWeight: 700 }}>{me.name}</span>
             <span className="t-12 t-muted">
-              {me.provider === "kakao" ? "카카오" : "Google"} 계정으로 로그인 · 팀 {teamCount}개
+              Google 계정으로 로그인 · 팀 {teamCount}개
             </span>
           </div>
           <button type="button" className="btn btn--sm btn--ghost no-shrink" style={{ fontSize: 12 }} onClick={soon}>
