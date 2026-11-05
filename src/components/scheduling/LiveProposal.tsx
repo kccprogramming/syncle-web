@@ -257,6 +257,10 @@ export function LiveProposal({ proposalId }: { proposalId: string }) {
             ? '고를 수 있는 장소가 없어요 · 모두 1시간을 넘거나 이동시간을 아는 팀원이 2명보다 적어요'
             : '‘이 시간의 장소 찾기’를 눌러 주세요'
         : '이제 확정할 수 있어요';
+  // 장소를 찾은 후보 지역(역) 이름들
+  const areaList = (places?.searchAreas ?? []).length
+    ? [...(places?.searchAreas ?? [])]
+    : areasText.split(',').map((v) => v.trim()).filter(Boolean);
   const pct = data.totalCount ? (data.respondedCount / data.totalCount) * 100 : 0;
   const durationMin = data.conditions.schedule.durationMinutes;
 
@@ -431,24 +435,24 @@ export function LiveProposal({ proposalId }: { proposalId: string }) {
                   <div className="hstack gap-8" style={{ background: 'var(--bg)', borderRadius: 10, padding: '8px 8px 8px 12px' }}>
                     <span className="stack grow" style={{ gap: 2, minWidth: 0 }}>
                       <span className="t-13 t-strong">{seoulLabel(candidate.startAt)} 기준</span>
-                      {/* 팀원 출발지 가운데에서 고른 후보 지역(역) · 찾는 장소 종류 — 줄이지 않고 다 보여줘요 */}
-                      <span className="t-12 t-muted" style={{ lineHeight: 1.5, wordBreak: 'keep-all' }}>
-                        찾은 지역{' '}
-                        {(places?.searchAreas ?? []).join(' · ') ||
-                          (areasText ? areasText.split(',').map((v) => v.trim()).filter(Boolean).join(' · ') : '팀원 출발지 가운데')}
-                      </span>
-                      <span className="t-12 t-muted">장소 종류 {keyword || '회의 장소'}</span>
+                      {/* 팀원 출발지 가운데에서 고른 후보 지역(역): 접으면 '○○역 외 2곳', 펼치면 다 + 누가 어디서 출발하는지 */}
                       <button
                         type="button"
                         aria-expanded={hoodsOpen}
-                        className="t-12 t-accent"
-                        style={{ border: 0, background: 'none', padding: '4px 0 0', textAlign: 'left' }}
+                        className="t-12 t-muted"
+                        style={{ border: 0, background: 'none', padding: 0, textAlign: 'left', lineHeight: 1.5, wordBreak: 'keep-all' }}
                         onClick={() => setHoodsOpen(!hoodsOpen)}
                       >
-                        누가 어디서 출발해요 {hoodsOpen ? '▴' : '▾'}
+                        찾은 지역{' '}
+                        {hoodsOpen || areaList.length <= 1 ? areaList.join(' · ') || '팀원 출발지 가운데' : `${areaList[0]} 외 ${areaList.length - 1}곳`}{' '}
+                        <span className="t-accent">{hoodsOpen ? '접기 ▴' : '펼치기 ▾'}</span>
                       </button>
+                      <span className="t-12 t-muted">장소 종류 {keyword || '회의 장소'}</span>
                       {hoodsOpen ? (
                         <span className="stack" style={{ gap: 2 }}>
+                          <span className="t-12 t-strong" style={{ paddingTop: 4 }}>
+                            누가 어디서 출발해요
+                          </span>
                           {data.memberIds.map((id) => (
                             <span key={id} className="t-12" style={{ lineHeight: 1.5 }}>
                               <span className="t-strong">
