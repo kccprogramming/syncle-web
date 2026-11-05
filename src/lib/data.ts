@@ -134,7 +134,7 @@ export async function loadMyTeams(): Promise<Team[] | null> {
   // 팀마다 마지막 메시지 한 줄 (팀 수가 적어서 팀마다 하나씩 물어봐요)
   const last = await Promise.all(
     ids.map((teamId) =>
-      supabase.from("messages").select("content,message_type").eq("team_id", teamId).order("created_at", { ascending: false }).limit(1).maybeSingle(),
+      supabase.from("messages").select("content,message_type").eq("team_id", teamId).neq("message_type", "confirmation_question").order("created_at", { ascending: false }).limit(1).maybeSingle(),
     ),
   );
   const teams = (teamRows.data ?? []).map((t) => {
@@ -221,11 +221,13 @@ function hhmm(iso: string) {
 type MessageRow = { id: string; sender_id: string | null; content: string; message_type: string; created_at: string; visible_to?: string[] | null };
 
 /**
- * 다른 사람에게만 보내진 비공개 메시지인지.
- * A 규칙(RLS)은 보낸 사람에게도 비공개 메시지를 보여줘요 → 제안을 만든 사람이 팀원 각자에게 간
- * C 확인 질문('나에게만')을 모두 보게 돼서, 받는 사람에 내가 없으면 화면에서 빼요.
+ * 대화방에 그리지 않는 메시지인지.
+ * ① C 확인 질문(confirmation_question): B가 대화로 시간을 알 수 없던 팀원에게만 가서, 팀원마다 0장 · 1장으로
+ *    달라 보였어요. 모두 같은 제안 카드('되는 시간 고르기')로 응답하니 대화방에서는 빼요 (11/6 밤 결정).
+ * ② 다른 사람에게만 보내진 비공개 메시지: A 규칙(RLS)은 보낸 사람에게도 보여줘서 받는 사람에 내가 없으면 빼요.
  */
 function notForMe(r: MessageRow, me: string | null | undefined): boolean {
+  if (r.message_type === "confirmation_question") return true;
   return Array.isArray(r.visible_to) && r.visible_to.length > 0 && !!me && !r.visible_to.includes(me);
 }
 
