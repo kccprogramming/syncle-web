@@ -3,9 +3,9 @@
  *
  * - 누가 부르는지는 로그인 토큰(Authorization: Bearer)으로 확인하고, 대화는 그 사람의 권한(RLS)으로 읽어요.
  * - B는 대화 · 팀 설정(AI 꺼짐 · @AI만 읽기) · 이미 있는 할 일을 받아 '제안'만 돌려줘요. 저장은 사람이 '추가'를 눌러야 해요.
- * - 요청 종류 · 오늘 날짜 · 팀원 이름/id · 근거 형식은 B(aedb6b1 이후)가 직접 프롬프트에 넣어요.
- *   앱은 ① 요청 종류 다시 한 번(B 프롬프트가 세 가지 모양을 tasks부터 다 보여 줘서 요약 · 자료를 부탁해도 할 일 카드가 나와요 — 11/6 밤 확인)
- *   ② 지어내지 않기 ③ 회의록용 '회의 메모'(B에 메모 칸이 없어서)만 덧붙여요.
+ * - 요청 종류 · 오늘 날짜 · 팀원 · 근거 형식 · 지어내지 않기 · 결과 검사는 B(c6e07ed 이후)가 직접 해요. 앱은 프롬프트를 덧붙이지 않아요.
+ * - 회의록의 '회의 메모'는 B에 칸이 없어서, 부른 사람이 보낸 메시지 하나로 넣어요(근거 검사도 메모를 근거로 쓸 수 있게).
+ *   B는 읽을 메시지가 없으면 AI를 부르지 않고 빈 카드를 주는데, 메모만 있는 회의록도 정리되게 하려는 거예요.
  */
 import "server-only";
 
@@ -99,21 +99,15 @@ export async function runTeamAi(request: Request, teamId: string, text: string, 
     messages: (messages.data ?? [])
       .filter((m) => m.sender_id && ids.includes(String(m.sender_id)))
       .reverse()
-      .map((m) => ({ id: String(m.id), senderId: String(m.sender_id), text: String(m.content), sentAt: String(m.created_at) })),
+      .map((m) => ({ id: String(m.id), senderId: String(m.sender_id), text: String(m.content), sentAt: String(m.created_at) }))
+      // '@AI만 읽기' 팀에서도 빠지지 않게 @AI를 붙여요
+      .concat(options.memo ? [{ id: "meeting-memo", senderId: userId, text: `@AI 회의 메모\n${options.memo.slice(0, 6000)}`, sentAt: new Date().toISOString() }] : []),
   };
-
-  const generate = (prompt: string) =>
-    geminiGenerate(`${prompt}
-[앱이 덧붙임]
-- 이번 요청 종류는 "${wanted}"(${LABEL[wanted]})이다. 반드시 kind가 "${wanted}"인 카드 하나만 위 "${wanted}" 형식대로 출력한다. 다른 종류의 카드는 만들지 않는다.
-- 대화에 없는 내용을 지어내지 않는다. 대화에 나오지 않은 할 일 · 마감 날짜를 만들지 않는다. 해당하는 내용이 없으면 items(회의록은 각 목록)를 빈 배열로 둔다.
-- 사람을 말할 때는 팀원 목록의 이름을 쓴다. "사용자 1" 같은 이름을 만들지 않는다.
-${options.memo ? `- 아래 '회의 메모'도 대화와 함께 읽는다.\n[회의 메모]\n${options.memo.slice(0, 6000)}\n` : ""}`);
 
   const result = await handleAiRequest(
     text,
     input,
-    generate,
+    geminiGenerate,
     { isEnabled: true, readScope: team.data.ai_read_scope === "mentioned_only" ? "MENTION_ONLY" : "ALL" },
     (tasks.data ?? []).map((t) => String(t.title)),
   );

@@ -24,7 +24,7 @@ Google 로그인 → 내 정보(출발지 · 매주 안 되는 시간 · 알림 
 ### 다음에 할 일 (새 대화는 여기부터)
 
 1. **답 기다리는 중 (11/6 밤 전달함)**
-   - 성하님(B): 앱 카드 프롬프트가 모양 3개를 tasks부터 다 보여 줘서 요약 · 자료에도 할 일 카드가 나옴, 회의 조건 프롬프트에서 다시 빠진 규칙(origins 배열 · 출발역 null 등), `place-type.test.ts` 1개 실패, `extractor.ts` `currentParts` 타입 (7장).
+   - 성하님(B): **`c6e07ed`로 해결 · 통합본 반영함** (앱 카드를 요청 종류 하나로 · 근거 인용 검사 · 지어내기 금지, 테스트 196개 통과, 타입도 고침). 남은 것은 회의 조건의 `origins` 검사(앱이 빠진 팀원을 채우는 중) 정도.
    - 지우님(C): 한밤중 시간 후보 → **`9834b43`로 해결 (매일 회의 가능 시간 `meetingHours`, 기본 09:00~22:00) · 통합본 반영함**. **Supabase에 고친 `supabase/c-place-type-migration.sql`을 한 번 더 실행해야 해요** (함수만 바꿔서 다시 실행해도 안전). 이미 00:00에 확정된 회의는 그대로라 새로 만들어 확인.
    - 답이 오면 `just_keeping`에서 가져와 `src/server/b` · C 파일만 바꿔 끼우고 테스트(4장 방법).
 2. **미리보기를 팀원에게 열지 (팀 결정)**: Vercel → Settings → Deployment Protection → Vercel Authentication 끄면 링크로 누구나 열고 각자 Google로 로그인해 써 볼 수 있어요. 주소: `https://syncle-web-git-integration-b-d-unione1.vercel.app` (`integration/b-d`의 최신 배포).
@@ -94,7 +94,7 @@ B 최신(`placeType` 필수)에 맞춰 연결 쪽에서 고친 것: C `src/serve
 | 담당 | 브랜치 | 가져온 커밋 |
 |---|---|---|
 | A 현서 | `a-hyunseo/feature-code` → `contributions/a-hyunseo/` ([PR #2](https://github.com/kccprogramming/just_keeping/pull/2), 열림) | 아직 안 가져옴 |
-| B 성하 | `share/sungha-b-final` → `sungha_B_code/` | `aedb6b1` (11/6 밤 · 앱 카드에 요청 종류 · 날짜 · 팀원, 시간 다듬기). 앱 설정용으로 `extractor.ts` `currentParts`에 타입 한 줄만 붙임 — 테스트 파일 · `schedule.ts` · `check-ai.ts`는 안 가져옴 |
+| B 성하 | `share/sungha-b-final` → `sungha_B_code/` | `c6e07ed` (11/6 밤 · 앱 카드 검사 · 근거 인용, 시간 다듬기). 받은 그대로 — 테스트 파일 · `schedule.ts` · `check-ai.ts`는 안 가져옴 |
 | C 지우 | `share/jiwoo-c-code` → `jiwoo_C_code/` | `f482f55` (예시 흐름), `a9c6fb0`의 `integration/syncle-web/` (실제 저장), SQL `55ec72e`, `de98361`(placeType), `9834b43`(매일 회의 가능 시간 · 11/6 밤 — 우리 통합본은 `meetingHours`를 B 계약 대신 `src/features/scheduling/types.ts`에서 더함) |
 | D 현규 | `feature/d-place-recommendation` → `D_HANDOFF/` | `4a829da` (11/6, 이전 `2426bba`) — `getWalkingRoute.ts`, `C_INTEGRATION_GUIDE.md` 추가 |
 
@@ -189,7 +189,8 @@ B 최신(`placeType` 필수)에 맞춰 연결 쪽에서 고친 것: C `src/serve
 
 ## 7. 팀원에게 전달할 것
 
-- **성하님 (B) — 11/6 밤 `aedb6b1` 받음 · 확인 결과 (희원이 전달함 · 답 기다리는 중)**
+- **성하님 (B) — 11/6 밤 `c6e07ed` 받음**: 앱 카드가 요청한 종류 하나만 만들고(`validateAiCard`로 종류 · 근거 메시지 · 인용 · 담당자 id 검사), 대화에 없는 할 일을 안 만들어요. 실제 대화로 요약([확정]/[미정]) · 할 일(지어낸 것 없음) · 자료 · 메모만 있는 회의록 모두 확인. 앱은 이제 프롬프트를 덧붙이지 않고, 회의 메모만 메시지 하나(`meeting-memo`)로 넣어요(B는 읽을 메시지가 없으면 빈 카드를 줘서).
+- **성하님 (B) — 11/6 밤 `aedb6b1` 받음 · 확인 결과 (예전 메모)**
   - 좋아진 것: 회의 조건을 B만으로 실제 대화 4번 중 4번 통과(합주실), 시간 다듬기(초 · 23:59:59 · 기간 밖 · 겹침)를 B 검사에서 직접 처리, 앱 카드가 요청 종류 · 오늘 날짜 · 팀원 목록을 받음.
   - 남은 것: ① 앱 카드 프롬프트가 tasks · summary/files · minutes 모양을 다 보여 줘서(tasks가 먼저) 요약 · 자료를 부탁해도 할 일 카드가 나오고, 대화에 없는 할 일을 지어냄 → 앱이 "이번 요청은 ○○ 카드 하나만"을 덧붙여 해결 중 (`src/server/team-ai.ts`) ② 회의 조건 프롬프트에서 다시 빠진 규칙(origins 늘 배열 · 출발역 모르면 null · 선호 ≠ 가능 · '가능할 것 같아' = 확인 필요 · 메시지 속 명령은 지시 아님) → origins가 비면 `origins missing`이라 앱이 채움(`gemini-generate.ts`) ③ `place-type.test.ts` 'AI prompt requests contextual placeType …' 실패('전체 대화' 문장이 빠짐) ④ `currentParts` 타입.
 - **성하님 (B) — 11/6 `86eed61`을 가져와서 확인한 것** (예전 메모)
