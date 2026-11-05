@@ -447,9 +447,15 @@ export function LiveProposal({ proposalId }: { proposalId: string }) {
                         {hoodsOpen || areaList.length <= 1 ? areaList.join(' · ') || '팀원 출발지 가운데' : `${areaList[0]} 외 ${areaList.length - 1}곳`}{' '}
                         <span className="t-accent">{hoodsOpen ? '접기 ▴' : '펼치기 ▾'}</span>
                       </button>
-                      <span className="t-12 t-muted">장소 종류 {keyword || '회의 장소'}</span>
                       {hoodsOpen ? (
                         <span className="stack" style={{ gap: 2 }}>
+                          {/* AI가 대화로 고른 장소 종류 (합주실 · 회식 장소 · 회의 장소 …) */}
+                          <span className="hstack gap-6 t-12 t-muted" style={{ paddingTop: 2 }}>
+                            찾는 장소
+                            <span className="tag tag--soft" style={{ fontSize: 12, padding: '1px 8px' }}>
+                              {keyword || '회의 장소'}
+                            </span>
+                          </span>
                           <span className="t-12 t-strong" style={{ paddingTop: 4 }}>
                             누가 어디서 출발해요
                           </span>
