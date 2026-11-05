@@ -218,7 +218,16 @@ function hhmm(iso: string) {
   return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
 }
 
-type MessageRow = { id: string; sender_id: string | null; content: string; message_type: string; created_at: string };
+type MessageRow = { id: string; sender_id: string | null; content: string; message_type: string; created_at: string; visible_to?: string[] | null };
+
+/**
+ * 다른 사람에게만 보내진 비공개 메시지인지.
+ * A 규칙(RLS)은 보낸 사람에게도 비공개 메시지를 보여줘요 → 제안을 만든 사람이 팀원 각자에게 간
+ * C 확인 질문('나에게만')을 모두 보게 돼서, 받는 사람에 내가 없으면 화면에서 빼요.
+ */
+function notForMe(r: MessageRow, me: string | null | undefined): boolean {
+  return Array.isArray(r.visible_to) && r.visible_to.length > 0 && !!me && !r.visible_to.includes(me);
+}
 
 /** DB 메시지 한 줄 → 화면 메시지 */
 export function toChatMessage(r: MessageRow): Message {
@@ -411,16 +420,19 @@ export async function loadTeamMembers(memberIds: string[]): Promise<Member[]> {
 
 /** 대화 메시지 (오래된 것부터, 최근 200개) — A. 비공개 메시지는 받는 사람에게만 와요 (RLS) */
 export async function loadTeamMessages(teamId: string): Promise<Message[]> {
-  const supabase = getSupabase();
+  const { supabase, id: me } = await signedIn();
   if (!supabase) return [];
   const { data, error } = await supabase
     .from("messages")
-    .select("id,sender_id,content,message_type,created_at")
+    .select("id,sender_id,content,message_type,created_at,visible_to")
     .eq("team_id", teamId)
     .order("created_at", { ascending: false })
     .limit(200);
   if (error) throw new Error(error.message);
-  return (data ?? []).reverse().map((r) => toChatMessage(r as MessageRow));
+  return (data as MessageRow[] ?? [])
+    .reverse()
+    .filter((r) => !notForMe(r, me))
+    .map((r) => toChatMessage(r));
 }
 
 /** 메시지 보내기 — A (messages insert, 보내는 사람 = 나) */
@@ -438,15 +450,18 @@ export async function sendTeamMessage(teamId: string, text: string): Promise<Mes
 
 /**
  * 새 메시지 실시간 받기 — A (Supabase Realtime). 끊을 때 부를 함수를 돌려줘요.
- * 내가 볼 수 없는 비공개 메시지는 Supabase가 보내지 않아요.
+ * 내가 볼 수 없는 비공개 메시지는 Supabase가 보내지 않아요. 내가 보냈지만 다른 사람에게만 가는 메시지는 여기서 빼요.
  */
 export function subscribeTeamMessages(teamId: string, onMessage: (m: Message, senderId: string | null) => void): () => void {
   const supabase = getSupabase();
   if (!supabase) return () => {};
+  let me: string | null = null;
+  void myUserId().then((id) => (me = id));
   const channel = supabase
     .channel(`team-messages:${teamId}`)
     .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages", filter: `team_id=eq.${teamId}` }, (payload) => {
       const row = payload.new as MessageRow;
+      if (notForMe(row, me)) return;
       onMessage(toChatMessage(row), row.sender_id);
     })
     .subscribe();
