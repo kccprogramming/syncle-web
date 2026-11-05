@@ -1,20 +1,22 @@
 "use client";
 
 /**
- * 3-2-1~3 팀 메뉴 전체 보기 (/teams/[teamId]/all?tab=meet|files|tasks)
- * 회의 · 자료 · 할 일을 탭으로 나눠 보여 줘요.
+ * 3-2-1~3 팀 메뉴 전체 보기 (/teams/[teamId]/all?tab=meet|photos|files|tasks)
+ * 회의 · 사진 · 자료 · 할 일을 탭으로 나눠 보여 줘요.
+ * 진짜 팀(A)이면 팀 이름 · 사진 · 자료를 Supabase에서 읽어요 (회의 · 할 일은 아직 데모 함수라 비어 있어요).
  */
-import { Suspense, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
 import { TopBar } from "@/components/TopBar";
 import { CheckBox } from "@/components/Controls";
-import { getFiles, getMember, getTeam } from "@/lib/data";
+import { getFiles, getMember, getTeam, loadTeam, loadTeamMaterials, loadTeamMembers, materialUrl } from "@/lib/data";
+import { isLiveId } from "@/lib/scheduling-client";
 import { useDemo } from "@/lib/demo-store";
-import type { TeamFile } from "@/types";
+import type { Team, TeamFile } from "@/types";
 import { DEMO_TEAM_ID, getChosenPlace, getTeamMeetings, getTeamTaskViews, meetingLine, respondedText } from "@/components/chat/team-info";
 
-type Tab = "meet" | "files" | "tasks";
+type Tab = "meet" | "photos" | "files" | "tasks";
 type FileFilter = "all" | TeamFile["kind"];
 
 /** 파일 종류별 아이콘 색 [배경, 글자] */
@@ -24,6 +26,7 @@ const EXT_COLORS: Record<TeamFile["ext"], [string, string]> = {
   AI: ["var(--accent-soft)", "var(--accent-strong)"],
   링크: ["var(--line-2)", "var(--ink-2)"],
   사진: ["var(--ok-bg)", "var(--ok)"],
+  파일: ["var(--line-2)", "var(--ink-2)"],
 };
 
 const FILTERS: { id: FileFilter; label: string }[] = [
@@ -45,19 +48,61 @@ function Inner() {
   const { teamId } = useParams<{ teamId: string }>();
   const sp = useSearchParams();
   const { state, update } = useDemo();
-  const team = getTeam(teamId);
+  // 진짜 팀(A): 팀 이름 · 팀원 · 자료를 불러와요
+  const live = isLiveId(teamId);
+  const [liveTeam, setLiveTeam] = useState<Team | null>(null);
+  const [liveFiles, setLiveFiles] = useState<TeamFile[] | null>(null);
+  const [toast, setToast] = useState("");
+  useEffect(() => {
+    if (!live) return;
+    let gone = false;
+    loadTeam(teamId)
+      .then(async (t) => {
+        if (gone || !t) return;
+        setLiveTeam(t);
+        await loadTeamMembers(t.memberIds).catch(() => undefined); // 올린 사람 이름
+        const list = await loadTeamMaterials(teamId);
+        if (!gone) setLiveFiles(list);
+      })
+      .catch(() => !gone && setLiveFiles([]));
+    return () => {
+      gone = true;
+    };
+  }, [live, teamId]);
+  const team = liveTeam ?? getTeam(teamId);
 
   const startTab = sp.get("tab");
-  const [tab, setTab] = useState<Tab>(startTab === "files" || startTab === "tasks" ? startTab : "meet");
+  const [tab, setTab] = useState<Tab>(startTab === "files" || startTab === "tasks" || startTab === "photos" ? startTab : "meet");
   const [filter, setFilter] = useState<FileFilter>("all");
 
   const isDemo = teamId === DEMO_TEAM_ID;
   const meetings = getTeamMeetings(teamId, isDemo && state.confirmed, state.cProposal);
-  const files = getFiles(teamId);
+  const allFiles = live ? (liveFiles ?? []) : getFiles(teamId);
+  const photos = allFiles.filter((f) => f.kind === "photo");
+  // 진짜 팀은 사진을 사진 탭에 따로 모아요
+  const files = live ? allFiles.filter((f) => f.kind !== "photo") : allFiles;
+  /** 자료 열기 (진짜 팀): 새 탭을 먼저 열어 두고 주소를 넣어요 */
+  const openMaterial = (f: TeamFile) => {
+    if (!live) return;
+    const w = window.open("", "_blank");
+    materialUrl(f)
+      .then((url) => {
+        if (url && w) w.location.href = url;
+        else {
+          w?.close();
+          setToast("파일을 열지 못했어요");
+        }
+      })
+      .catch(() => {
+        w?.close();
+        setToast("파일을 열지 못했어요");
+      });
+  };
   const { list: tasks, suggestion } = getTeamTaskViews(teamId, state);
 
   const tabs: { id: Tab; label: string }[] = [
     { id: "meet", label: `회의 ${(meetings.proposal ? 1 : 0) + meetings.upcoming.length + meetings.past.length}` },
+    ...(live ? [{ id: "photos" as const, label: `사진 ${photos.length}` }] : []),
     { id: "files", label: `자료 ${files.length}` },
     { id: "tasks", label: `할 일 ${tasks.length}` },
   ];
@@ -69,7 +114,8 @@ function Inner() {
   return (
     <main className="screen">
       <header className="no-shrink" style={{ background: "var(--surface)" }}>
-        <TopBar plain back={`/teams/${teamId}?menu=1`} backLabel="팀 메뉴로" title="팀 메뉴" sub={team.name} />
+        <TopBar plain back={`/teams/${teamId}?menu=1`} backLabel="팀 메뉴로" title="팀 메뉴" sub={live && !liveTeam ? "" : team.name} />
+        {toast ? <p role="status" className="t-12 t-warn" style={{ padding: "0 16px 6px" }}>{toast}</p> : null}
         <div role="tablist" className="hstack" style={{ borderBottom: "1px solid var(--line)" }}>
           {tabs.map((t) => {
             const on = tab === t.id;
@@ -150,11 +196,38 @@ function Inner() {
           </>
         ) : null}
 
+        {/* ── 사진 탭 (진짜 팀) ── */}
+        {tab === "photos" ? (
+          <>
+            {photos.length ? (
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 4 }}>
+                {photos.map((p) => (
+                  <button
+                    key={p.id}
+                    type="button"
+                    aria-label={`${p.name} 사진 크게 보기 · ${p.meta}`}
+                    onClick={() => openMaterial(p)}
+                    style={{ aspectRatio: "1 / 1", border: 0, padding: 0, borderRadius: 6, overflow: "hidden", background: "var(--line-2)" }}
+                  >
+                    {p.thumbUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={p.thumbUrl} alt={p.name} loading="lazy" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+                    ) : null}
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <span className="t-13 t-muted" style={{ padding: "16px 0" }}>{liveFiles === null ? "불러오는 중…" : "아직 올린 사진이 없어요"}</span>
+            )}
+            <span className="t-12 t-muted t-center">대화방에 올린 사진이 여기에 모여요 · 누르면 크게 보여요</span>
+          </>
+        ) : null}
+
         {/* ── 자료 탭 ── */}
         {tab === "files" ? (
           <>
             <div className="hstack gap-8">
-              {FILTERS.map((f) => (
+              {FILTERS.filter((f) => !live || f.id !== "photo").map((f) => (
                 <button
                   key={f.id}
                   type="button"
@@ -171,7 +244,15 @@ function Inner() {
               {files
                 .filter((f) => filter === "all" || f.kind === filter)
                 .map((f) => (
-                  <div key={f.id} className="hstack gap-12" style={{ minHeight: 60, borderBottom: "1px solid var(--line-2)" }}>
+                  <div
+                    key={f.id}
+                    className="hstack gap-12"
+                    style={{ minHeight: 60, borderBottom: "1px solid var(--line-2)", cursor: live ? "pointer" : undefined }}
+                    role={live ? "button" : undefined}
+                    tabIndex={live ? 0 : undefined}
+                    onClick={live ? () => openMaterial(f) : undefined}
+                    onKeyDown={live ? (e) => e.key === "Enter" && openMaterial(f) : undefined}
+                  >
                     <div
                       className="no-shrink"
                       style={{ width: 38, height: 38, borderRadius: 10, background: EXT_COLORS[f.ext][0], color: EXT_COLORS[f.ext][1], fontSize: 11, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center" }}
@@ -184,7 +265,7 @@ function Inner() {
                     </div>
                   </div>
                 ))}
-              {files.length === 0 ? <span className="t-13 t-muted" style={{ padding: "16px 0" }}>아직 모인 자료가 없어요</span> : null}
+              {files.length === 0 ? <span className="t-13 t-muted" style={{ padding: "16px 0", display: "block" }}>{live && liveFiles === null ? "불러오는 중…" : "아직 모인 자료가 없어요"}</span> : null}
             </div>
             <span className="t-12 t-muted t-center">대화방에 올린 파일·사진·링크가 여기에 자동으로 모여요</span>
           </>

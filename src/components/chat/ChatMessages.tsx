@@ -48,6 +48,7 @@ export function ChatMessages({
   viewerId,
   teamId,
   onOpenFiles,
+  imageUrls,
   onRetry,
   onTimeOnly,
   onToast,
@@ -56,7 +57,10 @@ export function ChatMessages({
   /** 지금 화면을 보는 사람. 이 사람이 보낸 메시지는 오른쪽에 파랗게 보여요. */
   viewerId: string;
   teamId: string;
-  onOpenFiles: () => void;
+  /** 파일 말풍선을 눌렀을 때 (진짜 팀이면 그 파일을 열고, 데모면 팀 메뉴를 열어요) */
+  onOpenFiles: (messageId?: string) => void;
+  /** 사진 메시지의 미리보기 주소 { 메시지 id: 주소 }. 있으면 파일 대신 사진으로 보여줘요 */
+  imageUrls?: Record<string, string>;
   onRetry?: () => void;
   onTimeOnly?: () => void;
   onToast: (text: string) => void;
@@ -82,7 +86,7 @@ export function ChatMessages({
           return (
             <div key={first.id} className="stack gap-4" style={{ alignItems: "flex-end" }}>
               {g.items.map((m, i) => (
-                <Bubble key={m.id} item={m} mine first={i === 0} onOpenFiles={onOpenFiles} />
+                <Bubble key={m.id} item={m} mine first={i === 0} onOpenFiles={onOpenFiles} imageUrl={imageUrls?.[m.id]} />
               ))}
             </div>
           );
@@ -112,7 +116,7 @@ export function ChatMessages({
             <div className="msg__col">
               <span className="msg__name">{sender.name}</span>
               {g.items.map((m, i) => (
-                <Bubble key={m.id} item={m} mine={false} first={i === 0} onOpenFiles={onOpenFiles} />
+                <Bubble key={m.id} item={m} mine={false} first={i === 0} onOpenFiles={onOpenFiles} imageUrl={imageUrls?.[m.id]} />
               ))}
             </div>
           </div>
@@ -147,15 +151,31 @@ function renderAiCard(
 }
 
 /** 말풍선 하나 (글, @AI 부르기, 파일) */
-function Bubble({ item, mine, first, onOpenFiles }: { item: ChatItem; mine: boolean; first: boolean; onOpenFiles: () => void }) {
+function Bubble({ item, mine, first, onOpenFiles, imageUrl }: { item: ChatItem; mine: boolean; first: boolean; onOpenFiles: (messageId?: string) => void; imageUrl?: string }) {
   // 묶음의 첫 말풍선만 꼬리 쪽 모서리를 덜 둥글게
   const radius = first ? undefined : 14;
+
+  // 사진: 미리보기 주소가 있으면 사진 그대로 보여줘요 (누르면 크게)
+  if (item.type === "file" && imageUrl) {
+    return (
+      <a href={imageUrl} target="_blank" rel="noreferrer" aria-label={`${item.fileName} 사진 크게 보기`} style={{ display: "block", lineHeight: 0 }}>
+        {/* 비공개 보관함의 1시간짜리 주소라 next/image 최적화 대신 그대로 보여줘요 */}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={imageUrl}
+          alt={item.fileName}
+          loading="lazy"
+          style={{ width: 220, maxWidth: "100%", maxHeight: 260, objectFit: "cover", borderRadius: radius ?? 16, background: "var(--bg)", display: "block" }}
+        />
+      </a>
+    );
+  }
 
   if (item.type === "file") {
     return (
       <div className={`bubble${mine ? " bubble--mine" : ""} hstack gap-10`} style={{ padding: 12, borderRadius: radius }}>
         <div style={{ width: 40, height: 40, borderRadius: 10, background: "var(--accent-soft)", color: "var(--accent)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-          <Icon name="file" size={20} strokeWidth={1.8} />
+          <Icon name={/\.(png|jpe?g|gif|webp|heic|heif|bmp|svg)$/i.test(item.fileName) ? "image" : "file"} size={20} strokeWidth={1.8} />
         </div>
         <div className="stack gap-2" style={{ minWidth: 0 }}>
           <span className="t-14 t-strong" style={{ wordBreak: "break-all" }}>
@@ -163,7 +183,7 @@ function Bubble({ item, mine, first, onOpenFiles }: { item: ChatItem; mine: bool
           </span>
           <button
             type="button"
-            onClick={onOpenFiles}
+            onClick={() => onOpenFiles(item.id)}
             className="t-12"
             style={{ border: 0, background: "none", padding: "2px 0", textAlign: "left", color: mine ? "#fff" : "var(--accent)" }}
           >

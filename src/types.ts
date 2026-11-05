@@ -211,10 +211,16 @@ export interface Task {
 export interface TeamFile {
   id: string;
   kind: "file" | "photo" | "link";
-  ext: "PPT" | "PDF" | "AI" | "링크" | "사진";
+  ext: "PPT" | "PDF" | "AI" | "링크" | "사진" | "파일";
   name: string;
   meta: string;
   isNew?: boolean;
+  /** 진짜 팀 자료(A)일 때: 사진 미리보기 주소 (1시간) */
+  thumbUrl?: string;
+  /** 진짜 팀 자료(A)일 때: 보관함 안 위치 (열 때 주소를 새로 받아요) */
+  filePath?: string;
+  /** 링크 자료일 때 주소 */
+  url?: string;
 }
 
 /** 앱 안 알림 (notifications) */

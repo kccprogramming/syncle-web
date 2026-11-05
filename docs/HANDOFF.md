@@ -113,7 +113,9 @@
    - **팀 연결 완료 (11/6)**: 로그인하면 1 홈은 내 진짜 팀(`loadMyTeams`, 없으면 1-0), 2 새 팀 만들기는 `create_team`(만든 사람 = 방장, 진짜 초대 링크 복사, 추가한 매주 안 되는 시간은 프로필에 저장), 0-2 초대 화면은 `preview_team_invite`(로그인 전에도), 2-1 참여는 `join_team` + 이름(`profiles.nickname`) · 출발지 저장. 진짜 초대 코드는 32자리라 데모 코드(`7K2Q-HCI4`)와 구분해요 (`isLiveInviteCode`).
    - 3 대화방: 진짜 팀(UUID)이면 `loadTeam`으로 이름 · 인원 · AI 설정을 보여주고 데모 요약 줄은 숨겨요.
    - **대화 메시지 연결 완료 (11/6)**: 진짜 팀 대화방은 `loadTeamMessages`(최근 200개) · `sendTeamMessage`(general) · `subscribeTeamMessages`(Supabase Realtime, 새 메시지 바로 표시)를 써요. 팀원 이름은 `loadTeamMembers`가 불러와 `getMember`가 진짜 이름을 돌려줘요. 확정 · 알림 같은 AI 메시지는 지금은 한 줄 안내(system)로 보여요. '@AI'는 저장만 하고 "C 연결 뒤에 열려요" 안내.
-   - 아직: 팀 메뉴의 할 일 · 자료 · 회의 목록은 데모 함수라 진짜 팀에서는 비어 있어요. 파일 보내기(+ 메뉴)도 준비 중.
+   - **사진 · 파일 올리기 (11/6)**: 4 + 메뉴는 사진 · 파일 · 할 일 · AI로 회의 잡기 4개 (투표 · 링크는 뺌, AI 회의 잡기 강조 없앰). 진짜 팀이면 `uploadTeamFile`이 비공개 보관함 `team-materials`의 `팀ID/내ID/무작위.확장자`에 올리고(20MB 제한), 대화방에 `📎 이름 · 크기` 메시지를 남기고, `team_materials`에 그 메시지(`source_message_id`)와 이어서 저장해요. 사진은 대화방에서 사진으로 보여요(`teamImageUrls`, 1시간짜리 서명 주소), 다른 파일은 📎 말풍선 → 누르면 새 탭으로 열려요.
+   - **팀 메뉴 · 전체 보기의 사진 · 자료 (11/6)**: 진짜 팀이면 `loadTeamMaterials`로 팀 자료를 읽어요 (메뉴를 열 때마다 새로). 팀 메뉴에 '사진' 칸(썸네일 8장)과 '자료' 칸(사진 아닌 파일 3개), 전체 보기에 '사진' 탭(3칸 격자) 추가. 누르면 `materialUrl`로 새 탭에서 열려요.
+   - 아직: 팀 메뉴의 회의 · 할 일은 데모 함수라 진짜 팀에서는 비어 있어요. + 메뉴의 '할 일'도 준비 중.
    - 다음: 대화방 '@AI 회의 잡아줘' → C 제안 만들기 (C SQL 적용 뒤). 그다음 대화방 '@AI 회의 잡아줘' → C 제안 만들기(`createLiveProposal`, 응답 마감 · 자료 마감 입력).
    - 팀원 출발지: D 계산용 정확한 출발지는 `profile_private_locations`에 있고, 서버만 `get_team_private_origins_for_calculation`(005, service role 키)으로 읽어요. 브라우저에서 부르지 않아요.
    - `src/lib/data.ts`의 함수 안쪽만 API 호출로 바꿔요 (각 함수 위에 담당·API 주소 주석). `saveMyOrigin`이 출발지 저장 자리예요

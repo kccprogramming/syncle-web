@@ -10,7 +10,7 @@ import { TopBar } from "@/components/TopBar";
 import { Icon } from "@/components/Icon";
 import { AiAvatar } from "@/components/Logo";
 import { Toast, useToast } from "@/components/Toast";
-import { getAiReply, getFiles, getMe, getMessages, getTeam, loadTeamMembers, loadTeamMessages, myUserId, requestAi, sendTeamMessage, subscribeTeamMessages } from "@/lib/data";
+import { MAX_UPLOAD_BYTES, fileSizeLabel, isImageName, teamImageUrls, getAiReply, getFiles, getMe, getMessages, getTeam, loadTeamMembers, loadTeamMessages, myUserId, requestAi, sendTeamMessage, subscribeTeamMessages, teamFileUrl, uploadTeamFile } from "@/lib/data";
 import type { Message, Team } from "@/types";
 import { isSchedulingRequest } from "@/lib/place-intent";
 import { useDemo } from "@/lib/demo-store";
@@ -68,6 +68,9 @@ export function ChatRoom({
   const [helpOpen, setHelpOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(startShare);
   const [menuOpen, setMenuOpen] = useState(startMenu);
+  const [uploading, setUploading] = useState(false);
+  // 사진 메시지의 미리보기 주소 { 메시지 id: 주소 }
+  const [imageUrls, setImageUrls] = useState<Record<string, string>>({});
   const inputRef = useRef<HTMLInputElement>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
@@ -106,6 +109,26 @@ export function ChatRoom({
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [liveTeam]);
+
+  // 진짜 팀: 아직 주소가 없는 사진 메시지의 미리보기 주소를 받아와요 (새로 온 사진도)
+  useEffect(() => {
+    if (!liveTeam) return;
+    const need = liveMsgs.filter((m) => m.type === "file" && isImageName(m.fileName) && !imageUrls[m.id]).map((m) => m.id);
+    if (need.length === 0) return;
+    let gone = false;
+    // 올린 직후에는 팀 자료 저장이 조금 늦을 수 있어서 한 번 더 기다렸다가 받아요
+    const fetchUrls = (retry: boolean) =>
+      teamImageUrls(need).then((urls) => {
+        if (gone) return;
+        if (Object.keys(urls).length) setImageUrls((prev) => ({ ...prev, ...urls }));
+        if (retry && Object.keys(urls).length < need.length) setTimeout(() => !gone && void fetchUrls(false), 1500);
+      });
+    void fetchUrls(true);
+    return () => {
+      gone = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [liveTeam, liveMsgs]);
 
   // 서버 메시지 + 이 화면에서 보낸 메시지
   let base: ChatItem[] = liveTeam ? liveMsgs : getMessages(teamId, isConfirmed);
@@ -202,6 +225,48 @@ export function ChatRoom({
     }
   };
 
+  /** + 메뉴에서 사진 · 파일을 골랐을 때: 진짜 팀이면 팀 자료에 올리고 대화방에 파일 말풍선을 남겨요 */
+  const pickFile = (file: File) => {
+    if (file.size > MAX_UPLOAD_BYTES) return toast.show("20MB 이하 파일만 올릴 수 있어요");
+    if (!liveTeam) {
+      // 데모 팀: 올리지 않고 화면에만 보여줘요
+      setShareOpen(false);
+      const id = newId();
+      if (isImageName(file.name)) setImageUrls((prev) => ({ ...prev, [id]: URL.createObjectURL(file) }));
+      setExtra((prev) => [...prev, { id, type: "file", senderId: me.id, fileName: file.name, size: fileSizeLabel(file.size), at: nowLabel() }]);
+      return toast.show("데모 팀이라 화면에만 보여요");
+    }
+    setUploading(true);
+    uploadTeamFile(liveTeam.id, file)
+      .then((m) => {
+        // 올린 사진은 내 기기에 있는 걸로 바로 보여줘요
+        if (isImageName(file.name)) setImageUrls((prev) => ({ ...prev, [m.id]: URL.createObjectURL(file) }));
+        setLiveMsgs((prev) => (prev.some((x) => x.id === m.id) ? prev : [...prev, m]));
+        setShareOpen(false);
+        toast.show("팀 자료에 올렸어요");
+      })
+      .catch((e) => toast.show(e instanceof Error ? e.message : "파일을 올리지 못했어요"))
+      .finally(() => setUploading(false));
+  };
+
+  /** 파일 말풍선: 진짜 팀이면 파일을 새 탭으로 열어요 (1시간 동안 열리는 주소) */
+  const openFile = (messageId?: string) => {
+    if (!liveTeam || !messageId) return setMenuOpen(true);
+    const tab = window.open("", "_blank"); // 기다린 뒤 열면 막히는 브라우저가 있어서 먼저 열어 둬요
+    teamFileUrl(messageId)
+      .then((url) => {
+        if (url && tab) tab.location.href = url;
+        else {
+          tab?.close();
+          toast.show("파일을 찾지 못했어요");
+        }
+      })
+      .catch(() => {
+        tab?.close();
+        toast.show("파일을 열지 못했어요");
+      });
+  };
+
   // 실패 카드의 버튼들
   const retry = () => {
     const failed = extra.find((m) => m.type === "ai-failed");
@@ -286,7 +351,8 @@ export function ChatRoom({
             items={items}
             viewerId={liveTeam ? (meId ?? "") : me.id}
             teamId={teamId}
-            onOpenFiles={() => setMenuOpen(true)}
+            onOpenFiles={openFile}
+            imageUrls={imageUrls}
             onRetry={retry}
             onTimeOnly={timeOnly}
             onToast={toast.show}
@@ -325,6 +391,8 @@ export function ChatRoom({
           fillDraft("@AI ");
         }}
         onSoon={() => toast.show("준비 중이에요")}
+        onPickFile={pickFile}
+        uploading={uploading}
       />
 
       <TeamDrawer

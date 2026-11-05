@@ -1,12 +1,13 @@
 "use client";
 
 /** 3-2 오른쪽에서 열리는 팀 메뉴(드로어). 확정 뒤에는 회의 카드가 초록색(3-4-1)으로 바뀌어요. */
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { AvatarStack } from "@/components/Avatar";
 import { CheckBox, Switch } from "@/components/Controls";
 import { Icon, type IconName } from "@/components/Icon";
-import { getFiles, getMember, getMembers } from "@/lib/data";
+import { getFiles, getMember, getMembers, loadTeamMaterials, materialUrl } from "@/lib/data";
+import { isLiveId } from "@/lib/scheduling-client";
 import { useDemo } from "@/lib/demo-store";
 import type { Team, TeamFile } from "@/types";
 import { DEMO_TEAM_ID, copyInviteLink, getTeamMeetings, getTeamTaskViews, meetingLine, respondedText } from "./team-info";
@@ -61,12 +62,45 @@ export function TeamDrawer({
     return () => window.removeEventListener("keydown", onKey);
   }, [open, onClose]);
 
+  // 진짜 팀(A): 메뉴를 열 때마다 팀 자료를 새로 불러와요 (방금 올린 사진 · 파일도 보이게)
+  const live = isLiveId(team.id);
+  const [liveFiles, setLiveFiles] = useState<TeamFile[] | null>(null);
+  useEffect(() => {
+    if (!open || !live) return;
+    let gone = false;
+    loadTeamMaterials(team.id)
+      .then((list) => !gone && setLiveFiles(list))
+      .catch(() => !gone && setLiveFiles([]));
+    return () => {
+      gone = true;
+    };
+  }, [open, live, team.id]);
+
   if (!open) return null;
 
   const base = `/teams/${team.id}`;
+  /** 자료 열기: 새 탭을 먼저 열어 두고 주소를 받아서 넣어요 (기다린 뒤 열면 막히는 브라우저가 있어요) */
+  const openMaterial = (f: TeamFile) => {
+    const tab = window.open("", "_blank");
+    materialUrl(f)
+      .then((url) => {
+        if (url && tab) tab.location.href = url;
+        else {
+          tab?.close();
+          onToast("파일을 열지 못했어요");
+        }
+      })
+      .catch(() => {
+        tab?.close();
+        onToast("파일을 열지 못했어요");
+      });
+  };
   const meetings = getTeamMeetings(team.id, confirmed, state.cProposal);
   const lastPast = meetings.past[0];
-  const files = getFiles(team.id);
+  const allFiles = live ? (liveFiles ?? []) : getFiles(team.id);
+  // 진짜 팀은 사진을 따로 모아 보여줘요
+  const photos = live ? allFiles.filter((f) => f.kind === "photo") : [];
+  const files = live ? allFiles.filter((f) => f.kind !== "photo") : allFiles;
   const { list: tasks, suggestion } = getTeamTaskViews(team.id, state);
   // 드로어에는 아직 안 끝난 할 일만 (방금 체크한 건 줄이 그어진 채로 남아요)
   const openTasks = tasks.filter((t) => !t.wasDone);
@@ -163,11 +197,48 @@ export function TeamDrawer({
             {meetingCount === 0 ? <span className="t-13 t-muted">아직 회의가 없어요 · 대화방에서 @AI로 잡아 보세요</span> : null}
           </section>
 
+          {/* 사진 (진짜 팀) */}
+          {live ? (
+            <section className="stack gap-8">
+              <SectionHead title="사진" count={photos.length} href={`${base}/all?tab=photos`} />
+              {photos.length ? (
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 6 }}>
+                  {photos.slice(0, 8).map((p) => (
+                    <button
+                      key={p.id}
+                      type="button"
+                      aria-label={`${p.name} 사진 크게 보기`}
+                      onClick={() => openMaterial(p)}
+                      style={{ aspectRatio: "1 / 1", border: 0, padding: 0, borderRadius: 8, overflow: "hidden", background: "var(--line-2)" }}
+                    >
+                      {p.thumbUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={p.thumbUrl} alt={p.name} loading="lazy" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+                      ) : (
+                        <Icon name="image" size={18} />
+                      )}
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <span className="t-13 t-muted">{liveFiles === null ? "불러오는 중…" : "대화방에 올린 사진이 여기에 모여요"}</span>
+              )}
+            </section>
+          ) : null}
+
           {/* 자료 */}
           <section className="stack gap-8">
             <SectionHead title="자료" count={files.length} href={`${base}/all?tab=files`} />
             {files.slice(0, 3).map((f) => (
-              <div key={f.id} className="hstack gap-10" style={{ padding: "4px 0" }}>
+              <div
+                key={f.id}
+                className="hstack gap-10"
+                style={{ padding: "4px 0", cursor: live ? "pointer" : undefined }}
+                role={live ? "button" : undefined}
+                tabIndex={live ? 0 : undefined}
+                onClick={live ? () => openMaterial(f) : undefined}
+                onKeyDown={live ? (e) => e.key === "Enter" && openMaterial(f) : undefined}
+              >
                 <div
                   style={{ width: 36, height: 36, borderRadius: 9, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", background: f.isNew ? "var(--accent-soft)" : "var(--line-2)", color: f.isNew ? "var(--accent)" : "var(--ink-2)" }}
                 >
@@ -180,7 +251,7 @@ export function TeamDrawer({
                 {f.isNew ? <Badge label="새" /> : null}
               </div>
             ))}
-            {files.length === 0 ? <span className="t-13 t-muted">대화방에 올린 파일이 여기에 모여요</span> : null}
+            {files.length === 0 ? <span className="t-13 t-muted">{live && liveFiles === null ? "불러오는 중…" : "대화방에 올린 파일이 여기에 모여요"}</span> : null}
           </section>
 
           {/* 할 일 */}

@@ -1,6 +1,10 @@
 "use client";
 
-/** 4 + 메뉴 (자료 공유) 시트 */
+/**
+ * 4 + 메뉴 (자료 공유) 시트 — 사진 · 파일 · 할 일 · AI로 회의 잡기
+ * 사진 · 파일은 기기에서 고르면 onPickFile로 넘겨요 (대화방이 팀 자료에 올려요).
+ */
+import { useRef } from "react";
 import { Icon, type IconName } from "@/components/Icon";
 import { Sheet } from "@/components/Sheet";
 
@@ -24,6 +28,8 @@ export function ShareSheet({
   onAiMeeting,
   onAiHelp,
   onSoon,
+  onPickFile,
+  uploading = false,
 }: {
   open: boolean;
   onClose: () => void;
@@ -33,34 +39,38 @@ export function ShareSheet({
   onAiHelp: () => void;
   /** 아직 없는 기능 */
   onSoon: () => void;
+  /** 사진 · 파일을 골랐을 때 */
+  onPickFile: (file: File) => void;
+  /** 올리는 중이면 사진 · 파일 버튼을 잠가요 */
+  uploading?: boolean;
 }) {
-  const tile = (icon: IconName, label: string) => (
-    <button type="button" style={tileStyle} onClick={onSoon}>
+  const photoRef = useRef<HTMLInputElement>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const tile = (icon: IconName, label: string, onClick: () => void, disabled = false) => (
+    <button type="button" style={{ ...tileStyle, opacity: disabled ? 0.5 : 1 }} onClick={onClick} disabled={disabled}>
       <Icon name={icon} size={22} />
       {label}
     </button>
   );
+  const picked = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.currentTarget.files?.[0];
+    e.currentTarget.value = ""; // 같은 파일을 다시 골라도 올라가게
+    if (file) onPickFile(file);
+  };
 
   return (
     <Sheet open={open} onClose={onClose} label="더보기 메뉴">
       <span className="t-15 t-strong" style={{ marginTop: -4 }}>
         공유하기
       </span>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 8, marginTop: -4 }}>
-        {tile("image", "사진")}
-        {tile("file", "파일")}
-        {tile("poll", "투표 만들기")}
-        {tile("task", "할 일")}
-        <button
-          type="button"
-          onClick={onAiMeeting}
-          style={{ ...tileStyle, border: "1.5px solid var(--accent-line)", background: "var(--accent-softer)", color: "var(--accent-strong)", fontWeight: 600 }}
-        >
-          <Icon name="calendarAdd" size={22} />
-          AI로 회의 잡기
-        </button>
-        {tile("link", "링크")}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 8, marginTop: -4 }}>
+        {tile("image", uploading ? "올리는 중…" : "사진", () => photoRef.current?.click(), uploading)}
+        {tile("file", uploading ? "올리는 중…" : "파일", () => fileRef.current?.click(), uploading)}
+        {tile("task", "할 일", onSoon)}
+        {tile("calendarAdd", "AI로 회의 잡기", onAiMeeting)}
       </div>
+      <input ref={photoRef} type="file" accept="image/*" hidden onChange={picked} />
+      <input ref={fileRef} type="file" hidden onChange={picked} />
       <button
         type="button"
         onClick={onAiHelp}

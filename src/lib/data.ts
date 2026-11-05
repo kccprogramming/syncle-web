@@ -178,6 +178,9 @@ export function toChatMessage(r: MessageRow): Message {
   const at = hhmm(r.created_at);
   if (r.message_type === "general" && r.sender_id) {
     const text = String(r.content);
+    // 파일을 올리면 '📎 이름 · 크기' 메시지를 같이 남겨요 → 파일 말풍선으로
+    const file = text.match(FILE_MESSAGE);
+    if (file) return { id: r.id, type: "file", senderId: r.sender_id, fileName: file[1], size: file[2], at };
     return /(^|\s)@AI(\s|$)/i.test(text)
       ? { id: r.id, type: "mention-ai", senderId: r.sender_id, text: text.replace(/@AI\s*/i, "").trim(), at }
       : { id: r.id, type: "text", senderId: r.sender_id, text, at };
@@ -244,6 +247,144 @@ export function subscribeTeamMessages(teamId: string, onMessage: (m: Message, se
   return () => {
     void supabase.removeChannel(channel);
   };
+}
+
+/* ───────── 사진 · 파일 올리기 (A · Supabase Storage 'team-materials') ───────── */
+
+export const MAX_UPLOAD_BYTES = 20 * 1024 * 1024; // A와 같은 20MB 제한
+const FILE_MESSAGE = /^📎 (.+) · (\d+(?:\.\d+)? ?(?:B|KB|MB))$/;
+
+/** 1536 → "1.5KB" */
+export function fileSizeLabel(bytes: number): string {
+  if (bytes < 1024) return `${bytes}B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(bytes < 10 * 1024 ? 1 : 0)}KB`;
+  return `${(bytes / 1024 / 1024).toFixed(1)}MB`;
+}
+
+/**
+ * 사진 · 파일 올리기 — A
+ * 1) 비공개 보관함 team-materials의 '팀ID/내ID/무작위이름.확장자'에 올리고
+ * 2) 대화방에 '📎 이름 · 크기' 메시지를 남기고
+ * 3) 팀 자료(team_materials)에 그 메시지와 이어서 저장해요. 중간에 실패하면 올린 파일을 지워요.
+ * 파일 이름은 한글 등이 보관함 주소에 안 들어갈 수 있어서 주소는 무작위로, 원래 이름은 팀 자료에 남겨요.
+ */
+export async function uploadTeamFile(teamId: string, file: File): Promise<Message> {
+  const { supabase, id } = await signedIn();
+  if (!supabase || !id) throw new Error("로그인이 필요해요");
+  if (file.size > MAX_UPLOAD_BYTES) throw new Error("20MB 이하 파일만 올릴 수 있어요");
+  const ext = (file.name.match(/\.([A-Za-z0-9]{1,8})$/)?.[1] ?? "bin").toLowerCase();
+  const path = `${teamId}/${id}/${crypto.randomUUID()}.${ext}`;
+  const bucket = supabase.storage.from("team-materials");
+  const up = await bucket.upload(path, file, { contentType: file.type || "application/octet-stream", upsert: false });
+  if (up.error) throw new Error(`파일을 올리지 못했어요 · ${up.error.message}`);
+  try {
+    const name = file.name.replace(/\s+/g, " ").trim().slice(0, 120) || `파일.${ext}`;
+    const message = await sendTeamMessage(teamId, `📎 ${name} · ${fileSizeLabel(file.size)}`);
+    const row = await supabase
+      .from("team_materials")
+      .insert({ team_id: teamId, material_type: "file", name, file_path: path, source_message_id: message.id, added_by: id });
+    if (row.error) throw new Error(row.error.message);
+    return message;
+  } catch (e) {
+    await bucket.remove([path]);
+    throw e instanceof Error ? e : new Error("팀 자료에 저장하지 못했어요");
+  }
+}
+
+/** 사진 파일인지 (이름의 확장자로) */
+export function isImageName(name: string): boolean {
+  return /\.(png|jpe?g|gif|webp|bmp|svg|heic|heif|avif)$/i.test(name);
+}
+
+/**
+ * 사진 말풍선에 보여줄 주소를 한 번에 받아요 (팀원만, 1시간 동안 유효) — A
+ * messageIds: 사진 파일 메시지들 → { 메시지 id: 주소 }
+ */
+export async function teamImageUrls(messageIds: string[]): Promise<Record<string, string>> {
+  const supabase = getSupabase();
+  if (!supabase || messageIds.length === 0) return {};
+  const { data, error } = await supabase
+    .from("team_materials")
+    .select("source_message_id,file_path")
+    .in("source_message_id", messageIds)
+    .eq("material_type", "file");
+  if (error || !data?.length) return {};
+  const paths = data.map((r) => String(r.file_path));
+  const signed = await supabase.storage.from("team-materials").createSignedUrls(paths, 3600);
+  const byPath = new Map((signed.data ?? []).map((s) => [s.path, s.signedUrl]));
+  const out: Record<string, string> = {};
+  for (const r of data) {
+    const url = byPath.get(String(r.file_path));
+    if (url) out[String(r.source_message_id)] = url;
+  }
+  return out;
+}
+
+/** 파일 이름 → 자료 종류 표시 */
+function extOf(name: string): TeamFile["ext"] {
+  if (isImageName(name)) return "사진";
+  if (/\.pptx?$|\.key$/i.test(name)) return "PPT";
+  if (/\.pdf$/i.test(name)) return "PDF";
+  return "파일";
+}
+
+/**
+ * 팀 자료 (A · team_materials) — 대화방에 올린 사진 · 파일, 대화에서 나온 링크
+ * 최근 것부터. 사진은 미리보기 주소(1시간)를 한 번에 받아 thumbUrl에 넣어요.
+ */
+export async function loadTeamMaterials(teamId: string): Promise<TeamFile[]> {
+  const supabase = getSupabase();
+  if (!supabase) return [];
+  const { data, error } = await supabase
+    .from("team_materials")
+    .select("id,material_type,name,file_path,url,added_by,created_at")
+    .eq("team_id", teamId)
+    .order("created_at", { ascending: false })
+    .limit(200);
+  if (error) throw new Error(error.message);
+  const rows = data ?? [];
+  const photoPaths = rows.filter((r) => r.material_type === "file" && isImageName(String(r.name))).map((r) => String(r.file_path));
+  const signed = photoPaths.length ? await supabase.storage.from("team-materials").createSignedUrls(photoPaths, 3600) : { data: [] };
+  const thumbs = new Map((signed.data ?? []).map((s) => [s.path, s.signedUrl]));
+  return rows.map((r) => {
+    const name = String(r.name);
+    const d = new Date(String(r.created_at));
+    const when = `${d.getMonth() + 1}/${d.getDate()}`;
+    const who = r.added_by ? getMember(String(r.added_by)).name : "팀원";
+    if (r.material_type === "link") {
+      return { id: String(r.id), kind: "link", ext: "링크", name, meta: `${who} · ${when}`, url: String(r.url) } satisfies TeamFile;
+    }
+    const ext = extOf(name);
+    return {
+      id: String(r.id),
+      kind: ext === "사진" ? "photo" : "file",
+      ext,
+      name,
+      meta: `${who === "?" ? "팀원" : who} · ${when}`,
+      filePath: String(r.file_path),
+      thumbUrl: thumbs.get(String(r.file_path)) ?? undefined,
+    } satisfies TeamFile;
+  });
+}
+
+/** 팀 자료 하나 열기 → 1시간 동안 열 수 있는 주소 (링크 자료면 그 주소) */
+export async function materialUrl(f: TeamFile): Promise<string | null> {
+  if (f.url) return f.url;
+  if (f.thumbUrl) return f.thumbUrl;
+  const supabase = getSupabase();
+  if (!supabase || !f.filePath) return null;
+  const signed = await supabase.storage.from("team-materials").createSignedUrl(f.filePath, 3600);
+  return signed.data?.signedUrl ?? null;
+}
+
+/** 대화방 파일 말풍선 → 1시간 동안 열 수 있는 주소 (팀원만). 팀 자료에 없으면 null */
+export async function teamFileUrl(messageId: string): Promise<string | null> {
+  const supabase = getSupabase();
+  if (!supabase) return null;
+  const { data } = await supabase.from("team_materials").select("file_path").eq("source_message_id", messageId).eq("material_type", "file").maybeSingle();
+  if (!data?.file_path) return null;
+  const signed = await supabase.storage.from("team-materials").createSignedUrl(String(data.file_path), 3600);
+  return signed.data?.signedUrl ?? null;
 }
 
 /** 지금 로그인한 내 id (A) */
