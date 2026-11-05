@@ -3,16 +3,19 @@
 /**
  * 1 홈 — 다가오는 회의와 내 팀 목록.
  * ?empty=1 이면 1-0 빈 홈(처음 로그인해서 팀이 없을 때)을 보여줘요.
+ * 로그인했으면 내 진짜 팀(A · Supabase)을 보여주고, 팀이 없으면 1-0이에요.
+ * 다가오는 회의는 아직 가짜 데이터라 로그인했을 때는 비워 둬요 (C 저장을 붙이면 채워요).
  */
-import { Suspense } from "react";
+import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Icon } from "@/components/Icon";
 import { TeamBadge } from "@/components/Avatar";
 import { HomeHeader } from "@/components/home/HomeHeader";
 import { useDemo, useProposal } from "@/lib/demo-store";
-import { getMeetings, getNotifications, getPlaces, getTeam, getTeams } from "@/lib/data";
-import type { Meeting } from "@/types";
+import { getMeetings, getNotifications, getPlaces, getTeam, getTeams, loadMyTeams } from "@/lib/data";
+import type { Meeting, Team } from "@/types";
+import { useAuthUser } from "@/lib/use-auth-user";
 import { getChosenPlace, type PlacePick } from "@/components/chat/team-info";
 
 export default function HomePage() {
@@ -25,22 +28,40 @@ export default function HomePage() {
 
 function Inner() {
   const sp = useSearchParams();
-  return sp.get("empty") === "1" ? <EmptyHome /> : <FullHome />;
+  const user = useAuthUser();
+  // 로그인한 사람의 진짜 팀. undefined = 불러오는 중
+  const [liveTeams, setLiveTeams] = useState<Team[] | undefined>(undefined);
+  const [failed, setFailed] = useState(false);
+  useEffect(() => {
+    if (!user) return;
+    loadMyTeams()
+      .then((t) => setLiveTeams(t ?? []))
+      .catch(() => setFailed(true));
+  }, [user]);
+
+  if (user === undefined) return null; // 로그인 확인 중
+  if (!user) return sp.get("empty") === "1" ? <EmptyHome /> : <FullHome />; // 데모
+  if (failed) return <FullHome live={[]} error="팀 목록을 불러오지 못했어요 · 새로고침해 주세요" />;
+  if (liveTeams === undefined) return null;
+  return liveTeams.length === 0 ? <EmptyHome /> : <FullHome live={liveTeams} />;
 }
 
 /* ───────── 1 홈 ───────── */
 
-function FullHome() {
+/** live: 로그인한 사람의 진짜 팀 (없으면 데모) */
+function FullHome({ live, error }: { live?: Team[]; error?: string }) {
   const { state } = useDemo();
-  const teams = getTeams();
+  const teams = live ?? getTeams();
 
-  // 다가오는 회의를 날짜 순으로
-  const upcoming = getMeetings()
-    .filter((m) => m.status === "upcoming")
-    .sort((a, b) => dateValue(a) - dateValue(b));
+  // 다가오는 회의를 날짜 순으로 (로그인했으면 아직 없음)
+  const upcoming = live
+    ? []
+    : getMeetings()
+        .filter((m) => m.status === "upcoming")
+        .sort((a, b) => dateValue(a) - dateValue(b));
 
   // 안 읽은 알림 수 (모두 읽음을 누르면 0)
-  const unread = state.notificationsRead ? 0 : getNotifications().filter((n) => n.unread).length;
+  const unread = live || state.notificationsRead ? 0 : getNotifications().filter((n) => n.unread).length;
 
   return (
     <main className="screen">
@@ -49,6 +70,7 @@ function FullHome() {
       <div className="screen__body" style={{ gap: 20 }}>
         <section className="stack gap-10">
           <h2 className="t-14 t-strong t-ink2">다가오는 회의</h2>
+          {upcoming.length === 0 && <p className="t-13 t-muted">아직 다가오는 회의가 없어요 · 대화방에서 ‘@AI 회의 잡아줘’로 시작해요</p>}
           {upcoming.map((m) => (
             <MeetingCard key={m.id} meeting={m} confirmed={state.confirmed} pick={state} />
           ))}
@@ -56,6 +78,7 @@ function FullHome() {
 
         <section className="stack gap-10">
           <h2 className="t-14 t-strong t-ink2">내 팀</h2>
+          {error && <p className="t-13 t-warn">{error}</p>}
           {teams.map((t) => (
             <Link key={t.id} href={`/teams/${t.id}`} className="card" style={{ flexDirection: "row", alignItems: "center", gap: 12, color: "var(--ink)" }}>
               <TeamBadge initial={t.initial} color={t.color} ink={t.ink} size={44} />

@@ -11,7 +11,7 @@ import { Icon } from "@/components/Icon";
 import { AiAvatar } from "@/components/Logo";
 import { Toast, useToast } from "@/components/Toast";
 import { getAiReply, getFiles, getMe, getMessages, getTeam, requestAi } from "@/lib/data";
-import type { Message } from "@/types";
+import type { Message, Team } from "@/types";
 import { isSchedulingRequest } from "@/lib/place-intent";
 import { useDemo } from "@/lib/demo-store";
 import { AI_CHIPS, AiHelpPanel } from "./AiHelpPanel";
@@ -36,6 +36,7 @@ const nowLabel = () => {
 
 export function ChatRoom({
   teamId,
+  liveTeam,
   confirmed,
   fresh = false,
   fail = false,
@@ -43,6 +44,8 @@ export function ChatRoom({
   startMenu = false,
 }: {
   teamId: string;
+  /** 진짜 팀(A · Supabase). 있으면 데모 대화 · 요약 대신 이 팀 정보를 보여줘요 (대화 메시지 연결은 다음 단계) */
+  liveTeam?: Team;
   /** 회의가 확정됐는지 (데모 팀에서만 의미가 있어요) */
   confirmed: boolean;
   /** true면 AI에게 부탁하기 전 대화(글·파일만)로 시작 */
@@ -54,7 +57,7 @@ export function ChatRoom({
 }) {
   const { state, update } = useDemo();
   const me = getMe();
-  const team = getTeam(teamId);
+  const team = liveTeam ?? getTeam(teamId);
   const isConfirmed = confirmed && teamId === DEMO_TEAM_ID;
   const proposalId = getTeamProposal(teamId, state.cProposal)?.id ?? "p-1";
   const { aiOn, setAiOn } = useTeamAi(team);
@@ -73,7 +76,8 @@ export function ChatRoom({
   useEffect(() => () => timers.current.forEach(clearTimeout), []);
 
   // 서버 메시지 + 이 화면에서 보낸 메시지
-  let base: ChatItem[] = getMessages(teamId, isConfirmed);
+  // 진짜 팀은 아직 데모 대화를 보여주지 않아요 (A 메시지 연결 전)
+  let base: ChatItem[] = liveTeam ? [] : getMessages(teamId, isConfirmed);
   if (fresh && !isConfirmed) base = base.filter((m) => m.type === "text" || m.type === "file");
   const items = [...base, ...extra];
 
@@ -184,8 +188,8 @@ export function ChatRoom({
     : showProposal && meetings.proposal
       ? `${shortTitle(meetings.proposal)} · 응답 마감 ${meetings.proposal.deadline}`
       : null;
-  const hideBar = fresh && !isConfirmed && !hasProposalCard; // AI에게 부탁하기 전에는 요약이 없어요
-  const newCount = (showProposal ? 1 : 0) + getFiles(teamId).filter((f) => f.isNew).length;
+  const hideBar = !!liveTeam || (fresh && !isConfirmed && !hasProposalCard); // AI에게 부탁하기 전에는 요약이 없어요
+  const newCount = liveTeam ? 0 : (showProposal ? 1 : 0) + getFiles(teamId).filter((f) => f.isNew).length;
 
   return (
     <main className="screen">

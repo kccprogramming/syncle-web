@@ -5,8 +5,10 @@
  * ?code=7K2Q-HCI4 처럼 들어오면 코드 칸에 채워 두고, 없으면 예시 코드를 넣어 둬요.
  * 들어오는 사람이 '주로 출발하는 곳'을 직접 골라요 → 6 장소 추천(D)의 이동시간 계산에 써요.
  * 데모에서는 서연님이 들어오는 장면이에요 (JOINING_MEMBER_ID).
+ * 진짜 초대 코드(32자리)면 A로 팀을 찾고(preview_team_invite) 참여해요(join_team).
+ *   로그인 안 했으면 0-2 초대 로그인 화면으로 보내요. 이름 · 출발지는 내 프로필(Supabase)에 저장해요.
  */
-import { Suspense, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Icon } from "@/components/Icon";
 import { OriginPickerSheet } from "@/components/home/OriginPickerSheet";
@@ -14,7 +16,8 @@ import { useDemo } from "@/lib/demo-store";
 import { TopBar } from "@/components/TopBar";
 import { AvatarStack, TeamBadge } from "@/components/Avatar";
 import { Toast, useToast } from "@/components/Toast";
-import { getInvite, getMembers, getTeams, saveMyOrigin } from "@/lib/data";
+import { getInvite, getMembers, getTeams, isLiveInviteCode, joinTeam, loadMyProfile, previewInvite, saveMyNickname, saveMyOrigin } from "@/lib/data";
+import { useAuthUser } from "@/lib/use-auth-user";
 
 const DEFAULT_CODE = "7K2Q-HCI4";
 // 데모에서 팀에 들어오는 사람 (실제로는 로그인한 계정)
@@ -44,12 +47,56 @@ function Inner() {
   const [originOpen, setOriginOpen] = useState(false);
 
   const code = toCode(value);
-  const found = getTeams().some((t) => t.inviteCode.toUpperCase() === code.toUpperCase());
+  const live = isLiveInviteCode(code);
+  const user = useAuthUser();
+  // 진짜 코드면 A에서 팀 미리보기. undefined = 찾는 중, null = 없음
+  const [preview, setPreview] = useState<Awaited<ReturnType<typeof previewInvite>> | undefined>(undefined);
+  const [savedOrigin, setSavedOrigin] = useState<{ name: string; area: string } | null>(null);
+  const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    if (!live) return;
+    setPreview(undefined);
+    let gone = false;
+    previewInvite(code)
+      .then((p) => !gone && setPreview(p))
+      .catch(() => !gone && setPreview(null));
+    return () => {
+      gone = true;
+    };
+  }, [live, code]);
+  // 로그인했으면 내 이름 · 저장된 출발지를 채워 두고, 데모 코드는 비워요
+  useEffect(() => {
+    if (!user) return;
+    if (!sp.get("code")) setValue((v) => (v === DEFAULT_CODE ? "" : v));
+    loadMyProfile()
+      .then((p) => {
+        if (!p) return;
+        setNick(p.nickname);
+        if (p.origin) setSavedOrigin({ name: p.origin, area: p.area ?? "" });
+      })
+      .catch(() => undefined);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
+
+  const found = live ? !!preview : getTeams().some((t) => t.inviteCode.toUpperCase() === code.toUpperCase());
   const invite = getInvite(code.toUpperCase());
   const { team } = invite;
   const members = getMembers(team.memberIds).filter((m) => invite.memberNames.includes(m.name));
 
   async function join() {
+    if (live) {
+      if (!user) return router.push(`/invite/${code}`); // 먼저 로그인
+      setBusy(true);
+      try {
+        const teamId = await joinTeam(code);
+        await Promise.all([saveMyNickname(nick), origin ? saveMyOrigin(JOINING_MEMBER_ID, origin) : Promise.resolve()]);
+        router.push(`/teams/${teamId}`);
+      } catch (e) {
+        setBusy(false);
+        toast.show(e instanceof Error ? e.message : "팀에 참여하지 못했어요");
+      }
+      return;
+    }
     if (origin) {
       update((s) => ({ memberOrigins: { ...s.memberOrigins, [JOINING_MEMBER_ID]: origin } }));
       await saveMyOrigin(JOINING_MEMBER_ID, origin);
@@ -90,14 +137,32 @@ function Inner() {
               붙여넣기
             </button>
           </div>
-          {found ? (
+          {live && preview === undefined ? (
+            <span className="t-12 t-muted">팀을 찾는 중…</span>
+          ) : found ? (
             <span className="t-12 t-ok">팀을 찾았어요</span>
           ) : (
             <span className="t-12 t-warn">초대 코드를 다시 확인해 주세요</span>
           )}
         </div>
 
-        {found && (
+        {live && found && preview && (
+          <section
+            aria-label="참여할 팀"
+            className="stack gap-12 no-shrink"
+            style={{ border: "1px solid var(--line)", borderRadius: "var(--radius-l)", padding: 16 }}
+          >
+            <div className="hstack gap-12">
+              <TeamBadge initial={Array.from(preview.teamName)[0] ?? "팀"} color="#DDE6F7" ink="#23407A" size={48} />
+              <div className="stack gap-2">
+                <span className="t-strong" style={{ fontSize: 16 }}>{preview.teamName}</span>
+                <span className="t-13 t-muted">{preview.inviterName}님이 초대했어요 · {preview.memberCount}명 참여 중</span>
+              </div>
+            </div>
+          </section>
+        )}
+
+        {!live && found && (
           <section
             aria-label="참여할 팀"
             className="stack gap-12 no-shrink"
@@ -146,6 +211,11 @@ function Inner() {
                 <span className="t-15 t-strong t-ellipsis">{origin.name}</span>
                 <span className="t-12 t-muted t-ellipsis">{origin.roadAddress}</span>
               </span>
+            ) : savedOrigin ? (
+              <span className="stack gap-2" style={{ flex: "1 1 auto", minWidth: 0 }}>
+                <span className="t-15 t-strong t-ellipsis">{savedOrigin.name}</span>
+                <span className="t-12 t-muted t-ellipsis">내 정보에 저장된 곳</span>
+              </span>
             ) : (
               <span className="t-15 t-muted" style={{ flex: "1 1 auto" }}>역이나 건물 이름으로 찾기</span>
             )}
@@ -159,8 +229,8 @@ function Inner() {
 
       <footer className="footer footer--bare" style={{ padding: "12px 20px 24px" }}>
         {found ? (
-          <button type="button" className="btn btn--primary btn--lg btn--block" onClick={join}>
-            팀 참여하기
+          <button type="button" className="btn btn--primary btn--lg btn--block" onClick={join} disabled={busy}>
+            {busy ? "참여하는 중…" : live && !user ? "로그인하고 참여하기" : "팀 참여하기"}
           </button>
         ) : (
           <button type="button" className="btn btn--lg btn--block" disabled>

@@ -3,8 +3,10 @@
 /**
  * 2 새 팀 만들기 (2-2 매주 안 되는 시간 시트).
  * ?sheet=weekly 이면 시트가 열린 상태로 시작해요. ?sheet=origin 이면 출발지 시트가 열려요.
+ * 로그인했으면 진짜 팀을 만들고(A create_team → 초대 코드) 진짜 초대 링크를 복사해요.
+ * 출발지 · 매주 안 되는 시간은 내 정보(1-1)와 같은 값(Supabase)을 보여주고 저장해요.
  */
-import { Suspense, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Icon } from "@/components/Icon";
@@ -12,11 +14,12 @@ import { TopBar } from "@/components/TopBar";
 import { Toast, useToast } from "@/components/Toast";
 import { EMPTY_DRAFT, WeeklyBlockSheet, formatBlock, type WeeklyDraft } from "@/components/home/WeeklyBlockSheet";
 import { OriginPickerSheet } from "@/components/home/OriginPickerSheet";
-import { getMe, saveMyOrigin } from "@/lib/data";
+import { createTeam as createLiveTeam, getMe, inviteUrl, loadMyProfile, originForD, saveMyOrigin, saveMyWeekly, type MyProfile } from "@/lib/data";
+import { useAuthUser } from "@/lib/use-auth-user";
 import { useDemo } from "@/lib/demo-store";
 import type { WeeklyBlock } from "@/types";
 
-// TODO: API 연결 시 data.ts로 옮기기 (새 팀을 만들면 서버가 초대 코드를 돌려줘요)
+// 데모용 초대 링크 · 팀 (로그인하면 진짜 값을 써요)
 const INVITE_URL = "https://syncle.app/invite/7K2Q-HCI4";
 const NEW_TEAM_ID = "hci4";
 
@@ -39,25 +42,59 @@ function Inner() {
   const { state, update } = useDemo();
   const toast = useToast();
 
+  const user = useAuthUser();
+  const live = !!user;
   const [name, setName] = useState("HCI 팀프로젝트 4조");
-  // 출발지는 1-1 내 정보와 같은 값을 써요 (데모 상태)
-  const origin = state.origin;
+  // 로그인했으면 내 정보(1-1)에 저장된 출발지 · 매주 안 되는 시간을 같이 써요
+  const [profile, setProfile] = useState<MyProfile | null>(null);
+  useEffect(() => {
+    if (!user) return;
+    setName("");
+    setBlocks([]);
+    loadMyProfile().then(setProfile).catch(() => toast.show("내 정보를 불러오지 못했어요"));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
+  const origin = live
+    ? profile?.origin
+      ? { name: profile.origin, roadAddress: "", area: profile.area ?? "" }
+      : null
+    : state.origin;
+  const savedWeekly = live ? (profile?.weekly ?? []) : [];
   const [originOpen, setOriginOpen] = useState(sp.get("sheet") === "origin");
   const [blocks, setBlocks] = useState<WeeklyBlock[]>(START_BLOCKS);
   const [aiOn, setAiOn] = useState(true);
   const [copied, setCopied] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [createdId, setCreatedId] = useState<string | null>(null);
 
   // 시트: 처음에 ?sheet=weekly 면 예시 값으로, '+ 추가'로 열면 빈 값으로
   const [sheet, setSheet] = useState<WeeklyDraft | null>(sp.get("sheet") === "weekly" ? PREVIEW_DRAFT : null);
 
   async function createTeam() {
-    update({ newTeamName: name.trim() || "새 팀", aiEnabled: aiOn });
+    let url = INVITE_URL;
+    if (live) {
+      if (!name.trim()) return toast.show("팀 이름을 입력해 주세요");
+      setBusy(true);
+      try {
+        const { teamId, inviteCode } = await createLiveTeam(name, aiOn);
+        // 여기서 추가한 매주 안 되는 시간은 내 정보에도 저장해요
+        if (blocks.length) await saveMyWeekly([...savedWeekly, ...blocks.map(formatBlock)]);
+        setCreatedId(teamId);
+        url = inviteUrl(inviteCode);
+      } catch (e) {
+        setBusy(false);
+        return toast.show(e instanceof Error ? `팀을 만들지 못했어요 · ${e.message}` : "팀을 만들지 못했어요");
+      }
+      setBusy(false);
+    } else {
+      update({ newTeamName: name.trim() || "새 팀", aiEnabled: aiOn });
+    }
     setCopied(true);
-    toast.show("초대 링크가 복사되었어요");
     try {
-      await navigator.clipboard.writeText(INVITE_URL);
+      await navigator.clipboard.writeText(url);
+      toast.show("팀을 만들고 초대 링크를 복사했어요");
     } catch {
-      /* 복사가 막힌 브라우저면 그냥 넘어가요 */
+      toast.show(`팀을 만들었어요 · 초대 링크: ${url}`);
     }
   }
 
@@ -75,7 +112,7 @@ function Inner() {
 
         <div className="field">
           <label htmlFor="team" className="field__label">팀 이름</label>
-          <input id="team" className="input" type="text" value={name} onChange={(e) => setName(e.target.value)} />
+          <input id="team" className="input" type="text" value={name} placeholder="팀명을 입력해주세요" disabled={copied} onChange={(e) => setName(e.target.value)} />
         </div>
 
         <div className="field">
@@ -93,19 +130,24 @@ function Inner() {
             {origin ? (
               <span className="stack gap-2" style={{ flex: "1 1 auto", minWidth: 0 }}>
                 <span className="t-15 t-strong t-ellipsis">{origin.name}</span>
-                <span className="t-12 t-muted t-ellipsis">{origin.roadAddress}</span>
+                {origin.roadAddress ? <span className="t-12 t-muted t-ellipsis">{origin.roadAddress}</span> : null}
               </span>
             ) : (
               <span className="t-15 t-muted" style={{ flex: "1 1 auto" }}>역이나 건물 이름으로 찾기</span>
             )}
             <span className="t-13 t-accent t-strong" style={{ flexShrink: 0 }}>{origin ? "변경" : "찾기"}</span>
           </button>
-          <span className="field__hint">팀원에게는 {origin ? `‘${origin.area}’까지만` : "동네 단위까지만"} 보여요</span>
+          <span className="field__hint">팀원에게는 {origin?.area ? `‘${origin.area}’까지만` : "동네 단위까지만"} 보여요</span>
         </div>
 
         <div className="field">
           <span className="field__label">매주 안 되는 시간 (선택)</span>
           <div className="hstack gap-8" style={{ flexWrap: "wrap" }}>
+            {savedWeekly.map((line, i) => (
+              <span key={`saved-${i}`} className="chip chip--soft" style={{ padding: "0 12px" }} title="내 정보에 저장된 시간">
+                {line}
+              </span>
+            ))}
             {blocks.map((b) => (
               <span key={b.id} className="chip chip--soft" style={{ padding: "0 4px 0 12px", gap: 2 }}>
                 {formatBlock(b)}
@@ -147,14 +189,14 @@ function Inner() {
       <footer className="footer footer--bare" style={{ padding: "12px 20px 24px", gap: 10 }}>
         {copied ? (
           <>
-            <Link href={`/teams/${NEW_TEAM_ID}`} className="btn btn--primary btn--lg btn--block">
+            <Link href={`/teams/${createdId ?? NEW_TEAM_ID}`} className="btn btn--primary btn--lg btn--block">
               대화방으로 가기
             </Link>
             <span className="footer__note" style={{ fontSize: 12 }}>팀원에게 링크를 보내면 설치 없이 바로 참여해요</span>
           </>
         ) : (
-          <button type="button" className="btn btn--primary btn--lg btn--block" onClick={createTeam}>
-            팀 만들고 초대 링크 복사
+          <button type="button" className="btn btn--primary btn--lg btn--block" onClick={createTeam} disabled={busy}>
+            {busy ? "팀을 만드는 중…" : "팀 만들고 초대 링크 복사"}
           </button>
         )}
       </footer>
@@ -163,12 +205,13 @@ function Inner() {
 
       {originOpen && (
         <OriginPickerSheet
-          initial={origin}
+          initial={live ? null : state.origin}
           onClose={() => setOriginOpen(false)}
           onPick={(place) => {
             update({ origin: place });
-            void saveMyOrigin(getMe().id, place);
             setOriginOpen(false);
+            if (live) setProfile((p) => (p ? { ...p, origin: originForD(place), area: place.area } : p));
+            saveMyOrigin(getMe().id, place).catch(() => toast.show("출발지를 저장하지 못했어요"));
           }}
         />
       )}

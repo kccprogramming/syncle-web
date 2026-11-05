@@ -84,6 +84,132 @@ export function getTeam(teamId: string): Team {
   return teams.find((t) => t.id === teamId) ?? teams[0];
 }
 
+/* ───────── 실제 팀 (A · Supabase) ─────────
+ * 로그인했으면 아래 함수로 진짜 팀을 읽고 만들어요. 로그인 안 했으면 위의 가짜 데이터(getTeams …)를 써요.
+ */
+
+/** 팀 배지 색 (가짜 데이터의 세 팀과 같은 색). 팀 ID로 하나를 골라서 늘 같은 색이 나와요 */
+const TEAM_COLORS = [
+  { color: "#DDE6F7", ink: "#23407A" },
+  { color: "#F7E6D8", ink: "#7A3F12" },
+  { color: "#E6F4EA", ink: "#2B6B3F" },
+];
+function teamColor(id: string) {
+  let h = 0;
+  for (const ch of id) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  return TEAM_COLORS[h % TEAM_COLORS.length];
+}
+
+/** 실제 초대 코드인지 (A의 create_team이 만드는 32자리). 아니면 데모 코드(7K2Q-HCI4)예요 */
+export function isLiveInviteCode(code: string): boolean {
+  return /^[0-9a-f]{32}$/i.test(code.trim());
+}
+
+/** 초대 링크 주소 (0-2 화면) */
+export function inviteUrl(code: string): string {
+  const origin = typeof window === "undefined" ? "" : window.location.origin;
+  return `${origin}/invite/${code}`;
+}
+
+/**
+ * 내 팀 목록 — A (Supabase teams · team_members · messages)
+ * 로그인하지 않았거나 Supabase 키가 없으면 null (화면은 가짜 데이터를 써요).
+ */
+export async function loadMyTeams(): Promise<Team[] | null> {
+  const { supabase, id } = await signedIn();
+  if (!supabase || !id) return null;
+  const mine = await supabase.from("team_members").select("team_id").eq("member_id", id);
+  if (mine.error) throw new Error(mine.error.message);
+  const ids = (mine.data ?? []).map((r) => String(r.team_id));
+  if (ids.length === 0) return [];
+  const [teamRows, memberRows] = await Promise.all([
+    supabase.from("teams").select("id,name,invite_code,ai_enabled,ai_read_scope,created_at").in("id", ids),
+    supabase.from("team_members").select("team_id,member_id,member_role").in("team_id", ids),
+  ]);
+  if (teamRows.error) throw new Error(teamRows.error.message);
+  if (memberRows.error) throw new Error(memberRows.error.message);
+  // 팀마다 마지막 메시지 한 줄 (팀 수가 적어서 팀마다 하나씩 물어봐요)
+  const last = await Promise.all(
+    ids.map((teamId) =>
+      supabase.from("messages").select("content,message_type").eq("team_id", teamId).order("created_at", { ascending: false }).limit(1).maybeSingle(),
+    ),
+  );
+  const teams = (teamRows.data ?? []).map((t) => {
+    const members = (memberRows.data ?? []).filter((m) => m.team_id === t.id);
+    const created = String(t.created_at ?? "");
+    const d = new Date(created);
+    const msg = last[ids.indexOf(String(t.id))]?.data;
+    const name = String(t.name);
+    return {
+      id: String(t.id),
+      name,
+      initial: Array.from(name.trim())[0] ?? "팀",
+      ...teamColor(String(t.id)),
+      memberIds: members.map((m) => String(m.member_id)),
+      ownerId: String(members.find((m) => m.member_role === "owner")?.member_id ?? ""),
+      aiEnabled: !!t.ai_enabled,
+      aiScope: t.ai_read_scope === "mentioned_only" ? "mention" : "all",
+      inviteCode: String(t.invite_code),
+      createdAt: created.slice(0, 10),
+      createdLabel: Number.isFinite(d.getTime()) ? `${d.getMonth() + 1}/${d.getDate()}` : "",
+      lastMessage: msg ? (msg.message_type === "general" ? String(msg.content) : "싱클 AI 알림이 있어요") : "아직 대화가 없어요 · 팀원을 초대해 보세요",
+      unread: 0,
+    } satisfies Team;
+  });
+  // 최근에 만든 팀이 위로
+  return teams.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+}
+
+/** 팀 하나 — A. 내가 속한 팀이 아니거나 로그인 안 했으면 null */
+export async function loadTeam(teamId: string): Promise<Team | null> {
+  return (await loadMyTeams())?.find((t) => t.id === teamId) ?? null;
+}
+
+/**
+ * 새 팀 만들기 — A (create_team). 만든 사람이 방장이 돼요.
+ * aiEnabled=false면 만든 뒤 AI 도우미를 꺼요. 초대 코드를 같이 돌려줘요.
+ */
+export async function createTeam(name: string, aiEnabled: boolean): Promise<{ teamId: string; inviteCode: string }> {
+  const { supabase, id } = await signedIn();
+  if (!supabase || !id) throw new Error("로그인이 필요해요");
+  const { data, error } = await supabase.rpc("create_team", { p_name: name.trim() });
+  if (error) throw new Error(error.message.includes("TEAM_NAME_REQUIRED") ? "팀 이름을 입력해 주세요" : error.message);
+  const row = (Array.isArray(data) ? data[0] : data) as { team_id: string; invite_code: string } | undefined;
+  if (!row) throw new Error("팀을 만들지 못했어요");
+  if (!aiEnabled) await supabase.from("teams").update({ ai_enabled: false }).eq("id", row.team_id);
+  return { teamId: row.team_id, inviteCode: row.invite_code };
+}
+
+/** 초대 미리보기 — A (preview_team_invite, 로그인 전에도 돼요). 없는 코드면 null */
+export async function previewInvite(code: string): Promise<{ teamId: string; teamName: string; inviterName: string; memberCount: number } | null> {
+  const supabase = getSupabase();
+  if (!supabase || !isLiveInviteCode(code)) return null;
+  const { data, error } = await supabase.rpc("preview_team_invite", { p_invite_code: code.trim() });
+  if (error) throw new Error(error.message);
+  const row = (Array.isArray(data) ? data[0] : data) as { team_id: string; team_name: string; inviter_name: string; member_count: number } | undefined;
+  return row ? { teamId: row.team_id, teamName: row.team_name, inviterName: row.inviter_name, memberCount: Number(row.member_count) } : null;
+}
+
+/** 초대 코드로 팀 참여 — A (join_team). 이미 팀원이면 그대로 들어가요. 팀 ID를 돌려줘요 */
+export async function joinTeam(code: string): Promise<string> {
+  const { supabase, id } = await signedIn();
+  if (!supabase || !id) throw new Error("로그인이 필요해요");
+  const { data, error } = await supabase.rpc("join_team", { p_invite_code: code.trim() });
+  if (error) throw new Error(error.message.includes("INVALID_INVITE_CODE") ? "초대 코드를 다시 확인해 주세요" : error.message);
+  const row = (Array.isArray(data) ? data[0] : data) as { team_id: string } | string | undefined;
+  const teamId = typeof row === "string" ? row : row?.team_id;
+  if (!teamId) throw new Error("팀에 참여하지 못했어요");
+  return teamId;
+}
+
+/** 내 이름 바꾸기 — A (profiles.nickname). 팀원에게 보이는 이름이에요 */
+export async function saveMyNickname(nickname: string): Promise<void> {
+  const { supabase, id } = await signedIn();
+  if (!supabase || !id || !nickname.trim()) return;
+  const { error } = await supabase.from("profiles").update({ nickname: nickname.trim(), updated_at: new Date().toISOString() }).eq("id", id);
+  if (error) throw new Error(error.message);
+}
+
 /** GET /api/invites/:code — A (로그인 전에도 볼 수 있는 초대 미리보기) */
 export function getInvite(code: string) {
   const team = teams.find((t) => t.inviteCode === code) ?? teams[0];
