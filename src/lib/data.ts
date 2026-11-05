@@ -154,7 +154,7 @@ export async function loadMyTeams(): Promise<Team[] | null> {
       aiScope: t.ai_read_scope === "mentioned_only" ? "mention" : "all",
       inviteCode: String(t.invite_code),
       createdAt: created.slice(0, 10),
-      createdLabel: Number.isFinite(d.getTime()) ? `${d.getMonth() + 1}/${d.getDate()}` : "",
+      createdLabel: Number.isFinite(d.getTime()) ? `${String(d.getFullYear()).slice(2)}/${d.getMonth() + 1}/${d.getDate()}` : "",
       lastMessage: msg ? (msg.message_type === "general" ? String(msg.content) : "싱클 AI 알림이 있어요") : "아직 대화가 없어요 · 팀원을 초대해 보세요",
       unread: 0,
     } satisfies Team;

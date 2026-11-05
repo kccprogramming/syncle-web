@@ -51,7 +51,7 @@ export interface Team {
   aiScope: "all" | "mention";
   inviteCode: string;
   createdAt: string; // "2026-10-21"
-  createdLabel: string; // "10/21"
+  createdLabel: string; // "26/10/21" (년/월/일)
   lastMessage: string;
   unread: number;
   /** 홈 '내 팀' 목록에 보이는 부가 설명 (없으면 lastMessage) */

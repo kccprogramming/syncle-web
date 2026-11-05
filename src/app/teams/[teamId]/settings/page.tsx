@@ -97,7 +97,7 @@ function Settings({ teamId, initial, live, meId }: { teamId: string; initial: Te
           <div className="stack gap-2 grow">
             <span style={{ fontSize: 16, fontWeight: 600 }}>{team.name}</span>
             <span className="t-12 t-muted">
-              {team.createdLabel} 만듦 · 방장 {owner.name === "?" ? "팀원" : owner.name}
+              {team.createdLabel ? `생성일 ${team.createdLabel} · ` : ""}방장 {owner.name === "?" ? "팀원" : owner.name}
             </span>
           </div>
           <button
