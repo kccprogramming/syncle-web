@@ -14,13 +14,28 @@
 | 최종 코드 | 조직의 `final` 저장소에 올릴 예정 (아직 비어 있어요) |
 | 팀원 원본 코드 | `kccprogramming/just_keeping` 저장소의 브랜치들 (아래 4장) |
 
-`integration/b-d`의 커밋 (오래된 것부터):
+### 지금 어디까지 왔나 (11/6 밤)
+
+로그인하면 **진짜 데이터로 처음부터 끝까지** 돼요 (두 계정으로 확인):
+Google 로그인 → 내 정보(출발지 · 매주 안 되는 시간 · 알림 설정) → 팀 만들기 · 초대 링크 참여 → 팀 설정(이름 · AI · 방장 넘기기 · 나가기) → 실시간 대화 · 사진 · 파일 · 할 일 → '@AI 회의 잡아줘'(B Gemini) → C 제안 저장 → 시간 응답 → 공평한 지역 · 장소(D) → 방장 확정 → 대화방 확정 카드 · 홈 다가오는 회의 → 앱 알림(🔔).
+로그인 안 하면 예전 가짜 데이터 데모 그대로예요. 자세한 내용은 6장.
+
+### 다음에 할 일 (새 대화는 여기부터)
+
+1. **내 정보(1-1)**: '이름 수정'(지금 "준비 중", `saveMyNickname` 있음) · '회원 탈퇴'(A `DELETE /api/account`와 같은 일 — 서버 전용 `SUPABASE_SERVICE_ROLE_KEY` 필요, 방장인 팀 확인 · 올린 파일 정리 · 되돌릴 수 없음을 확인 시트로).
+2. **Vercel 미리보기 배포**: Vercel 환경 변수 7개(`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `KAKAO_REST_API_KEY`, `GEMINI_API_KEY`, `SCHEDULE_LIVE_AI_ENABLED`, `SCHEDULE_LIVE_PLACES_ENABLED`) + Supabase Authentication → URL Configuration → Redirect URLs에 Vercel 주소(`https://syncle-web-*.vercel.app/**`) 추가 → 미리보기에서 로그인 · 제안까지 확인.
+3. 팀원 코드 대기: 성하님 B(요약 · 할 일 · 자료 · 회의록, 시간 정리 보완 — 7장), 현규님 D(출발지 위치 인식 — 7장).
+4. 남은 데모 화면: 8 확정 회의 카드 · 9 회의록 · 7 내 조건은 아직 가짜 데이터(진짜 제안은 C 화면 하나로 처리 중).
+5. `integration/b-d` → `final` 저장소 (팀 확인 뒤).
+
+### `integration/b-d` 커밋 (오래된 것부터)
 
 1. `6cca425` B·D 백엔드 연결
 2. `bf0b7df` 6에서 장소 종류 고르기 + 2-1에서 팀원이 직접 출발지 정하기
 3. `0e100d1` AI가 대화를 보고 장소 종류(합주실·회식 장소 …) 정하기
 4. `6e2faf6` 공평한 지역 찾기 + 팀 추천 기준 + 지역별 추천 이유
 5. `868c7ae` C(시간 후보 · 회의 제안) 합치기
+6. 11/6: `5bf4c5a` Google 로그인 · `e022f44` 내 정보 저장 · `391436b` C 실제 일정 합치기 · `d83d815` 팀 · `9a06a05` 실시간 대화 · `1bb49cf`/`e3d82a9` 사진 · 파일 · `da6477f` 할 일 · `9607d21` 팀 설정 · 화면 고정 · `f091390` C 끝까지 · `0e7e99e` 홈 다가오는 회의 · `c95b731` 알림
 
 ---
 
@@ -87,7 +102,8 @@
 | 이름 | 어디에 | 없으면 |
 |---|---|---|
 | `KAKAO_REST_API_KEY` | `.env.local` + Vercel 환경 변수 (이미 넣음) | 장소 검색·추천이 예시 데이터로 동작 |
-| `GEMINI_API_KEY` | `.env.local` + Vercel (아직 없음) | B 대신 예시 조건으로 C가 계산 |
+| `GEMINI_API_KEY` | `.env.local` (넣음) + Vercel (아직) | 데모 흐름은 예시 조건, 진짜 팀 제안 만들기는 안 돼요 |
+| `SCHEDULE_LIVE_AI_ENABLED` · `SCHEDULE_LIVE_PLACES_ENABLED` | `.env.local` (`true`) + Vercel (아직) | 진짜 팀의 제안 만들기 · 장소 찾기가 막혀요 (C 서버 스위치) |
 | `GEMINI_MODEL` | 선택 | B 기본값 `gemini-3.1-flash-lite` |
 | `NEXT_PUBLIC_SUPABASE_URL` | `.env.local` + Vercel (각자 직접) | A 연결 전이라 지금은 안 써요 |
 | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | `.env.local` + Vercel (각자 직접, 채팅으로 안 보내요) | 〃 |
@@ -150,7 +166,7 @@
    - 예전 메모: `src/server/c/features/proposals/proposal-flow.ts`(castVote, confirmProposal)와 `meeting-calendar.ts`(.ics)는 들어왔지만 화면과 연결 전이에요. 지금 5의 응답·확정은 브라우저 예시 상태(demo-store)예요.
    - 순서: A 기본 DB → C 저장 SQL 검토·적용 → 화면을 API에 연결. 그래야 팀원끼리 실제로 공유돼요.
    - 예시 제안의 확정은 `ConfirmRequest`(`src/types.ts`)를 만들어 `data.ts`의 `confirmProposal()`(저장 안 함)에 넘겨요. 실제 제안은 C 화면이 C 확정 API를 바로 불러요.
-3. **Gemini 키로 B 실제 확인**: 키를 받으면 '@AI 회의 잡아줘'로 실제 조건 카드가 나오는지 확인.
+3. **Gemini 키로 B 실제 확인 — 완료 (11/6)**: `.env.local`에 `GEMINI_API_KEY`(희원 계정, Google AI Studio 무료) 넣고 실제 제안까지 확인. Vercel에도 넣어야 해요.
 4. **`integration/b-d` → `final`**: 팀 확인 뒤 최종 저장소로 옮기기.
 
 ---
