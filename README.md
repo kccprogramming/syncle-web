@@ -5,6 +5,8 @@
 디자인 캔버스의 화면 38개를 Next.js 15 (App Router) + TypeScript로 옮긴 프론트엔드예요.
 지금은 **가짜 데이터(mock JSON)** 로 모든 화면이 실제처럼 이어져요. 백엔드 API가 준비되면 `src/lib/data.ts`만 바꿔 끼우면 돼요.
 
+> 지금까지 결정한 것과 남은 일은 [docs/HANDOFF.md](docs/HANDOFF.md)에 정리돼 있어요. 새 작업은 거기부터 읽어요.
+
 ## 1. 실행하기
 
 필요한 것: Node.js 20 이상
