@@ -12,7 +12,8 @@ import { TopBar } from "@/components/TopBar";
 import { Icon } from "@/components/Icon";
 import { AvatarStack } from "@/components/Avatar";
 import { useDemo } from "@/lib/demo-store";
-import { getMe, getMeeting, getMember, getMembers, getPlaces, getTeam } from "@/lib/data";
+import { getMe, getMeeting, getMember, getMembers, getTeam } from "@/lib/data";
+import { getChosenPlace } from "@/components/chat/team-info";
 import { StatusPill } from "@/components/meeting/StatusPill";
 import { AbsentSheet } from "@/components/meeting/AbsentSheet";
 import { downloadIcs } from "@/components/meeting/ics";
@@ -52,7 +53,7 @@ function MeetingInner() {
 
   // 장소: 6에서 고른 장소 (온라인이면 장소 없음)
   const online = state.mode === "online";
-  const place = getPlaces(proposalId).places.find((p) => p.id === state.placeId);
+  const place = getChosenPlace(proposalId, state);
   const placeName = online ? "온라인 회의" : place?.name ?? meeting.placeName;
   const myTravel = place?.travel.find((t) => t.who === me.name)?.minutes ?? meeting.myRoute?.minutes ?? 0;
 

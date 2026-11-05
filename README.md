@@ -114,3 +114,19 @@ src/
 8. AI가 일하는 동안은 단계를 보여주고, 실패해도 된 부분은 먼저 쓸 수 있게
 
 색·글꼴은 `src/app/globals.css` 맨 위 `:root`에서만 바꿔요.
+
+## 7. 백엔드 연결 현황 (B · D)
+
+받은 코드는 `src/server/b`(성하, 회의 조건 추출)와 `src/server/d`(현규, 장소 추천)에 **그대로** 두었어요.
+각 파일 끝의 단독 실행용 예시(`if (import.meta.main) {…}`)만 Next.js에서 돌 수 없어 뺐어요. 원본 설명은 같은 폴더의 `B_README.md`, `D_README.md`, `D_CONTRACT.md`에 있어요.
+우리 앱 모양으로 바꾸는 일은 `src/server/ai-adapter.ts`(B), `src/server/places-adapter.ts`(D)에서만 해요.
+
+| 담당 | 서버 주소 | 쓰는 화면 | 필요한 키 | 키가 없으면 |
+|---|---|---|---|---|
+| D 장소 추천 | `POST /api/places/recommend` | 6 장소 후보 → 5·8·대화방 카드 | `KAKAO_REST_API_KEY` | 가짜 장소 3곳 ('예시 데이터' 표시) |
+| B 회의 조건 | `POST /api/ai/request` | 3 대화방 '@AI 회의 잡아줘' | `GEMINI_API_KEY` | 지금까지의 예시 흐름 |
+
+아직 임시로 정해 둔 것 (C와 합의 필요):
+- 장소 검색어: 검색 지역(제안의 지역, 예: 서울역) + 장소 종류 `스터디룸` (`DEFAULT_PLACE_KEYWORD`)
+- 팀원 출발지: `src/mocks/member-origins.json` (나중에 A의 프로필 출발역)
+- B가 조건을 정리한 뒤 나오는 시간 제안 카드는 아직 C가 아니라 예시 데이터예요

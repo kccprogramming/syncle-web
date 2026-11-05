@@ -8,7 +8,7 @@
  * 백엔드를 연결하면 이 상태 대부분은 서버 데이터로 바뀌어요.
  */
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
-import type { Condition, PlaceSearchResult, WeeklyBlock } from "@/types";
+import type { Condition, PlaceOption, PlaceSearchResult, WeeklyBlock } from "@/types";
 import { getMe, getMyOrigin } from "@/lib/data";
 
 export interface DemoState {
@@ -23,6 +23,8 @@ export interface DemoState {
   mode: "offline" | "online";
   /** 고른 장소 (6) */
   placeId: string;
+  /** 6에서 실제 장소 추천(D)으로 고른 장소. 가짜 데이터에 없는 장소라 통째로 기억해요 */
+  chosenPlace: PlaceOption | null;
   /** 7-1에서 직접 추가한 조건 */
   addedConditions: Condition[];
   /** 주로 출발하는 곳 (2, 1-1, 7) */
@@ -51,6 +53,7 @@ const initialState = (): DemoState => ({
   jiwooPicks: ["t-1"],
   mode: "offline",
   placeId: "A",
+  chosenPlace: null,
   addedConditions: [],
   origin: getMyOrigin(),
   weeklyBlocks: getMe().weeklyBlocks,

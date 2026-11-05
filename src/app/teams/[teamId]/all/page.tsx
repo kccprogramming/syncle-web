@@ -110,7 +110,7 @@ function Inner() {
                   <span className="tag tag--warn">응답 받는 중</span>
                 </span>
                 <span className="t-13 t-ink2">
-                  AI 추천 {meetings.proposal.cardSummary.timeLabel} · {getChosenPlace(meetings.proposal.id, state.placeId).short}
+                  AI 추천 {meetings.proposal.cardSummary.timeLabel} · {getChosenPlace(meetings.proposal.id, state).short}
                 </span>
                 <span className="t-12 t-muted">
                   응답 마감 {meetings.proposal.deadline} · {respondedText(meetings.proposal, state)} 응답
@@ -123,7 +123,7 @@ function Inner() {
                   <span className="t-15 t-strong grow">{m.title}</span>
                   <span className="tag tag--ok">확정</span>
                 </span>
-                <span className="t-13 t-ink2">{meetingLine(m, state.placeId)}</span>
+                <span className="t-13 t-ink2">{meetingLine(m, state)}</span>
                 <span className="t-12 t-muted">{m.attendeeIds.length}명 참석</span>
               </Link>
             ))}

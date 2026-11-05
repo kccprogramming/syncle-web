@@ -40,6 +40,7 @@ import minutesJson from "@/mocks/minutes.json";
 import noMatchJson from "@/mocks/no-match.json";
 import placeSearchJson from "@/mocks/place-search.json";
 import aiRepliesJson from "@/mocks/ai-replies.json";
+import memberOriginsJson from "@/mocks/member-origins.json";
 
 const members = membersJson as Member[];
 const teams = teamsJson as Team[];
@@ -105,6 +106,43 @@ export function getPlaces(proposalId: string) {
   return places[proposalId] ?? places["p-1"];
 }
 
+/**
+ * 팀원 출발지 (서버에서만 써요) — A (profiles.departure_station)
+ * 다른 팀원의 정확한 출발지는 화면에 보내지 않고, D 장소 추천에만 써요.
+ */
+export function getMemberOrigin(memberId: string): string | undefined {
+  return (memberOriginsJson as Record<string, string>)[memberId];
+}
+
+/** 6 장소 후보 응답 (POST /api/places/recommend) */
+export interface PlaceRecommendation {
+  /** kakao = D가 실제로 찾은 결과, mock = 카카오 키가 없어서 가짜 데이터 */
+  source: "kakao" | "mock";
+  areaLabel: string;
+  title: string;
+  timeLabel: string;
+  places: PlaceOption[];
+  /** true면 시설·수용 인원을 확인하지 않은 후보예요 (D preview.venueConditions) */
+  unverified: boolean;
+}
+
+/**
+ * 장소 후보 추천 — D (POST /api/places/recommend)
+ * 서버가 D의 findPlaces로 장소를 찾고 팀원별 대중교통 시간을 계산해요.
+ * myOrigin: 1-1·2에서 고른 내 출발지 (이름 또는 도로명 주소). 없으면 서버에 저장된 값을 써요.
+ */
+export async function recommendPlaces(proposalId: string, myOrigin?: string, signal?: AbortSignal): Promise<PlaceRecommendation> {
+  const res = await fetch("/api/places/recommend", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ proposalId, myOrigin }),
+    signal,
+  });
+  const body = await res.json().catch(() => null);
+  if (!res.ok || !body) throw new Error(body?.error?.message ?? `장소 추천 실패 (${res.status})`);
+  return body as PlaceRecommendation;
+}
+
 /** GET /api/conditions?proposal=:id — B */
 export function getConditions(proposalId: string): Condition[] {
   return conditions[proposalId] ?? [];
@@ -141,6 +179,35 @@ export function getMinutes(meetingId: string): Minutes {
 /** GET /api/proposals/:id/alternatives — C (모두 되는 시간이 없을 때) */
 export function getNoMatchOptions(proposalId: string): NoMatchOption[] {
   return noMatch[proposalId] ?? noMatch["p-1"];
+}
+
+/** '@AI 회의 잡아줘' 응답 (POST /api/ai/request) */
+export interface AiRequestResponse {
+  /** gemini = B가 실제 AI로 대화를 읽은 결과, mock = GEMINI_API_KEY가 없어서 예시 흐름 */
+  source: "gemini" | "mock";
+  /** B 결과의 상태 (ready · needs_confirmation · not_supported · clarify_request · ignored) */
+  status?: string;
+  /** 대화방에 보여줄 답 카드 (source가 gemini일 때) */
+  reply?: AiReply;
+  /** true면 회의 조건이 정리돼서 C(시간 후보)로 넘길 수 있어요 */
+  canPropose?: boolean;
+}
+
+/**
+ * 회의 잡기 부탁 — B (POST /api/ai/request)
+ * 서버가 이 팀의 대화와 화면에서 새로 보낸 메시지를 B의 handleAiRequest에 넘겨요.
+ * extraMessages: 이 화면에서 방금 보낸 메시지들 (아직 서버에 저장 전이라 같이 보내요)
+ */
+export async function requestAi(teamId: string, text: string, extraMessages: Message[], signal?: AbortSignal): Promise<AiRequestResponse> {
+  const res = await fetch("/api/ai/request", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ teamId, text, extraMessages }),
+    signal,
+  });
+  const body = await res.json().catch(() => null);
+  if (!res.ok || !body) throw new Error(body?.error?.message ?? `AI 요청 실패 (${res.status})`);
+  return body as AiRequestResponse;
 }
 
 /**

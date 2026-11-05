@@ -13,6 +13,7 @@ import { HomeHeader } from "@/components/home/HomeHeader";
 import { useDemo } from "@/lib/demo-store";
 import { getMeetings, getNotifications, getPlaces, getProposal, getTeam, getTeams } from "@/lib/data";
 import type { Meeting } from "@/types";
+import { getChosenPlace, type PlacePick } from "@/components/chat/team-info";
 
 export default function HomePage() {
   return (
@@ -49,7 +50,7 @@ function FullHome() {
         <section className="stack gap-10">
           <h2 className="t-14 t-strong t-ink2">다가오는 회의</h2>
           {upcoming.map((m) => (
-            <MeetingCard key={m.id} meeting={m} confirmed={state.confirmed} placeId={state.placeId} />
+            <MeetingCard key={m.id} meeting={m} confirmed={state.confirmed} pick={state} />
           ))}
         </section>
 
@@ -101,7 +102,7 @@ function weekdayTime(shortLabel: string) {
 }
 
 /** 다가오는 회의 한 장 */
-function MeetingCard({ meeting, confirmed, placeId }: { meeting: Meeting; confirmed: boolean; placeId: string }) {
+function MeetingCard({ meeting, confirmed, pick }: { meeting: Meeting; confirmed: boolean; pick: PlacePick }) {
   const team = getTeam(meeting.teamId);
   const when = weekdayTime(meeting.shortLabel);
 
@@ -134,7 +135,7 @@ function MeetingCard({ meeting, confirmed, placeId }: { meeting: Meeting; confir
 
   // 확정 전: 응답 받는 중인 제안으로 / 확정 후: 확정 회의 카드로
   if (confirmed) {
-    const place = getPlaces(meeting.proposalId).places.find((p) => p.id === placeId);
+    const place = getChosenPlace(meeting.proposalId, pick);
     return (
       <Link href={`/meetings/${meeting.id}`} className="card" style={rowStyle}>
         {dateBox}

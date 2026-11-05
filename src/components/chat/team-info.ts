@@ -7,7 +7,7 @@
 import { useState } from "react";
 import { getMeetings, getPlaces, getProposal, getTasks, getMinutes, getMember, getMe } from "@/lib/data";
 import { useDemo, type DemoState } from "@/lib/demo-store";
-import type { Meeting, Proposal, Task, Team } from "@/types";
+import type { Meeting, PlaceOption, Proposal, Task, Team } from "@/types";
 
 /** 프로토타입 상태(useDemo)가 이어지는 팀. 다른 팀은 mock 데이터 그대로 보여요. */
 export const DEMO_TEAM_ID = "hci4";
@@ -34,10 +34,14 @@ export function respondedText(p: Proposal, state: DemoState): string {
   return `${Math.min(done, total)}/${total}명`;
 }
 
-/** 고른 장소 (6에서 바꿨으면 그 장소) */
-export function getChosenPlace(proposalId: string, placeId: string) {
+/** 고른 장소를 찾는 데 필요한 값 (데모 상태의 placeId, chosenPlace) */
+export type PlacePick = Pick<DemoState, "placeId" | "chosenPlace">;
+
+/** 고른 장소 (6에서 바꿨으면 그 장소). 실제 추천(D)에서 고른 장소가 있으면 그걸 먼저 써요 */
+export function getChosenPlace(proposalId: string, pick: PlacePick): PlaceOption {
+  if (pick.chosenPlace && pick.chosenPlace.id === pick.placeId) return pick.chosenPlace;
   const list = getPlaces(proposalId).places;
-  return list.find((p) => p.id === placeId) ?? list[0];
+  return list.find((p) => p.id === pick.placeId) ?? list[0];
 }
 
 /**
@@ -58,8 +62,8 @@ export function getTeamMeetings(teamId: string, confirmed: boolean) {
 }
 
 /** 확정 회의 한 줄: "11/11(수) 19:00 · 스터디룸 A" */
-export function meetingLine(m: Meeting, placeId: string): string {
-  const place = m.proposalId ? getChosenPlace(m.proposalId, placeId).short : m.placeName;
+export function meetingLine(m: Meeting, pick: PlacePick): string {
+  const place = m.proposalId ? getChosenPlace(m.proposalId, pick).short : m.placeName;
   return `${m.shortLabel} · ${place}`;
 }
 

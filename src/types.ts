@@ -80,6 +80,9 @@ export interface TimeOption {
   id: string;
   label: string; // "11/11(수) 19:00–21:00"
   short: string; // "11/11(수) 19:00"
+  /** 시작·끝 시각 (서울 시간, ISO 8601). D 장소 추천과 B 일정 계산에 써요 */
+  startAt: string; // "2026-11-11T19:00:00+09:00"
+  endAt: string;
   availableCount: number; // 응답한 사람 중 가능 인원
   respondedCount: number;
   recommended: boolean;
@@ -131,9 +134,16 @@ export interface PlaceOption {
   walk: string; // "서울역 도보 4분"
   /** 장소 사이트 주소 (D의 detailUrl · 카카오맵 장소 페이지). 예약·요금·시설은 여기서 확인해요 */
   url: string;
-  /** 가장 오래 걸리는 사람의 이동시간 (D의 maxTravelMinutes) */
-  maxMinutes: number;
-  travel: { who: string; minutes: number }[];
+  /** 가장 오래 걸리는 사람의 이동시간 (D의 maxTravelMinutes). 일부 이동시간을 모르면 null */
+  maxMinutes: number | null;
+  /** 사람 간 이동시간 차이 (D의 travelTimeDifference). 모르면 null */
+  diffMinutes?: number | null;
+  /** 공평성 순위 1부터 (D의 rank). 순위를 매길 수 없으면 null */
+  rank?: number | null;
+  /** 장소 주소 (D의 address) */
+  address?: string;
+  /** 사람별 이동시간. minutes가 null이면 출발지나 경로를 확인하지 못한 것(D의 unknown/error) */
+  travel: { who: string; minutes: number | null }[];
   reason: string;
   /** 지도 위 표시 위치 (지도 영역 안의 %) */
   pin: { x: number; y: number };
@@ -286,7 +296,8 @@ export interface KakaoAddressSearchResponse {
  * 백엔드에서는 POST /api/teams/:id/ai 가 이 모양으로 돌려줘요.
  */
 export interface AiReply {
-  kind: "summary" | "tasks" | "files" | "minutes" | "help";
+  /** conditions·questions·notice는 B(회의 조건 추출)가 만든 답이에요 */
+  kind: "summary" | "tasks" | "files" | "minutes" | "help" | "conditions" | "questions" | "notice";
   title: string;
   /** 무엇을 보고 답했는지 (디자인 원칙 5: AI는 근거를 같이 보여줘요) */
   basis: string;

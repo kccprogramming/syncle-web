@@ -142,7 +142,7 @@ export function TeamDrawer({
                 <div className="stack gap-2 grow">
                   <span className="t-14 t-strong">{m.title}</span>
                   <span className="t-12 t-ink2">
-                    {meetingLine(m, state.placeId)} · {m.attendeeIds.length}명
+                    {meetingLine(m, state)} · {m.attendeeIds.length}명
                   </span>
                 </div>
                 <Badge label="확정" color="var(--ok)" />

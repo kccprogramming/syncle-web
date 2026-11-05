@@ -15,6 +15,7 @@ import { Toast, useToast } from "@/components/Toast";
 import { Sheet } from "@/components/Sheet";
 import { useDemo } from "@/lib/demo-store";
 import { getMember, getPlaces, getProposal, getTeam } from "@/lib/data";
+import { getChosenPlace } from "@/components/chat/team-info";
 import { StatusPill } from "@/components/meeting/StatusPill";
 import { ModeToggle } from "@/components/meeting/ModeToggle";
 import { ReplySheet } from "@/components/meeting/ReplySheet";
@@ -55,7 +56,7 @@ function ProposalInner() {
   const proposal = getProposal(proposalId);
   const base = `/proposals/${proposal.id}`;
   const online = state.mode === "online";
-  const place = getPlaces(proposal.id).places.find((p) => p.id === state.placeId);
+  const place = getChosenPlace(proposal.id, state);
   const owner = getMember(getTeam(proposal.teamId).ownerId); // 방장
   const pendingName = getMember(proposal.pendingIds[0]).name;
 
@@ -216,7 +217,7 @@ function ProposalInner() {
             <div className="stack gap-2 grow">
               <span className="t-15 t-strong">{place?.name}</span>
               <span className="t-12 t-muted">
-                {place?.walk} · 가장 먼 사람 {place?.maxMinutes}분
+                {place?.walk}{place?.maxMinutes == null ? "" : ` · 가장 먼 사람 ${place.maxMinutes}분`}
               </span>
             </div>
             <span className="t-13 t-strong t-accent no-shrink">장소 바꾸기 ›</span>

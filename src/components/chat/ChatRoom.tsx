@@ -10,7 +10,8 @@ import { TopBar } from "@/components/TopBar";
 import { Icon } from "@/components/Icon";
 import { AiAvatar } from "@/components/Logo";
 import { Toast, useToast } from "@/components/Toast";
-import { getAiReply, getFiles, getMe, getMessages, getTeam } from "@/lib/data";
+import { getAiReply, getFiles, getMe, getMessages, getTeam, requestAi } from "@/lib/data";
+import type { Message } from "@/types";
 import { useDemo } from "@/lib/demo-store";
 import { AI_CHIPS, AiHelpPanel } from "./AiHelpPanel";
 import { ChatMessages, type ChatItem } from "./ChatMessages";
@@ -117,7 +118,24 @@ export function ChatRoom({
     } else if (callsAi && text.includes("회의") && !text.includes("회의록")) {
       const workingId = newId();
       setExtra((prev) => [...prev, mine, { id: workingId, type: "ai-working", proposalId, at }]);
-      runAi(workingId, fail);
+      // B(회의 조건 추출)에게 먼저 물어봐요. 키가 없으면(mock) 지금까지의 예시 흐름 그대로예요.
+      const sent = [...extra, mine].filter((m): m is Message => m.type === "text" || m.type === "mention-ai");
+      requestAi(teamId, text, sent)
+        .then((r) => {
+          if (r.source === "mock" || !r.reply) return runAi(workingId, fail);
+          const reply: ChatItem = { id: newId(), type: "ai-reply", reply: r.reply, at: nowLabel() };
+          // 조건이 정리됐으면 이어서 시간 제안(C · 아직 예시 데이터)을 보여줘요
+          setExtra((prev) => prev.flatMap((m) => (m.id === workingId ? (r.canPropose ? [reply, { id: newId(), type: "ai-proposal" as const, proposalId, at: nowLabel() }] : [reply]) : [m])));
+        })
+        .catch(() => {
+          const reply: ChatItem = {
+            id: newId(),
+            type: "ai-reply",
+            reply: { kind: "notice", title: "AI가 대화를 정리하지 못했어요", basis: "잠시 뒤 다시 부탁해 주세요 · 그동안 대화는 계속할 수 있어요", items: [] },
+            at: nowLabel(),
+          };
+          replaceItem(workingId, reply);
+        });
     } else if (callsAi) {
       // 요약·할 일·자료·회의록 등: 잠깐 '정리하고 있어요'를 보여준 뒤 답 카드로 바꿔요
       const thinkingId = newId();
@@ -157,7 +175,7 @@ export function ChatRoom({
   const upcoming = meetings.upcoming[0];
   const showProposal = !!meetings.proposal && hasProposalCard;
   const meetingText = upcoming
-    ? meetingLine(upcoming, state.placeId)
+    ? meetingLine(upcoming, state)
     : showProposal && meetings.proposal
       ? `${shortTitle(meetings.proposal)} · 응답 마감 ${meetings.proposal.deadline}`
       : null;

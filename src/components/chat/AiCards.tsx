@@ -177,7 +177,7 @@ export function AiFailedCard({ proposalId, onRetry, onTimeOnly }: { proposalId: 
 export function ConfirmedCard({ meetingId }: { meetingId: string }) {
   const { state } = useDemo();
   const m = getMeeting(meetingId);
-  const place = m.proposalId ? getChosenPlace(m.proposalId, state.placeId) : null;
+  const place = m.proposalId ? getChosenPlace(m.proposalId, state) : null;
   const placeText = place ? `${place.short} · ${place.walk}` : [m.placeName, m.placeMeta].filter(Boolean).join(" · ");
 
   return (

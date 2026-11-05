@@ -10,13 +10,50 @@
     "deadline": "11/6(금) 21:00",
     "deadlineDday": "D-1",
     "deadlineReason": "자료 마감(11/13) 전에 회의하려고 AI가 정한 마감이에요",
-    "respondedIds": ["u-minji", "u-minsu", "u-seoyeon"],
-    "pendingIds": ["u-jiwoo"],
+    "respondedIds": [
+      "u-minji",
+      "u-minsu",
+      "u-seoyeon"
+    ],
+    "pendingIds": [
+      "u-jiwoo"
+    ],
     "pendingNote": "지우님은 아직 응답 전 · 프로필상 가능",
     "times": [
-      { "id": "t-1", "label": "11/11(수) 19:00–21:00", "short": "11/11(수) 19:00", "availableCount": 3, "respondedCount": 3, "recommended": true },
-      { "id": "t-2", "label": "11/12(목) 19:00–21:00", "short": "11/12(목) 19:00", "availableCount": 2, "respondedCount": 3, "recommended": false, "whyNot": "민수님 불가", "whyNotDetail": "민수님이 목요일은 안 된다고 했어요" },
-      { "id": "t-3", "label": "11/14(토) 14:00–16:00", "short": "11/14(토) 14:00", "availableCount": 3, "respondedCount": 3, "recommended": false, "whyNot": "자료 마감 이후라 늦어요", "whyNotDetail": "자료 마감(11/13) 이후라 늦어요" }
+      {
+        "id": "t-1",
+        "label": "11/11(수) 19:00–21:00",
+        "short": "11/11(수) 19:00",
+        "startAt": "2026-11-11T19:00:00+09:00",
+        "endAt": "2026-11-11T21:00:00+09:00",
+        "availableCount": 3,
+        "respondedCount": 3,
+        "recommended": true
+      },
+      {
+        "id": "t-2",
+        "label": "11/12(목) 19:00–21:00",
+        "short": "11/12(목) 19:00",
+        "startAt": "2026-11-12T19:00:00+09:00",
+        "endAt": "2026-11-12T21:00:00+09:00",
+        "availableCount": 2,
+        "respondedCount": 3,
+        "recommended": false,
+        "whyNot": "민수님 불가",
+        "whyNotDetail": "민수님이 목요일은 안 된다고 했어요"
+      },
+      {
+        "id": "t-3",
+        "label": "11/14(토) 14:00–16:00",
+        "short": "11/14(토) 14:00",
+        "startAt": "2026-11-14T14:00:00+09:00",
+        "endAt": "2026-11-14T16:00:00+09:00",
+        "availableCount": 3,
+        "respondedCount": 3,
+        "recommended": false,
+        "whyNot": "자료 마감 이후라 늦어요",
+        "whyNotDetail": "자료 마감(11/13) 이후라 늦어요"
+      }
     ],
     "reasons": [
       "자료 마감 11/13(금)보다 이틀 앞서, 회의 뒤 고칠 시간이 있어요",
@@ -24,14 +61,42 @@
       "평일 저녁이라 아무도 수업·알바와 겹치지 않아요"
     ],
     "placeId": "A",
-    "agenda": ["발표 목차 확정", "파트별 분량과 담당 나누기", "자료 취합 마감일 정하기"],
-    "sources": [
-      { "who": "고정 메시지", "quote": "자료 마감 11/13(금) 18:00", "effect": "회의는 11/13 전에" },
-      { "who": "민지", "quote": "다음 주에 회의 잡아줘", "effect": "11/9–11/13 사이" },
-      { "who": "민수", "quote": "다음 주 목요일은 안 돼요", "effect": "11/12(목) 불가" },
-      { "who": "서연", "quote": "주말은 오후만 돼요", "effect": "토·일 12시 이후" }
+    "agenda": [
+      "발표 목차 확정",
+      "파트별 분량과 담당 나누기",
+      "자료 취합 마감일 정하기"
     ],
-    "cardSummary": { "timeLabel": "11/11(수) 19:00", "candidateCount": 3, "placeLabel": "서울역 주변 스터디룸 3곳", "maxMinutes": 52 },
-    "progress": { "step": "places", "messageCount": 38 }
+    "sources": [
+      {
+        "who": "고정 메시지",
+        "quote": "자료 마감 11/13(금) 18:00",
+        "effect": "회의는 11/13 전에"
+      },
+      {
+        "who": "민지",
+        "quote": "다음 주에 회의 잡아줘",
+        "effect": "11/9–11/13 사이"
+      },
+      {
+        "who": "민수",
+        "quote": "다음 주 목요일은 안 돼요",
+        "effect": "11/12(목) 불가"
+      },
+      {
+        "who": "서연",
+        "quote": "주말은 오후만 돼요",
+        "effect": "토·일 12시 이후"
+      }
+    ],
+    "cardSummary": {
+      "timeLabel": "11/11(수) 19:00",
+      "candidateCount": 3,
+      "placeLabel": "서울역 주변 스터디룸 3곳",
+      "maxMinutes": 52
+    },
+    "progress": {
+      "step": "places",
+      "messageCount": 38
+    }
   }
 ]
