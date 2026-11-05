@@ -1,6 +1,6 @@
 "use client";
 
-/** 1-1 내 정보 — 출발지, 매주 안 되는 시간, 알림 설정, 로그아웃. */
+/** 1-1 내 정보 — 이름, 출발지, 매주 안 되는 시간, 알림 설정, 로그아웃. */
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { TopBar } from "@/components/TopBar";
@@ -10,34 +10,48 @@ import { Toast, useToast } from "@/components/Toast";
 import { WeeklyBlockSheet, formatBlock } from "@/components/home/WeeklyBlockSheet";
 import { OriginPickerSheet } from "@/components/home/OriginPickerSheet";
 import { Icon } from "@/components/Icon";
+import { Sheet } from "@/components/Sheet";
 import { useDemo } from "@/lib/demo-store";
-import { getMe, getTeams, loadMyProfile, originForD, saveMyNotifications, saveMyOrigin, saveMyWeekly, type MyProfile } from "@/lib/data";
+import { getMe, getTeams, loadMyProfile, loadMyTeams, originForD, saveMyNickname, saveMyNotifications, saveMyOrigin, saveMyWeekly, type MyProfile } from "@/lib/data";
+import type { Team } from "@/types";
 import { signOut } from "@/lib/supabase";
 import { useAuthUser } from "@/lib/use-auth-user";
 
 export default function MePage() {
   const me = getMe();
-  const teamCount = getTeams().length;
   const { state, update } = useDemo();
   const toast = useToast();
   const router = useRouter();
   // 실제 Google 로그인(A)을 했으면 그 계정을 보여줘요. 아니면 가짜 데이터의 '나'
   const user = useAuthUser();
-  const name = (user?.user_metadata?.full_name as string | undefined) ?? me.name;
   // 로그인했으면 Supabase에 저장된 내 정보(A)를, 아니면 데모 값을 보여줘요
   const [profile, setProfile] = useState<MyProfile | null>(null);
+  // 내 진짜 팀 (팀 수)
+  const [myTeams, setMyTeams] = useState<Team[] | null>(null);
   // 확인 중(undefined)일 때도 데모 값을 잠깐 보여주지 않게 live로 둬요
   const live = user !== null;
   useEffect(() => {
-    if (!user) return setProfile(null);
+    if (!user) {
+      setProfile(null);
+      setMyTeams(null);
+      return;
+    }
     loadMyProfile()
       .then((p) => {
         setProfile(p);
         if (p) setNotiOn(p.notificationsOn);
       })
       .catch(() => toast.show("내 정보를 불러오지 못했어요"));
+    loadMyTeams()
+      .then(setMyTeams)
+      .catch(() => setMyTeams(null));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
+
+  // 이름: 팀원에게 보이는 이름(profiles.nickname) → 없으면 Google 이름 → 데모
+  const googleName = (user?.user_metadata?.full_name as string | undefined) ?? "";
+  const name = live ? profile?.nickname || googleName || "이름 없음" : me.name;
+  const teamCount = live ? (myTeams?.length ?? 0) : getTeams().length;
 
   // 화면에 보일 출발지 · 매주 안 되는 시간
   const origin = live
@@ -64,6 +78,7 @@ export default function MePage() {
   const [sheetOpen, setSheetOpen] = useState(false);
   const [originOpen, setOriginOpen] = useState(false);
   const [notiOn, setNotiOn] = useState(me.notificationsOn);
+  const [nameOpen, setNameOpen] = useState(false);
 
   const soon = () => toast.show("준비 중이에요");
 
@@ -74,14 +89,14 @@ export default function MePage() {
       <div className="screen__body">
         {/* 프로필 */}
         <section className="card hstack" style={{ flexDirection: "row", alignItems: "center", padding: 16, gap: 14 }}>
-          <Avatar member={me} size={56} />
+          <Avatar member={{ ...me, initial: Array.from(name)[0] ?? me.initial }} size={56} />
           <div className="stack gap-2 grow" style={{ minWidth: 0 }}>
             <span style={{ fontSize: 17, fontWeight: 700 }}>{name}</span>
             <span className="t-12 t-muted t-ellipsis">
               {user?.email ? `${user.email} · ` : "Google 계정으로 로그인 · "}팀 {teamCount}개
             </span>
           </div>
-          <button type="button" className="btn btn--sm btn--ghost no-shrink" style={{ fontSize: 12 }} onClick={soon}>
+          <button type="button" className="btn btn--sm btn--ghost no-shrink" style={{ fontSize: 12 }} onClick={() => (live ? setNameOpen(true) : soon())}>
             이름 수정
           </button>
         </section>
@@ -164,10 +179,6 @@ export default function MePage() {
           <button type="button" className="t-14 t-ink2" style={{ padding: "12px 14px", border: 0, background: "none" }} onClick={() => void logout()}>
             로그아웃
           </button>
-          <span className="t-14" style={{ padding: "12px 0", color: "var(--line-strong)" }}>|</span>
-          <button type="button" className="t-14 t-muted" style={{ padding: "12px 14px", border: 0, background: "none" }} onClick={soon}>
-            회원 탈퇴
-          </button>
         </div>
       </div>
 
@@ -197,7 +208,50 @@ export default function MePage() {
           }}
         />
       )}
+      {nameOpen && (
+        <NameSheet
+          initial={profile?.nickname || googleName}
+          onClose={() => setNameOpen(false)}
+          onSave={(next) => {
+            setNameOpen(false);
+            const prev = profile;
+            setProfile((p) => (p ? { ...p, nickname: next } : p));
+            saveMyNickname(next)
+              .then(() => toast.show("이름을 바꿨어요"))
+              .catch(() => {
+                setProfile(prev);
+                toast.show("저장하지 못했어요 · 잠시 후 다시 해 주세요");
+              });
+          }}
+        />
+      )}
       <Toast {...toast} />
     </main>
+  );
+}
+
+function NameSheet({ initial, onClose, onSave }: { initial: string; onClose: () => void; onSave: (name: string) => void }) {
+  const [value, setValue] = useState(initial);
+  const v = value.trim();
+  const ok = v.length > 0 && v !== initial;
+  return (
+    <Sheet open onClose={onClose} title="이름 바꾸기" sub="팀원 모두에게 바뀐 이름으로 보여요">
+      <input
+        className="input"
+        type="text"
+        autoFocus
+        maxLength={20}
+        aria-label="이름"
+        placeholder="팀원에게 보일 이름"
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && ok) onSave(v);
+        }}
+      />
+      <button type="button" className="btn btn--primary" style={{ height: 50 }} disabled={!ok} onClick={() => onSave(v)}>
+        저장
+      </button>
+    </Sheet>
   );
 }

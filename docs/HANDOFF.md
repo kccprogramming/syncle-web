@@ -22,7 +22,7 @@ Google 로그인 → 내 정보(출발지 · 매주 안 되는 시간 · 알림 
 
 ### 다음에 할 일 (새 대화는 여기부터)
 
-1. **내 정보(1-1)**: '이름 수정'(지금 "준비 중", `saveMyNickname` 있음) · '회원 탈퇴'(A `DELETE /api/account`와 같은 일 — 서버 전용 `SUPABASE_SERVICE_ROLE_KEY` 필요, 방장인 팀 확인 · 올린 파일 정리 · 되돌릴 수 없음을 확인 시트로).
+1. **내 정보(1-1)**: '이름 수정' 연결 완료 (6장 1번). 로그인한 계정으로 한 번 확인. **회원 탈퇴는 이번 범위에서 뺐어요** (11/6 결정 — 버튼도 없앰).
 2. **Vercel 미리보기 배포**: Vercel 환경 변수 7개(`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `KAKAO_REST_API_KEY`, `GEMINI_API_KEY`, `SCHEDULE_LIVE_AI_ENABLED`, `SCHEDULE_LIVE_PLACES_ENABLED`) + Supabase Authentication → URL Configuration → Redirect URLs에 Vercel 주소(`https://syncle-web-*.vercel.app/**`) 추가 → 미리보기에서 로그인 · 제안까지 확인.
 3. 팀원 코드 대기: 성하님 B(요약 · 할 일 · 자료 · 회의록, 시간 정리 보완 — 7장), 현규님 D(출발지 위치 인식 — 7장).
 4. 남은 데모 화면: 8 확정 회의 카드 · 9 회의록 · 7 내 조건은 아직 가짜 데이터(진짜 제안은 C 화면 하나로 처리 중).
@@ -133,6 +133,8 @@ Google 로그인 → 내 정보(출발지 · 매주 안 되는 시간 · 알림 
    - **팀 메뉴 · 전체 보기의 사진 · 자료 (11/6)**: 진짜 팀이면 `loadTeamMaterials`로 팀 자료를 읽어요 (메뉴를 열 때마다 새로). 팀 메뉴에 '사진' 칸(썸네일 8장)과 '자료' 칸(사진 아닌 파일 3개), 전체 보기에 '사진' 탭(3칸 격자) 추가. 누르면 `materialUrl`로 새 탭에서 열려요.
    - **할 일 연결 (11/6)**: `loadTeamTasks` · `createTeamTask`(다른 팀원에게 맡기면 `create_team_notification` 알림, A /api/tasks와 같게) · `setTaskDone`. + 메뉴 '할 일'과 전체 보기 할 일 탭의 '+ 할 일 추가'가 `TaskSheet`(무엇을 · 누가 · 언제까지)를 열어요. 팀 메뉴는 안 끝난 할 일, 전체 보기는 내 할 일 / 팀 할 일. 체크는 바로 저장(실패하면 되돌림). A의 API 대신 같은 규칙(RLS)으로 테이블을 바로 써요.
    - **팀 설정 (11/6)**: 진짜 팀이면 이름 · AI 도우미 · AI가 읽는 범위(`updateTeam`, **방장만** — 권한 없으면 0줄이 바뀌는 걸로 알아채요), 방장 넘기기(`transfer_team_owner`), 팀 나가기(`leave_team`). 팀 메뉴의 AI 스위치도 저장돼요. **혼자 남은 방장이 나가면 A가 팀을 통째로 지워요** → 확인 시트에서 "팀 지우고 나가기"로 분명히 알리고, 나간 뒤 정말 빠졌는지 다시 확인해요.
+   - **내 정보 이름 (11/6)**: '이름 수정' 시트 → `saveMyNickname`(`profiles.nickname`, 팀원에게 보이는 이름). 화면 이름은 nickname → 없으면 Google 이름. 실패하면 이전 이름으로 되돌려요.
+   - **회원 탈퇴: 뺐어요 (11/6 결정)**. 1-1의 '회원 탈퇴' 버튼도 없앴어요. 다시 넣는다면: A `DELETE /api/account`(PR #2)를 옮기되 ① 파일 정리는 계정 삭제 **뒤에**(파일 목록은 먼저 적어 두기) ② C 테이블 `scheduling.responses.member_id`, `scheduling.proposals.created_by`가 `auth.users`를 삭제 규칙 없이 가리켜서 제안·응답한 사람은 계정 삭제가 막혀요 → 지우님과 `on delete cascade` / `set null` 먼저 정하기.
    - **알림 (11/6)**: 1-2 알림은 `loadMyNotifications`(A `app_notifications`, 최근 100개), 하나 열면 그것만 · '모두 읽음'은 전부 `markNotificationsRead`. 홈 🔔은 `countUnreadNotifications` + `subscribeMyNotifications`(실시간). 지금 생기는 알림: `task_assigned`(할 일 배정 → 그 팀 할 일 탭), `meeting_response`(C '다시 알림' → 제안 화면). 실제 두 계정으로 확인.
    - 화면 크기: 컴퓨터(500px 이상)에서는 휴대폰 화면 높이를 `min(844px, 창 높이 − 32px)`로 고정하고 페이지 스크롤을 막아요. 화면 안(`.screen__body`)만 스크롤.
    - 아직: 팀 메뉴의 회의는 데모 함수라 진짜 팀에서는 비어 있어요 (C 저장 뒤 `c_schedule_list`로). AI가 대화로 할 일 찾기는 B 요청 중 (7장).
