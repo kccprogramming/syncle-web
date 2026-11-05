@@ -91,7 +91,7 @@ B 최신(`placeType` 필수)에 맞춰 연결 쪽에서 고친 것: C `src/serve
 | 담당 | 브랜치 | 가져온 커밋 |
 |---|---|---|
 | A 현서 | `a-hyunseo/feature-code` → `contributions/a-hyunseo/` ([PR #2](https://github.com/kccprogramming/just_keeping/pull/2), 열림) | 아직 안 가져옴 |
-| B 성하 | `share/sungha-b-final` → `sungha_B_code/` | `43f89ea` (11/6 밤 `extractor.ts`만 바뀜, 이전 `86eed61` · `1ec9384`) — 테스트 파일 · `schedule.ts` · `check-ai.ts`는 안 가져옴 |
+| B 성하 | `share/sungha-b-final` → `sungha_B_code/` | `43f89ea` 코드 기준 (11/6 밤). 그 뒤 `41a62e0`은 테스트 파일만 고침 — 앱에 넣을 것 없음 — 테스트 파일 · `schedule.ts` · `check-ai.ts`는 안 가져옴 |
 | C 지우 | `share/jiwoo-c-code` → `jiwoo_C_code/` | `f482f55` (예시 흐름), `a9c6fb0`의 `integration/syncle-web/` (실제 저장) |
 | D 현규 | `feature/d-place-recommendation` → `D_HANDOFF/` | `4a829da` (11/6, 이전 `2426bba`) — `getWalkingRoute.ts`, `C_INTEGRATION_GUIDE.md` 추가 |
 
@@ -182,7 +182,7 @@ B 최신(`placeType` 필수)에 맞춰 연결 쪽에서 고친 것: C `src/serve
   - B 자체 테스트 5개 실패 (받은 코드 그대로 돌림): `mvp.test.ts` 'mention routing and ambiguous requests'(이제 여러 뜻이면 첫 번째로 정해서 `clarify`가 안 나옴), `place-type.test.ts` 'AI prompt requests contextual placeType …', `revision.test.ts` '@AI 대화 요약' · '@AI 회의 요약'(요약이 이제 AI를 불러요), 'ignored/ambiguous requests avoid API …'. 바뀐 동작에 맞게 테스트를 고칠지, 동작을 되돌릴지 확인 부탁.
   - 회의 조건 프롬프트의 [중요] 규칙이 많이 빠졌어요 (초 00 · +09:00, 모르면 null, 불가 시간만 말하면 가능으로 채우지 않기, 정정 반영 등) → 아래 '시간 정리 실패'가 더 자주 날 수 있어요. 빠진 규칙을 되살려 달라고 부탁.
   - 기본 모델이 `gemini-3.1-flash-lite` → `gemini-2.5-flash`로 바뀌었는데, **`gemini-2.5-flash`는 새 사용자에게 막혀 404**가 나요 (11/6 제안 만들기 실패 원인).
-  - **11/6 밤 `43f89ea` 받음**: 빠졌던 프롬프트 규칙 복구 + 기본 모델 `gemini-3.1-flash-lite`로 되돌림. B 테스트 125개 통과. 단 `revision.test.ts`가 533줄 `'declined`에서 **잘려서** 실행이 안 돼요 (올릴 때 파일이 덜 들어간 듯 → 11/6 밤 희원이 성하님께 다시 올려 달라고 전달함 · 답 기다리는 중).
+  - **11/6 밤 `43f89ea` 받음**: 빠졌던 프롬프트 규칙 복구 + 기본 모델 `gemini-3.1-flash-lite`로 되돌림. B 테스트 125개 통과. `revision.test.ts`가 잘려 있던 건 `41a62e0`에서 고쳐졌어요 → B 테스트 4개 파일 177개 모두 통과 (11/6 밤 확인).
   - 그래도 실제 'KCC해커톤' 대화로 B만 돌리면 4번 중 1번만 통과 (`23:59:59`, 찾는 기간 밖 11/15 시간, 되는/안 되는 시간 겹침). 앱 보정(아래 ②~⑤)을 거치면 8번 중 8번 통과.
   - **앱 쪽 임시 해결 (11/6)**: B를 부를 때 `src/server/gemini-generate.ts`의 `geminiGenerate`를 넘겨요 (`handleAiRequest(text, input, geminiGenerate)`, C 제안 만들기 · `/api/ai/request` 둘 다). ① 모델 기본값 `gemini-3.1-flash-lite`(`GEMINI_MODEL`로 바꿀 수 있음) ② AI 답의 시각을 분 단위로 맞춤(`23:59:59` → 다음 날 `00:00:00`) ③ `origins`에 빠진 팀원을 `station: null`로 채움 ④ 한 사람의 되는/안 되는 시간이 겹치면 겹친 부분을 되는 시간에서 뺌(안 된다고 한 때에 안 잡게) ⑤ 모든 시간 구간을 찾는 기간 안으로 자름. 실제 'KCC해커톤' 대화로 5번 연속 `ready` 확인. 성하님이 B 검사에서 이런 경우를 오류 대신 다듬거나 확인 질문으로 돌려주면 ②~⑤는 지워도 돼요.
   - 실패 원인은 화면에 안 보이고(C가 '입력 형식과 회의 조건을 확인해 주세요'로 감춰요) 개발 서버 기록에 `[scheduling] request failed: …` 한 줄로 남아요.
