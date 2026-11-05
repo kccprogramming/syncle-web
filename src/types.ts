@@ -69,6 +69,11 @@ export type Message =
    * question은 받는 사람에게만 와요 (A의 비공개 메시지 규칙).
    */
   | { id: string; type: "live-card"; kind: "proposal" | "confirmed" | "question"; proposalId: string; title: string; sub: string; at: string }
+  /**
+   * '@AI 요약 · 할 일 · 자료 정리' 답 카드 (B). 진짜 팀이면 대화방에 저장돼 팀원 모두에게 보여요.
+   * askedBy: 부탁한 사람 (카드 아래에 'OO님 부탁'으로 보여요)
+   */
+  | { id: string; type: "ai-reply"; reply: AiReply; at: string; askedBy?: UserId }
   | { id: string; type: "ai-proposal"; proposalId: string; at: string }
   | { id: string; type: "ai-confirmed"; meetingId: string; at: string }
   | {

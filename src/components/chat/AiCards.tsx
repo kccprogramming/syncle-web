@@ -239,7 +239,7 @@ export function AiThinkingCard() {
  * '@AI 요약해줘', '할 일 정리해줘' 같은 부탁에 대한 답 카드.
  * onAddTask가 있으면(진짜 팀의 할 일 카드) 줄마다 '+ 추가' 버튼 — 눌러야 팀 할 일로 저장돼요 (AI는 제안만 해요).
  */
-export function AiReplyCard({ reply, onAddTask }: { reply: AiReply; onAddTask?: (item: AiReply["items"][number]) => Promise<void> }) {
+export function AiReplyCard({ reply, askedBy, onAddTask }: { reply: AiReply; askedBy?: string; onAddTask?: (item: AiReply["items"][number]) => Promise<void> }) {
   const [added, setAdded] = useState<number[]>([]);
   const [busy, setBusy] = useState<number | null>(null);
   const canAdd = !!onAddTask && reply.items.some((it) => it.assigneeId !== undefined);
@@ -287,6 +287,7 @@ export function AiReplyCard({ reply, onAddTask }: { reply: AiReply; onAddTask?: 
         ))}
       </ul>
       <span className="t-12 t-muted" style={{ borderTop: "1px solid var(--line-2)", paddingTop: 8 }}>
+        {askedBy ? `${getMember(askedBy).name}님 부탁 · ` : ""}
         {reply.basis}
       </span>
       {reply.link ? (

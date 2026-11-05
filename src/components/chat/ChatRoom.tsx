@@ -10,7 +10,7 @@ import { TopBar } from "@/components/TopBar";
 import { Icon } from "@/components/Icon";
 import { AiAvatar } from "@/components/Logo";
 import { Toast, useToast } from "@/components/Toast";
-import { MAX_UPLOAD_BYTES, fileSizeLabel, isImageName, teamImageUrls, askTeamAi, createTeamTask, getAiReply, getFiles, getMe, getMessages, getTeam, loadTeamMembers, postProposalCard, loadTeamMessages, myUserId, requestAi, sendTeamMessage, subscribeTeamMessages, teamFileUrl, uploadTeamFile } from "@/lib/data";
+import { MAX_UPLOAD_BYTES, fileSizeLabel, isImageName, teamImageUrls, askTeamAi, postAiReplyCard, createTeamTask, getAiReply, getFiles, getMe, getMessages, getTeam, loadTeamMembers, postProposalCard, loadTeamMessages, myUserId, requestAi, sendTeamMessage, subscribeTeamMessages, teamFileUrl, uploadTeamFile } from "@/lib/data";
 import type { Message, Team } from "@/types";
 import { isSchedulingRequest } from "@/lib/place-intent";
 import { useDemo } from "@/lib/demo-store";
@@ -66,6 +66,10 @@ export function ChatRoom({
   const { aiOn, setAiOn } = useTeamAi(team, toast.show);
 
   const [extra, setExtra] = useState<ChatItem[]>([]); // 이 화면에서 새로 보낸 메시지들
+  // 진짜 팀: 화면에만 있는 카드('정리 중' · 실패 안내 · 올리는 중)가 어느 메시지 뒤에 생겼는지 { 카드 id: 메시지 id }.
+  // 그 뒤에 온 메시지는 카드 아래로 쌓여요 (카드가 맨 아래에 붙어 있지 않게)
+  const anchors = useRef<Record<string, string | null>>({});
+  const liveMsgsRef = useRef<Message[]>([]);
   const [draft, setDraft] = useState("");
   const [helpOpen, setHelpOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(startShare);
@@ -135,9 +139,16 @@ export function ChatRoom({
   }, [liveTeam, liveMsgs]);
 
   // 서버 메시지 + 이 화면에서 보낸 메시지
+  liveMsgsRef.current = liveMsgs;
   let base: ChatItem[] = liveTeam ? liveMsgs : getMessages(teamId, isConfirmed);
   if (fresh && !isConfirmed) base = base.filter((m) => m.type === "text" || m.type === "file");
-  const items = [...base, ...extra];
+  const items = liveTeam ? placeExtras(liveMsgs, extra, anchors.current) : [...base, ...extra];
+
+  /** 진짜 팀: 화면에만 있는 카드를 지금 마지막 메시지(또는 afterId) 뒤에 붙여요 */
+  const addLocal = (item: ChatItem, afterId?: string) => {
+    if (liveTeam) anchors.current[item.id] = afterId ?? liveMsgsRef.current.at(-1)?.id ?? null;
+    setExtra((prev) => [...prev, item]);
+  };
 
   // 새 메시지가 생기면 맨 아래로
   useEffect(() => {
@@ -147,6 +158,7 @@ export function ChatRoom({
 
   /** 목록에서 id가 같은 카드를 다른 카드로 바꾸기 */
   const replaceItem = useCallback((id: string, next: ChatItem) => {
+    if (id in anchors.current) anchors.current[next.id] = anchors.current[id];
     setExtra((prev) => prev.map((m) => (m.id === id ? next : m)));
   }, []);
 
@@ -162,6 +174,30 @@ export function ChatRoom({
     [proposalId, replaceItem],
   );
 
+  /** 진짜 팀 '@AI 요약 · 할 일 · 자료 정리' → B 답 카드를 대화방에 남겨요 (실패 안내는 내 화면에만) */
+  const askCard = (liveTeamId: string, text: string, afterId: string) => {
+    const thinkingId = newId();
+    addLocal({ id: thinkingId, type: "ai-thinking", at: nowLabel() }, afterId);
+    const fail = (title: string, basis = "잠시 뒤 다시 부탁해 주세요 · 그동안 대화는 계속할 수 있어요") =>
+      replaceItem(thinkingId, { id: newId(), type: "ai-reply", reply: { kind: "notice", title, basis, items: [] }, at: nowLabel() });
+    askTeamAi(liveTeamId, text)
+      .then((reply) => {
+        // 안내 카드(읽을 대화가 없어요 등)는 저장하지 않고 내 화면에만
+        if (reply.kind === "notice") return replaceItem(thinkingId, { id: newId(), type: "ai-reply", reply, at: nowLabel() });
+        return postAiReplyCard(liveTeamId, reply)
+          .then((m) => {
+            setExtra((prev) => prev.filter((x) => x.id !== thinkingId));
+            setLiveMsgs((prev) => (prev.some((x) => x.id === m.id) ? prev : [...prev, m]));
+          })
+          .catch(() => {
+            // 저장이 안 되면 내 화면에만 보여 줘요
+            replaceItem(thinkingId, { id: newId(), type: "ai-reply", reply, at: nowLabel() });
+            toast.show("AI 카드를 팀원에게 공유하지 못했어요 · 내 화면에만 보여요");
+          });
+      })
+      .catch((e) => fail(e instanceof Error ? e.message : "AI가 정리하지 못했어요"));
+  };
+
   const send = () => {
     // '@ai', '@Ai'처럼 직접 쳐도 AI를 부른 걸로 알아들어요 (B · 화면은 '@AI'를 찾아요)
     const text = draft.trim().replace(/@ai(?![A-Za-z0-9_])/gi, "@AI");
@@ -170,32 +206,22 @@ export function ChatRoom({
       // 진짜 팀: Supabase에 저장하면 실시간으로 팀원 화면에도 떠요
       setDraft("");
       setHelpOpen(false);
+      const callsAi = text.includes("@AI");
+      if (callsAi && !aiOn) toast.show("AI 도우미가 꺼져 있어요");
+      // '@AI … 잡아줘'면 마감을 정하는 시트를 열어 C에 제안을 만들어요
+      else if (callsAi && isSchedulingRequest(text)) setProposalText(text);
+      const asksCard = callsAi && aiOn && !isSchedulingRequest(text);
       sendTeamMessage(liveTeam.id, text)
-        .then((m) => setLiveMsgs((prev) => (prev.some((x) => x.id === m.id) ? prev : [...prev, m])))
+        .then((m) => {
+          setLiveMsgs((prev) => (prev.some((x) => x.id === m.id) ? prev : [...prev, m]));
+          // 요약 · 할 일 · 자료 정리: 내 메시지 바로 아래에 '정리 중'을 띄우고,
+          // B 답 카드를 대화방에 저장해요 → 팀원 모두에게 보여요 (실시간)
+          if (asksCard) askCard(liveTeam.id, text, m.id);
+        })
         .catch(() => {
           setDraft(text);
           toast.show("메시지를 보내지 못했어요 · 다시 보내 주세요");
         });
-      // '@AI … 잡아줘'면 마감을 정하는 시트를 열어 C에 제안을 만들어요.
-      // 요약 · 할 일 · 자료 정리는 B 앱 카드를 내 화면에만 보여줘요 (저장하지 않아요)
-      if (text.includes("@AI")) {
-        if (!aiOn) toast.show("AI 도우미가 꺼져 있어요");
-        else if (isSchedulingRequest(text)) setProposalText(text);
-        else {
-          const thinkingId = newId();
-          setExtra((prev) => [...prev, { id: thinkingId, type: "ai-thinking", at: nowLabel() }]);
-          askTeamAi(liveTeam.id, text)
-            .then((reply) => replaceItem(thinkingId, { id: newId(), type: "ai-reply", reply, at: nowLabel() }))
-            .catch((e) =>
-              replaceItem(thinkingId, {
-                id: newId(),
-                type: "ai-reply",
-                reply: { kind: "notice", title: e instanceof Error ? e.message : "AI가 정리하지 못했어요", basis: "잠시 뒤 다시 부탁해 주세요 · 그동안 대화는 계속할 수 있어요", items: [] },
-                at: nowLabel(),
-              }),
-            );
-        }
-      }
       return;
     }
     const at = nowLabel();
@@ -266,7 +292,7 @@ export function ChatRoom({
     const tempId = newId();
     const preview = isImageName(file.name) ? URL.createObjectURL(file) : null;
     if (preview) setImageUrls((prev) => ({ ...prev, [tempId]: preview }));
-    setExtra((prev) => [...prev, { id: tempId, type: "file", senderId: meId ?? me.id, fileName: file.name, size: fileSizeLabel(file.size), at: nowLabel(), uploading: true }]);
+    addLocal({ id: tempId, type: "file", senderId: meId ?? me.id, fileName: file.name, size: fileSizeLabel(file.size), at: nowLabel(), uploading: true });
     const dropTemp = () => setExtra((prev) => prev.filter((m) => m.id !== tempId));
     uploadTeamFile(liveTeam.id, file)
       .then((m) => {
@@ -491,4 +517,22 @@ export function ChatRoom({
       <Toast message={toast.message} />
     </main>
   );
+}
+
+/**
+ * 진짜 팀: 서버 메시지 사이에 화면에만 있는 카드를 끼워요.
+ * 카드는 만들 때의 마지막 메시지(anchors) 바로 뒤에 오고, 그 뒤에 온 메시지는 카드 아래로 쌓여요.
+ */
+function placeExtras(msgs: Message[], extra: ChatItem[], anchors: Record<string, string | null>): ChatItem[] {
+  const after = new Map<string | null, ChatItem[]>();
+  const known = new Set(msgs.map((m) => m.id));
+  const tail: ChatItem[] = [];
+  for (const x of extra) {
+    const a = anchors[x.id];
+    if (a === undefined || (a !== null && !known.has(a))) tail.push(x);
+    else after.set(a, [...(after.get(a) ?? []), x]);
+  }
+  const out: ChatItem[] = [...(after.get(null) ?? [])];
+  for (const m of msgs) out.push(m, ...(after.get(m.id) ?? []));
+  return [...out, ...tail];
 }

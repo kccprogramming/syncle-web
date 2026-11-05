@@ -232,6 +232,8 @@ export function toChatMessage(r: MessageRow): Message {
       ? { id: r.id, type: "mention-ai", senderId: r.sender_id, text: text.replace(/@AI\s*/i, "").trim(), at }
       : { id: r.id, type: "text", senderId: r.sender_id, text, at };
   }
+  const ai = aiReplyCard(r, at);
+  if (ai) return ai;
   return liveCard(r, at) ?? { id: r.id, type: "system", text: r.message_type === "confirmed" ? "회의가 확정됐어요" : String(r.content), at };
 }
 
@@ -240,6 +242,26 @@ export function seoulLabel(iso: string): string {
   const d = new Date(Date.parse(iso) + 9 * 3600_000);
   if (!Number.isFinite(d.getTime())) return "";
   return `${d.getUTCMonth() + 1}/${d.getUTCDate()}(${"일월화수목금토"[d.getUTCDay()]}) ${d.toISOString().slice(11, 16)}`;
+}
+
+/** 저장된 AI 답 카드(notice · JSON) → 대화방 카드. 모양이 다르면 null */
+function aiReplyCard(r: MessageRow, at: string): Message | null {
+  if (r.message_type !== "notice") return null;
+  let c: { type?: unknown; reply?: Partial<AiReply> };
+  try {
+    c = JSON.parse(String(r.content));
+  } catch {
+    return null;
+  }
+  const reply = c.reply;
+  if (c.type !== "ai_reply" || !reply || typeof reply.title !== "string" || !Array.isArray(reply.items)) return null;
+  return {
+    id: r.id,
+    type: "ai-reply",
+    reply: { kind: reply.kind ?? "summary", title: reply.title, basis: String(reply.basis ?? ""), items: reply.items, link: reply.link },
+    at,
+    askedBy: r.sender_id ?? undefined,
+  };
 }
 
 /** C가 남긴 메시지(JSON 글) → 대화방 카드. 모양이 다르면 null */
@@ -277,6 +299,24 @@ export async function postProposalCard(teamId: string, p: { proposalId: string; 
   const { data, error } = await supabase
     .from("messages")
     .insert({ team_id: teamId, sender_id: id, message_type: "ai_proposal", content: JSON.stringify({ type: "proposal_created", ...p }) })
+    .select("id,sender_id,content,message_type,created_at")
+    .single();
+  if (error) throw new Error(error.message);
+  return toChatMessage(data as MessageRow);
+}
+
+/**
+ * '@AI 요약 · 할 일 · 자료 정리' 답 카드를 대화방에 남기기 — 팀원 모두에게 보여요 (실시간).
+ * A 규칙상 사용자는 'notice' 메시지를 남길 수 있어요. B는 'general'만 읽어서 AI가 자기 카드를 다시 읽지 않아요.
+ * 글 속 'https://'는 '\/'로 적어 A의 링크 자동 저장(팀 자료)에 다시 잡히지 않게 해요 (JSON으로 읽으면 같은 글).
+ */
+export async function postAiReplyCard(teamId: string, reply: AiReply): Promise<Message> {
+  const { supabase, id } = await signedIn();
+  if (!supabase || !id) throw new Error("로그인이 필요해요");
+  const content = JSON.stringify({ type: "ai_reply", reply }).replace(/\//g, "\\/");
+  const { data, error } = await supabase
+    .from("messages")
+    .insert({ team_id: teamId, sender_id: id, message_type: "notice", content })
     .select("id,sender_id,content,message_type,created_at")
     .single();
   if (error) throw new Error(error.message);
@@ -606,7 +646,7 @@ export async function createTeamTask(teamId: string, input: { title: string; ass
 
 /**
  * 진짜 팀 '@AI 요약 · 할 일 정리 · 자료 정리' — B 앱 카드 (POST /api/teams/{teamId}/ai).
- * 답 카드는 부탁한 사람 화면에만 보여요 (저장하지 않아요). 할 일은 카드의 '추가'를 눌러야 저장돼요.
+ * 답 카드는 화면이 postAiReplyCard로 대화방에 남겨 팀원 모두 봐요. 할 일은 카드의 '추가'를 눌러야 저장돼요.
  */
 export async function askTeamAi(teamId: string, text: string, extra: { memo?: string; window?: { startAt: string; endAt: string } } = {}): Promise<AiReply> {
   const supabase = getSupabase();

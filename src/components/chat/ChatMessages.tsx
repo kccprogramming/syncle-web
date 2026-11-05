@@ -18,9 +18,7 @@ export type ChatItem =
   | Message
   | { id: string; type: "ai-working" | "ai-failed"; proposalId: string; at: string }
   /** 요약·할 일 같은 부탁을 정리하는 동안 잠깐 */
-  | { id: string; type: "ai-thinking"; at: string }
-  /** 요약·할 일·자료·회의록·도움말 답 */
-  | { id: string; type: "ai-reply"; reply: AiReply; at: string };
+  | { id: string; type: "ai-thinking"; at: string };
 
 const AI_TYPES = ["ai-proposal", "ai-confirmed", "ai-question", "ai-working", "ai-failed", "ai-thinking", "ai-reply", "live-card"];
 
@@ -145,7 +143,7 @@ function renderAiCard(
     case "ai-thinking":
       return <AiThinkingCard />;
     case "ai-reply":
-      return <AiReplyCard reply={m.reply} onAddTask={m.reply.kind === "tasks" ? o.onAddTask : undefined} />;
+      return <AiReplyCard reply={m.reply} askedBy={m.askedBy} onAddTask={m.reply.kind === "tasks" ? o.onAddTask : undefined} />;
     case "live-card":
       return <LiveCard kind={m.kind} proposalId={m.proposalId} title={m.title} sub={m.sub} />;
     case "ai-failed":
