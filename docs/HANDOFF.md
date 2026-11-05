@@ -61,7 +61,7 @@
 | B 성하 | `src/server/b` | `src/server/ai-adapter.ts` | `/api/ai/request` |
 | C 지우 | `src/server/c` | `src/server/proposal-adapter.ts` | `/api/ai/request` (B 다음) |
 | D 현규 | `src/server/d` | `src/server/area-search.ts`, `places-adapter.ts` | `/api/places/recommend` |
-| A 현서 | 아직 없음 | — | — |
+| A 현서 | 아직 안 가져옴 (PR 아래 4장) | `src/lib/data.ts` | Supabase 직접 + A의 `/api/tasks`·`/api/notifications`·`/api/account` |
 
 받은 코드에서 바꾼 것은 두 가지뿐이에요: 각 파일 끝의 단독 실행 예시(`if (import.meta.main) {…}`) 삭제, C의 `shared/b-c-contract.ts`를 B 최신 규격으로 연결.
 
@@ -71,7 +71,7 @@
 
 | 담당 | 브랜치 | 가져온 커밋 |
 |---|---|---|
-| A 현서 | `a-hyunseo/feature-code` → `contributions/a-hyunseo/` | 아직 안 가져옴 |
+| A 현서 | `a-hyunseo/feature-code` → `contributions/a-hyunseo/` ([PR #2](https://github.com/kccprogramming/just_keeping/pull/2), 열림) | 아직 안 가져옴 |
 | B 성하 | `share/sungha-b-final` → `sungha_B_code/` | `1ec9384` |
 | C 지우 | `share/jiwoo-c-code` → `jiwoo_C_code/` | `f482f55` |
 | D 현규 | `feature/d-place-recommendation` → `D_HANDOFF/` | `2426bba` |
@@ -87,6 +87,9 @@
 | `KAKAO_REST_API_KEY` | `.env.local` + Vercel 환경 변수 (이미 넣음) | 장소 검색·추천이 예시 데이터로 동작 |
 | `GEMINI_API_KEY` | `.env.local` + Vercel (아직 없음) | B 대신 예시 조건으로 C가 계산 |
 | `GEMINI_MODEL` | 선택 | B 기본값 `gemini-3.1-flash-lite` |
+| `NEXT_PUBLIC_SUPABASE_URL` | `.env.local` + Vercel (각자 직접) | A 연결 전이라 지금은 안 써요 |
+| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | `.env.local` + Vercel (각자 직접, 채팅으로 안 보내요) | 〃 |
+| `SUPABASE_SERVICE_ROLE_KEY` | 서버 `.env.local` + Vercel만 (브라우저·GitHub 금지) | 회원 탈퇴, 팀원 출발지 읽기(005)가 안 돼요 |
 
 - 키는 채팅·문서에 쓰지 않아요. `.env.local`은 git에 올라가지 않아요.
 - `.env.local`에는 `KAKAO_REST_API_KEY=값` 한 줄만 (앞부분을 두 번 붙여넣지 않게 주의).
@@ -98,7 +101,11 @@
 ## 6. 남은 일 (우선순위 순)
 
 1. **A 연결 (현서님)**: Supabase 로그인 · 팀 · 대화 메시지 · 프로필 출발지 저장.
-   - Supabase 프로젝트 URL·공개키, `schema-draft.sql` 적용 여부를 먼저 확인
+   - 11/6 현서님 공유: 프로젝트 URL `https://rlldzrffwbpydhaxxyzs.supabase.co`. 공개키는 각자 `.env.local`·Vercel에 직접 넣어요.
+   - DB: `profiles`, `teams`, `team_members`, `messages`와 주요 열은 있음 (단 `schema-draft.sql`을 실행한 기록이 남아 있다는 뜻은 아님). 004(확정 메시지 · 비공개 링크)는 실행 완료. 002·003은 004의 전제라 적용된 것으로 보이고, **005(팀원 출발지 계산용)는 실행 여부를 현서님께 확인**해야 해요.
+   - A 코드: `just_keeping` PR #2. Supabase 접속(`lib/supabase/client.ts`, `server-api.ts`)과 API(`/api/tasks`, `/api/notifications`, `/api/account`). 서버 API는 로그인 토큰을 `Authorization: Bearer`로 받아요.
+   - 확정 메시지: 일반 사용자는 `messages`에 `confirmed`를 직접 못 넣어요. 서버가 **로그인한 방장의 토큰으로** `create_confirmed_message(p_team_id, p_content, p_visible_to)`를 불러야 해요 (C 확정과 같이 연결).
+   - 팀원 출발지: D 계산용 정확한 출발지는 `profile_private_locations`에 있고, 서버만 `get_team_private_origins_for_calculation`(005, service role 키)으로 읽어요. 브라우저에서 부르지 않아요.
    - `src/lib/data.ts`의 함수 안쪽만 API 호출로 바꿔요 (각 함수 위에 담당·API 주소 주석). `saveMyOrigin`이 출발지 저장 자리예요
    - `src/mocks/member-origins.json`(팀원 출발지 임시값)과 `demo-store`의 서버 저장 대상(확정, 응답, 출발지, 할 일)을 A API로 바꾸기
 2. **C의 응답 · 확정 저장**: `src/server/c/features/proposals/proposal-flow.ts`(castVote, confirmProposal)와 `meeting-calendar.ts`(.ics)는 들어왔지만 화면과 연결 전이에요. 지금 5의 응답·확정은 브라우저 예시 상태(demo-store)예요.
