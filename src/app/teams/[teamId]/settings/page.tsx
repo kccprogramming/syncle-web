@@ -11,7 +11,7 @@ import { TopBar } from "@/components/TopBar";
 import { Avatar, TeamBadge } from "@/components/Avatar";
 import { Switch } from "@/components/Controls";
 import { Toast, useToast } from "@/components/Toast";
-import { getMe, getMember, getMembers, getTeam, leaveTeam, loadTeam, loadTeamMembers, myUserId, transferTeamOwner, updateTeam } from "@/lib/data";
+import { getMe, getMember, getMembers, getTeam, leaveTeam, loadTeam, removeTeamMember, loadTeamMembers, myUserId, transferTeamOwner, updateTeam } from "@/lib/data";
 import { isLiveId } from "@/lib/scheduling-client";
 import type { Team } from "@/types";
 import { useDemo } from "@/lib/demo-store";
@@ -63,6 +63,7 @@ function Settings({ teamId, initial, live, meId }: { teamId: string; initial: Te
   const toast = useToast();
   const { aiOn, setAiOn } = useTeamAi(team, toast.show);
   const [sheet, setSheet] = useState<null | "name" | "owner" | "leave">(null);
+  const [kick, setKick] = useState<string | null>(null); // 내보낼 팀원 id (확인 시트)
   const [busy, setBusy] = useState(false);
   const [leaveError, setLeaveError] = useState(""); // 나가기 시트 안에 보여줄 오류
 
@@ -133,6 +134,17 @@ function Settings({ teamId, initial, live, meId }: { teamId: string; initial: Te
                 {m.id === meId ? " (나)" : ""}
               </span>
               {m.id === team.ownerId ? <span className="tag tag--soft">방장</span> : null}
+              {live && iAmOwner && m.id !== meId ? (
+                <button
+                  type="button"
+                  className="btn btn--ghost btn--sm no-shrink"
+                  style={{ height: 30, fontSize: 12, color: "var(--danger)" }}
+                  aria-label={`${m.name}님 내보내기`}
+                  onClick={() => setKick(m.id)}
+                >
+                  내보내기
+                </button>
+              ) : null}
             </div>
           ))}
           <button
@@ -252,6 +264,40 @@ function Settings({ teamId, initial, live, meId }: { teamId: string; initial: Te
               </button>
             ))}
           </div>
+        </Sheet>
+      ) : null}
+
+      {kick ? (
+        <Sheet
+          open
+          onClose={() => !busy && setKick(null)}
+          title={`${getMember(kick).name === "?" ? "이 팀원" : getMember(kick).name + "님"}을 내보낼까요?`}
+          sub="내보내면 이 팀의 대화와 자료를 볼 수 없어요. 그동안 쓴 대화 · 자료 · 할 일은 남아요. 다시 들어오려면 초대 링크가 필요해요."
+        >
+          <button
+            type="button"
+            className="btn btn--danger"
+            style={{ height: 50 }}
+            disabled={busy}
+            onClick={async () => {
+              const name = getMember(kick).name === "?" ? "팀원" : getMember(kick).name;
+              setBusy(true);
+              try {
+                await removeTeamMember(team.id, kick, name);
+                setTeam({ ...team, memberIds: team.memberIds.filter((id) => id !== kick) });
+                setKick(null);
+                toast.show(`${name}님을 내보냈어요`);
+              } catch (e) {
+                toast.show(e instanceof Error ? e.message : "내보내지 못했어요");
+              }
+              setBusy(false);
+            }}
+          >
+            {busy ? "내보내는 중…" : "내보내기"}
+          </button>
+          <button type="button" className="btn btn--ghost" style={{ height: 50 }} disabled={busy} onClick={() => setKick(null)}>
+            취소
+          </button>
         </Sheet>
       ) : null}
 

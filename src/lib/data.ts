@@ -196,6 +196,34 @@ export async function transferTeamOwner(teamId: string, newOwnerId: string): Pro
 }
 
 /**
+ * 팀원 내보내기 — 방장만 (remove_team_member, supabase/a-remove-team-member.sql).
+ * 정말 빠졌는지 확인한 뒤 대화방에 '○○님을 내보냈어요' 한 줄을 남겨요.
+ */
+export async function removeTeamMember(teamId: string, memberId: string, name: string): Promise<void> {
+  const supabase = getSupabase();
+  if (!supabase) throw new Error("로그인이 필요해요");
+  const { error } = await supabase.rpc("remove_team_member", { p_team_id: teamId, p_member_id: memberId });
+  if (error) {
+    const m = error.message;
+    throw new Error(
+      m.includes("OWNER_REQUIRED")
+        ? "방장만 내보낼 수 있어요"
+        : m.includes("CANNOT_REMOVE_SELF")
+          ? "나는 내보낼 수 없어요 · 팀 나가기를 써 주세요"
+          : m.includes("NOT_A_TEAM_MEMBER")
+            ? "이미 팀에 없는 사람이에요"
+            : m.includes("remove_team_member")
+              ? "DB에 내보내기 기능이 아직 없어요 · supabase/a-remove-team-member.sql을 실행해 주세요"
+              : m,
+    );
+  }
+  const still = await supabase.from("team_members").select("member_id").eq("team_id", teamId).eq("member_id", memberId).maybeSingle();
+  if (still.data) throw new Error("팀에서 빠지지 않았어요 · DB 권한을 확인해 주세요");
+  const { id } = await signedIn();
+  if (id) await supabase.from("messages").insert({ team_id: teamId, sender_id: id, message_type: "notice", content: `방장이 ${name}님을 팀에서 내보냈어요` });
+}
+
+/**
  * 팀 나가기 — A (leave_team)
  * 주의: 혼자 남은 방장이 나가면 A가 팀을 통째로 지워요 (대화 · 자료 · 할 일 모두). 화면에서 꼭 한 번 더 물어봐요.
  */
