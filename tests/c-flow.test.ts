@@ -15,6 +15,22 @@ test('B example remains valid after adopting placeType', async () => {
   const result = await analyzeMessagesMock(EXAMPLE_B_INPUT);
   assert.equal(result.placeType, EXAMPLE_B_OUTPUT.placeType);
 });
+// 지우님 9834b43 테스트
+test('all-day availability produces daytime candidates and accepts a narrower requested range', () => {
+  const allDay = {
+    ...structuredClone(EXAMPLE_B_OUTPUT.schedule),
+    searchWindow: { startAt: '2030-11-09T00:00:00+09:00', endAt: '2030-11-10T00:00:00+09:00' },
+    members: [{ memberId: 'u1', responseStatus: 'provided' as const,
+      availableSlots: [{ startAt: '2030-11-09T00:00:00+09:00', endAt: '2030-11-10T00:00:00+09:00' }], unavailableSlots: [] }],
+    requiredMemberIds: ['u1'], maxCandidates: 50,
+  };
+  const defaultResult = calculateTimeCandidates(allDay);
+  assert.equal(defaultResult.candidates[0].startAt, '2030-11-09T09:00:00+09:00');
+  assert.ok(defaultResult.candidates.every(c => c.endAt <= '2030-11-09T22:00:00+09:00'));
+  const narrowResult = calculateTimeCandidates({ ...allDay, meetingHours: { start: '13:00', end: '15:00' } });
+  assert.deepEqual(narrowResult.candidates.map(c => c.startAt), ['2030-11-09T13:00:00+09:00', '2030-11-09T14:00:00+09:00']);
+  assert.throws(() => calculateTimeCandidates({ ...allDay, meetingHours: { start: '22:00', end: '09:00' } }), /회의 가능 시간/);
+});
 const proposal: StoredProposal = {
   id: 'proposal', teamId: 'team', ownerId: 'u1', memberIds: ['u1', 'u2'], version: 0,
   title: '회의', mode: 'online', responseDeadline: '2030-11-09T18:00:00+09:00', materialDeadline: '2030-11-10T18:00:00+09:00',

@@ -65,6 +65,12 @@ begin
   or jsonb_typeof(c->'schedule') is distinct from 'object'
   or jsonb_typeof(c#>'{schedule,members}') is distinct from 'array' then raise exception 'C_INVALID_INPUT'; end if;
  s := c->'schedule';
+ if s ? 'meetingHours' and (
+  jsonb_typeof(s->'meetingHours') is distinct from 'object'
+  or (s#>>'{meetingHours,start}' ~ '^([01][0-9]|2[0-3]):[0-5][0-9]$') is distinct from true
+  or (s#>>'{meetingHours,end}' ~ '^([01][0-9]|2[0-3]):[0-5][0-9]$') is distinct from true
+  or s#>>'{meetingHours,start}' >= s#>>'{meetingHours,end}'
+ ) then raise exception 'C_INVALID_INPUT'; end if;
  for member in select value from jsonb_array_elements(s->'members') loop
   if jsonb_typeof(member) is distinct from 'object' or jsonb_typeof(member->'memberId') is distinct from 'string'
    or (member->>'responseStatus' is distinct from 'provided' and member->>'responseStatus' is distinct from 'missing'
@@ -85,6 +91,7 @@ begin
   'schedule',jsonb_build_object(
    'teamId',scheduling.safe_scalar(s->'teamId'),'timezone',scheduling.safe_scalar(s->'timezone'),
    'searchWindow',jsonb_build_object('startAt',scheduling.safe_scalar(s#>'{searchWindow,startAt}'),'endAt',scheduling.safe_scalar(s#>'{searchWindow,endAt}')),
+   'meetingHours',jsonb_build_object('start',coalesce(s#>'{meetingHours,start}','"09:00"'::jsonb),'end',coalesce(s#>'{meetingHours,end}','"22:00"'::jsonb)),
    'durationMinutes',scheduling.safe_scalar(s->'durationMinutes'),
    'requiredMemberIds',scheduling.safe_text_array(s->'requiredMemberIds'),
    'stepMinutes',30,'maxCandidates',3,'members',members));
@@ -124,6 +131,9 @@ begin
  return coalesce(b > a and extract(epoch from (b-a)) = (s#>>'{conditions,schedule,durationMinutes}')::integer * 60
  and a >= (s#>>'{conditions,schedule,searchWindow,startAt}')::timestamptz
  and b <= (s#>>'{conditions,schedule,searchWindow,endAt}')::timestamptz
+ and (a at time zone 'Asia/Seoul')::date = (b at time zone 'Asia/Seoul')::date
+ and (a at time zone 'Asia/Seoul')::time >= coalesce(s#>>'{conditions,schedule,meetingHours,start}','09:00')::time
+ and (b at time zone 'Asia/Seoul')::time <= coalesce(s#>>'{conditions,schedule,meetingHours,end}','22:00')::time
  and c->>'id' = 'time:' || (c->>'startAt') || '/' || (c->>'endAt'), false);
 exception when others then return false;
 end $$;

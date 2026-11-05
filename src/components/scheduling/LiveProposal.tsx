@@ -19,6 +19,7 @@ import { ModeToggle } from '@/components/meeting/ModeToggle';
 import { RadioCard } from '@/components/meeting/RadioCard';
 import { StatusPill } from '@/components/meeting/StatusPill';
 import { AreaPickerSheet } from './AreaPickerSheet';
+import { DatePickerSheet, dateLabel } from '@/components/DatePickerSheet';
 import { CheckBox } from '@/components/Controls';
 import { getMember, loadTeamMembers, seoulLabel } from '@/lib/data';
 import { schedulingRequest, suggestPlaceSearch, type LiveProposal } from '@/lib/scheduling-client';
@@ -622,6 +623,8 @@ export function LiveProposal({ proposalId }: { proposalId: string }) {
 
       {sheet === 'other' ? (
         <OtherTimeSheet
+          window={data.conditions.schedule.searchWindow}
+          hours={(data.conditions.schedule as { meetingHours?: { start: string; end: string } }).meetingHours ?? { start: '09:00', end: '22:00' }}
           busy={busy}
           onClose={() => setSheet(null)}
           onAction={(name, payload, msg) => action(name, payload, msg).then((ok) => ok && setSheet(null))}
@@ -668,27 +671,48 @@ export function LiveProposal({ proposalId }: { proposalId: string }) {
 }
 
 /** 다른 시간 알려주기: 후보에 없는 되는 시간으로 응답 + (선택) 이번 회의에만 적용할 조건 */
+/** ISO 시각 → "2026-11-10T14:00" (서울) */
+const toLocal = (iso: string) => new Date(Date.parse(iso) + 9 * 3600_000).toISOString().slice(0, 16);
+/** "2026-11-10T19:00" → 한 시간 뒤 */
+const addHour = (local: string) => toLocal(new Date(Date.parse(`${local}:00+09:00`) + 3600_000).toISOString());
+
 function OtherTimeSheet({
+  window,
+  hours,
   busy,
   onClose,
   onAction,
 }: {
+  /** 찾는 기간 — 이 안에서만 골라요 */
+  window: { startAt: string; endAt: string };
+  /** 매일 회의 가능 시간 (C meetingHours) — 안내에만 써요, C가 밖이면 막아요 */
+  hours: { start: string; end: string };
   busy: boolean;
   onClose: () => void;
   onAction: (name: 'respond' | 'condition', payload: Record<string, unknown>, message: string) => void;
 }) {
   const [start, setStart] = useState('');
   const [end, setEnd] = useState('');
+  const [picker, setPicker] = useState<null | 'start' | 'end'>(null); // 날짜 · 시간 시트 (제안 만들기와 같은 모양)
+  const minDate = toLocal(window.startAt).slice(0, 10);
+  const maxDate = toLocal(new Date(Date.parse(window.endAt) - 60_000).toISOString()).slice(0, 10);
+  const label = (v: string) => (v ? `${dateLabel(v.slice(0, 10))} ${v.slice(11, 16)}` : '');
   const [kind, setKind] = useState<'unavailable' | 'preferred'>('unavailable');
   const slot = { startAt: toKst(start), endAt: toKst(end) };
   const ready = !!start && !!end && start < end;
   return (
-    <Sheet open onClose={onClose} title="다른 시간 알려주기" sub="후보에 없는 되는 시간을 알려 주면 AI가 추천을 다시 계산해요 · 한국 시간">
+    <>
+    <Sheet open onClose={onClose} title="다른 시간 알려주기" sub={`후보에 없는 되는 시간을 알려 주면 AI가 추천을 다시 계산해요 · 매일 ${hours.start}~${hours.end} 안에서`}>
       <div className="stack gap-6">
         <span className="t-13 t-muted">언제 되나요?</span>
         <div className="hstack gap-8">
-          <input className="input grow" type="datetime-local" aria-label="시작" value={start} onChange={(e) => setStart(e.target.value)} />
-          <input className="input grow" type="datetime-local" aria-label="끝" value={end} onChange={(e) => setEnd(e.target.value)} />
+          <button type="button" className={`input grow${start ? '' : ' t-muted'}`} style={{ textAlign: 'left' }} aria-label={`시작 ${label(start) || '고르기'}`} onClick={() => setPicker('start')}>
+            {label(start) || '시작'}
+          </button>
+          <span className="t-13 t-muted">~</span>
+          <button type="button" className={`input grow${end ? '' : ' t-muted'}`} style={{ textAlign: 'left' }} aria-label={`끝 ${label(end) || '고르기'}`} onClick={() => setPicker('end')}>
+            {label(end) || '끝'}
+          </button>
         </div>
       </div>
       <button type="button" className="btn btn--primary" style={{ height: 50 }} disabled={busy || !ready} onClick={() => onAction('respond', { kind: 'custom', selectedCandidateIds: [], customSlots: [slot] }, '이 시간이 된다고 응답했어요')}>
@@ -710,6 +734,24 @@ function OtherTimeSheet({
         </div>
       </div>
     </Sheet>
+    {picker ? (
+      <DatePickerSheet
+        title={picker === 'start' ? '언제부터 되나요?' : '언제까지 되나요?'}
+        withTime
+        value={picker === 'start' ? start || `${minDate}T${hours.start}` : end || (start ? addHour(start) : `${minDate}T${hours.end}`)}
+        min={picker === 'end' && start ? start.slice(0, 10) : minDate}
+        max={maxDate}
+        onClose={() => setPicker(null)}
+        onConfirm={(v) => {
+          if (picker === 'start') {
+            setStart(v);
+            if (!end || end <= v) setEnd(addHour(v));
+          } else setEnd(v);
+          setPicker(null);
+        }}
+      />
+    ) : null}
+    </>
   );
 }
 

@@ -2,6 +2,23 @@ import type { ScheduleInput, ScheduleResult, Slot, TimeCandidate } from './types
 
 type Range = [number, number];
 const MINUTE = 60_000;
+export const DEFAULT_MEETING_HOURS = { start: '09:00', end: '22:00' } as const;
+
+export function meetingHours(input: ScheduleInput): { start: string; end: string } {
+  const hours = input.meetingHours ?? DEFAULT_MEETING_HOURS;
+  const valid = (value: string) => /^([01]\d|2[0-3]):[0-5]\d$/.test(value);
+  if (!hours || !valid(hours.start) || !valid(hours.end) || hours.start >= hours.end) {
+    throw new Error('회의 가능 시간은 00:00~23:59의 시작·종료 시각으로 입력하고, 종료를 시작보다 뒤로 설정해 주세요.');
+  }
+  return hours;
+}
+
+export function withinMeetingHours(start: number, end: number, hours: { start: string; end: string }): boolean {
+  const localStart = new Date(start + 9 * 60 * MINUTE).toISOString();
+  const localEnd = new Date(end + 9 * 60 * MINUTE).toISOString();
+  return localStart.slice(0, 10) === localEnd.slice(0, 10)
+    && localStart.slice(11, 16) >= hours.start && localEnd.slice(11, 16) <= hours.end;
+}
 
 function range(slot: Slot): Range {
   // 시간대 누락이나 존재하지 않는 날짜를 Date.parse가 자동 보정하지 못하게 검사한다.
@@ -47,6 +64,7 @@ export function calculateTimeCandidates(input: ScheduleInput): ScheduleResult {
     throw new Error('필수 참석자 ID는 참여자 목록에 중복 없이 포함되어야 합니다.');
   }
   const [windowStart, windowEnd] = range(input.searchWindow);
+  const hours = meetingHours(input);
   if ((windowEnd - windowStart) / (step * MINUTE) > 20_000) throw new Error('검색 범위를 줄이거나 후보 간격을 늘려 주세요.');
   const members = input.members.map(m => {
     if (!['provided', 'missing', 'needs_confirmation'].includes(m.responseStatus)) throw new Error('응답 상태가 올바르지 않습니다.');
@@ -56,6 +74,7 @@ export function calculateTimeCandidates(input: ScheduleInput): ScheduleResult {
   // 검색 시작 시각을 기준으로 stepMinutes마다 검사한다.
   for (let start = windowStart; start + input.durationMinutes * MINUTE <= windowEnd; start += step * MINUTE) {
     const end = start + input.durationMinutes * MINUTE;
+    if (!withinMeetingHours(start, end, hours)) continue;
     const availableMemberIds: string[] = [], unavailableMemberIds: string[] = [], unknownMemberIds: string[] = [];
     for (const m of members) {
       const blocked = m.unavailable.some(([s, e]) => s < end && start < e);

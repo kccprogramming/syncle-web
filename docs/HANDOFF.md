@@ -25,7 +25,7 @@ Google 로그인 → 내 정보(출발지 · 매주 안 되는 시간 · 알림 
 
 1. **답 기다리는 중 (11/6 밤 전달함)**
    - 성하님(B): 앱 카드 프롬프트가 모양 3개를 tasks부터 다 보여 줘서 요약 · 자료에도 할 일 카드가 나옴, 회의 조건 프롬프트에서 다시 빠진 규칙(origins 배열 · 출발역 null 등), `place-type.test.ts` 1개 실패, `extractor.ts` `currentParts` 타입 (7장).
-   - 지우님(C): **한밤중 시간 후보** — '하루 종일 가능'이면 00:00–01:00 후보가 나와 그대로 확정될 수 있음 (7장).
+   - 지우님(C): 한밤중 시간 후보 → **`9834b43`로 해결 (매일 회의 가능 시간 `meetingHours`, 기본 09:00~22:00) · 통합본 반영함**. **Supabase에 고친 `supabase/c-place-type-migration.sql`을 한 번 더 실행해야 해요** (함수만 바꿔서 다시 실행해도 안전). 이미 00:00에 확정된 회의는 그대로라 새로 만들어 확인.
    - 답이 오면 `just_keeping`에서 가져와 `src/server/b` · C 파일만 바꿔 끼우고 테스트(4장 방법).
 2. **미리보기를 팀원에게 열지 (팀 결정)**: Vercel → Settings → Deployment Protection → Vercel Authentication 끄면 링크로 누구나 열고 각자 Google로 로그인해 써 볼 수 있어요. 주소: `https://syncle-web-git-integration-b-d-unione1.vercel.app` (`integration/b-d`의 최신 배포).
 3. **push 뒤 미리보기가 안 생기면**: Vercel이 GitHub push를 놓친 적이 있어요(11/6 `bcec398`). Deployments → `⋯` → Create Deployment → `integration/b-d`, 또는 Settings → Git → Deploy Hooks의 `b-d` 훅 주소를 POST (주소는 비밀이라 문서에 안 적어요 · 희원이 가지고 있음).
@@ -95,7 +95,7 @@ B 최신(`placeType` 필수)에 맞춰 연결 쪽에서 고친 것: C `src/serve
 |---|---|---|
 | A 현서 | `a-hyunseo/feature-code` → `contributions/a-hyunseo/` ([PR #2](https://github.com/kccprogramming/just_keeping/pull/2), 열림) | 아직 안 가져옴 |
 | B 성하 | `share/sungha-b-final` → `sungha_B_code/` | `aedb6b1` (11/6 밤 · 앱 카드에 요청 종류 · 날짜 · 팀원, 시간 다듬기). 앱 설정용으로 `extractor.ts` `currentParts`에 타입 한 줄만 붙임 — 테스트 파일 · `schedule.ts` · `check-ai.ts`는 안 가져옴 |
-| C 지우 | `share/jiwoo-c-code` → `jiwoo_C_code/` | `f482f55` (예시 흐름), `a9c6fb0`의 `integration/syncle-web/` (실제 저장), SQL `55ec72e`, `de98361`(placeType · 11/6 밤 — `c-place-type-migration.sql` Supabase 적용함) |
+| C 지우 | `share/jiwoo-c-code` → `jiwoo_C_code/` | `f482f55` (예시 흐름), `a9c6fb0`의 `integration/syncle-web/` (실제 저장), SQL `55ec72e`, `de98361`(placeType), `9834b43`(매일 회의 가능 시간 · 11/6 밤 — 우리 통합본은 `meetingHours`를 B 계약 대신 `src/features/scheduling/types.ts`에서 더함) |
 | D 현규 | `feature/d-place-recommendation` → `D_HANDOFF/` | `4a829da` (11/6, 이전 `2426bba`) — `getWalkingRoute.ts`, `C_INTEGRATION_GUIDE.md` 추가 |
 
 팀원이 코드를 고치면 해당 폴더(`src/server/b|c|d`)만 새 버전으로 바꿔 끼우고, 연결 파일이 깨지는지 확인하면 돼요.
@@ -141,6 +141,8 @@ B 최신(`placeType` 필수)에 맞춰 연결 쪽에서 고친 것: C `src/serve
    - **내 정보 이름 (11/6)**: '이름 수정' 시트 → `saveMyNickname`(`profiles.nickname`, 팀원에게 보이는 이름). 화면 이름은 nickname → 없으면 Google 이름. 실패하면 이전 이름으로 되돌려요.
    - **회원 탈퇴: 뺐어요 (11/6 결정)**. 1-1의 '회원 탈퇴' 버튼도 없앴어요. 다시 넣는다면: A `DELETE /api/account`(PR #2)를 옮기되 ① 파일 정리는 계정 삭제 **뒤에**(파일 목록은 먼저 적어 두기) ② C 테이블 `scheduling.responses.member_id`, `scheduling.proposals.created_by`가 `auth.users`를 삭제 규칙 없이 가리켜서 제안·응답한 사람은 계정 삭제가 막혀요 → 지우님과 `on delete cascade` / `set null` 먼저 정하기.
    - **장소 종류 끝까지 전달 (11/6 밤, 지우님 요청)**: B `placeType` → C 제안 저장 → 5 화면 '찾을 장소' 기본값 → C 장소 찾기 검색어. 5 화면(`LiveProposal`)의 검색어 기본값이 예전엔 `스터디룸`이라 저장된 B 값을 덮어쓸 수 있었어요 → 기본값을 저장된 `placeType`으로 바꾸고, **방장이 바꾸지 않았으면 검색어를 보내지 않아요**(C가 저장값 사용). 지역 추천(`/api/places/areas`)도 `placeType`을 그대로 검색어로 써요(`placeIntentFrom`). 테스트: 지우님 DB 테스트(대면 저장 · 온라인 거절) 포함 C 13개 통과. **남은 것**: Supabase에 `c-place-type-migration.sql` 실행 → 실제 계정으로 대면 제안 만들기 → 5 화면 '…에서 ○○ 찾기'가 B 장소 종류인지 → 장소 찾기 결과 확인.
+   - **날짜 · 시간 고르기 통일 (11/6 밤)**: 브라우저 기본 날짜 · 시간 입력을 모두 앱 시트로 바꿨어요 — `TimeWheelSheet`(시 · 분 휠, '22 : 00') · `DatePickerSheet`(달력 + 필요하면 같은 휠). 제안 만들기(기간 · 응답 마감 · 자료 마감 · 회의 가능 시간), 내 조건의 조건 추가, 다른 시간 알려주기, 할 일 마감. 시트 안에서 여는 시트는 겹치지 않게 바깥 시트 옆에 그려요(`.sheet`가 absolute라서).
+   - **매일 회의 가능 시간 (11/6 밤, 지우님 `9834b43`)**: 제안 만들기 시트의 접힌 칸에 '매일 회의 가능한 시간'(기본 09:00~22:00, 30분 단위, 시작이 끝보다 늦어지지 않게 막음) → `createLiveProposal`의 `meetingHours`. C는 이 안에서 시작하고 끝나는 후보만 만들고, '다른 시간 알려주기'도 이 밖이면 막아요. 회의 길이보다 짧으면 시트에서 막아요. C 테스트 15개 통과.
    - **화면 다듬기 (11/6 밤)**: 제안 만들기 시트의 목적 기본값을 '@AI 합주 잡아줘' → "합주"처럼 부탁한 내용으로(팀 이름을 넣으면 B가 장소 종류를 '회의 장소'로 고를 수 있었음, `purposeFromRequest`). `@ai` 소문자도 AI 호출로 알아들음. 5 화면 장소 칸: '○/○ ○○:00 기준 · 지역 · 장소 종류' 칸 + '시간 바꾸기' 버튼, 결과 아래 '지역 · 장소 종류 바꿔서 다시 찾기', 찾는 동안 버튼을 회색으로 바꾸지 않음. 확정 칸 버튼은 세로로(주 버튼 '회의 카드 보기' 하나). Gemini 사용량 한도(429)면 "AI 사용량이 잠시 많아요 · 1분 뒤 다시 부탁해 주세요"(`isAiBusy`).
    - **남은 데모 화면 연결 (11/6 밤)**: 진짜 ID(UUID)면 새 화면, 데모 ID(`m-1`, `p-1`)면 예전 데모 그대로.
      - **대화방 '@AI 요약 · 할 일 정리 · 자료 정리'**: `POST /api/teams/{teamId}/ai`(`src/server/team-ai.ts`) → B `handleAiRequest`(앱 카드) → `cardReply`(`ai-adapter.ts`) → 대화방 답 카드. 대화는 부른 사람 권한으로 읽고(비공개 · AI 꺼짐 · @AI만 읽기 지킴), 답 카드는 부른 사람 화면에만 보여요(저장 안 함). 할 일 카드는 줄마다 '+ 추가' → `createTeamTask`(담당자 알림). B의 앱 카드 프롬프트에 '요청 종류'가 없어서 앱이 요청 종류 · 오늘 날짜 · 팀원 이름/id · 근거 형식을 덧붙여요 (7장 성하님).

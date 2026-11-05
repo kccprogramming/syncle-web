@@ -1,7 +1,8 @@
 import 'server-only';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import type { Conditions, ExtractionInput, Slot } from '@/server/b/b-c-contract';
-import { calculateTimeCandidates } from '@/features/scheduling/calculate-time-candidates';
+import { calculateTimeCandidates, meetingHours, withinMeetingHours } from '@/features/scheduling/calculate-time-candidates';
+import type { ScheduleInput } from '@/features/scheduling/types';
 import { ScheduleError, assertDeadlines, projectProposal, type StoredProposal, type PlaceResult } from '@/features/scheduling/proposals';
 import { handleAiRequest, buildConfirmationCards } from '@/server/b/mvp';
 import { AI_BUSY_MESSAGE, geminiGenerate, isAiBusy } from '@/server/gemini-generate';
@@ -58,8 +59,8 @@ const text = (v:unknown) => typeof v==='string' ? v : '';
 function safeConditions(value: Conditions): Conditions {
   const s=value.schedule;
   return { purpose:value.purpose,meetingMode:value.meetingMode,agenda:value.agenda,sourceMessageIds:value.sourceMessageIds,origins:[],placeRequirements:value.placeRequirements,placeType:value.meetingMode==='offline'&&typeof value.placeType==='string'?value.placeType.trim().slice(0,100)||null:null,
-    schedule:{teamId:s.teamId,timezone:s.timezone,searchWindow:s.searchWindow,durationMinutes:s.durationMinutes,requiredMemberIds:s.requiredMemberIds,stepMinutes:30,maxCandidates:3,
-      members:s.members.map(m=>({memberId:m.memberId,responseStatus:m.responseStatus,availableSlots:m.availableSlots,unavailableSlots:m.unavailableSlots,...(m.preferredSlots?{preferredSlots:m.preferredSlots}:{})}))} };
+    schedule:{teamId:s.teamId,timezone:s.timezone,searchWindow:s.searchWindow,meetingHours:meetingHours(s as ScheduleInput),durationMinutes:s.durationMinutes,requiredMemberIds:s.requiredMemberIds,stepMinutes:30,maxCandidates:3,
+      members:s.members.map(m=>({memberId:m.memberId,responseStatus:m.responseStatus,availableSlots:m.availableSlots,unavailableSlots:m.unavailableSlots,...(m.preferredSlots?{preferredSlots:m.preferredSlots}:{})}))} as ScheduleInput };
 }
 export async function teamInput(db:SupabaseClient,userId:string,teamId:string,body:Record<string,unknown>):Promise<ExtractionInput> {
   const membership=await db.from('team_members').select('member_id').eq('team_id',teamId).eq('member_id',userId).maybeSingle();
@@ -91,6 +92,17 @@ export async function createSchedule(db:SupabaseClient,userId:string,teamId:stri
   if (extraction.status==='ignored'||extraction.status==='not_supported'||extraction.status==='clarify_request'||extraction.status==='card') return extraction;
   const conditions=extraction.status==='ready'?extraction.conditions:extraction.draft;
   if (!conditions) return extraction;
+  // 지우님 9834b43: 매일 회의 가능 시간 (화면이 보내요, 없으면 09:00~22:00)
+  if (body.meetingHours !== undefined) {
+    if (!body.meetingHours || typeof body.meetingHours !== 'object' || Array.isArray(body.meetingHours))
+      throw new ScheduleError('INVALID_MEETING_HOURS','회의 가능 시간의 시작과 종료를 확인해 주세요.');
+    const requested = body.meetingHours as Record<string,unknown>;
+    if (typeof requested.start !== 'string' || typeof requested.end !== 'string')
+      throw new ScheduleError('INVALID_MEETING_HOURS','회의 가능 시간은 HH:mm 형식으로 입력해 주세요.');
+    (conditions.schedule as ScheduleInput).meetingHours = { start: requested.start, end: requested.end };
+  }
+  try { meetingHours(conditions.schedule as ScheduleInput); }
+  catch { throw new ScheduleError('INVALID_MEETING_HOURS','회의 가능 시간은 09:00~22:00처럼 입력해 주세요.'); }
   if (conditions.schedule.durationMinutes>720) throw new ScheduleError('INVALID_INPUT','회의 길이는 12시간 이내로 설정해 주세요.');
   const safe=safeConditions(conditions);
   const candidates=calculateTimeCandidates(safe.schedule).candidates;
@@ -100,11 +112,11 @@ export async function createSchedule(db:SupabaseClient,userId:string,teamId:stri
   return {status:extraction.status,proposal:projectProposal(stored)};
 }
 export function customCandidates(proposal:StoredProposal,slots:Slot[]) {
-  const s=proposal.conditions.schedule, duration=s.durationMinutes*60000, windowStart=Date.parse(s.searchWindow.startAt),windowEnd=Date.parse(s.searchWindow.endAt);
+  const s=proposal.conditions.schedule, duration=s.durationMinutes*60000, windowStart=Date.parse(s.searchWindow.startAt),windowEnd=Date.parse(s.searchWindow.endAt),hours=meetingHours(s as ScheduleInput);
   const kst=(n:number)=>new Date(n+9*3600000).toISOString().slice(0,19)+'+09:00';
   const extra:{id:string;startAt:string;endAt:string}[]=[];
   for(let t=windowStart;t+duration<=windowEnd;t+=30*60000){
-    if(slots.some(slot=>Date.parse(slot.startAt)<=t&&Date.parse(slot.endAt)>=t+duration)){
+    if(withinMeetingHours(t,t+duration,hours)&&slots.some(slot=>Date.parse(slot.startAt)<=t&&Date.parse(slot.endAt)>=t+duration)){
       const startAt=kst(t),endAt=kst(t+duration);extra.push({id:`time:${startAt}/${endAt}`,startAt,endAt});
     }
   }
@@ -118,7 +130,11 @@ export async function respond(db:SupabaseClient,proposal:StoredProposal,body:Rec
     if(!slots.length||slots.length>10)throw new ScheduleError('INVALID_RESPONSE','다른 시간은 1~10개 입력해 주세요.');
     // Reuse the same strict slot validation as B and C.
     const {validateMeetingSlot}=await import('@/server/b/extractor');
-    for(const slot of customSlots)validateMeetingSlot(slot,proposal.conditions.schedule.searchWindow);
+    for(const slot of customSlots){
+      validateMeetingSlot(slot,proposal.conditions.schedule.searchWindow);
+      if(!withinMeetingHours(Date.parse(slot.startAt),Date.parse(slot.endAt),meetingHours(proposal.conditions.schedule as ScheduleInput)))
+        throw new ScheduleError('INVALID_MEETING_HOURS','직접 입력한 시간도 회의 가능 시간 안에서 골라 주세요.');
+    }
   }
   return rpc<StoredProposal>(db,'c_schedule_action',{p_id:proposal.id,p_action:'respond',p_version:body.version,
     p_payload:{kind,selectedCandidateIds:ids,customSlots,extraCandidates:[]}});

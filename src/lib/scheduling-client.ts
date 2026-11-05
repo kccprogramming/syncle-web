@@ -42,6 +42,8 @@ export type CreateLiveProposalInput = {
  searchWindow:{startAt:string;endAt:string};
  responseDeadline:string;
  materialDeadline:string;
+ /** 매일 회의 가능 시간 (한국 시간 "HH:mm"). 없으면 C가 09:00~22:00을 써요 (지우님 9834b43) */
+ meetingHours?:{start:string;end:string};
 };
 const withZone=/(?:Z|[+-]\d{2}:\d{2})$/;
 export function checkDeadlines(responseDeadline:string,materialDeadline:string,now=Date.now()):string|null{
@@ -55,6 +57,6 @@ export function checkDeadlines(responseDeadline:string,materialDeadline:string,n
 export async function createLiveProposal<T=unknown>(teamId:string,input:CreateLiveProposalInput):Promise<T>{
  const problem=checkDeadlines(input.responseDeadline,input.materialDeadline);
  if(problem)throw new Error(problem);
- const {text,referenceDate,searchWindow,responseDeadline,materialDeadline}=input;
- return schedulingRequest<T>(`teams/${teamId}`,{text,referenceDate,searchWindow,responseDeadline,materialDeadline});
+ const {text,referenceDate,searchWindow,responseDeadline,materialDeadline,meetingHours}=input;
+ return schedulingRequest<T>(`teams/${teamId}`,{text,referenceDate,searchWindow,responseDeadline,materialDeadline,...(meetingHours?{meetingHours}:{})});
 }

@@ -7,6 +7,7 @@
  */
 import { useState } from "react";
 import { Sheet } from "@/components/Sheet";
+import { DatePickerSheet, dateLabel } from "@/components/DatePickerSheet";
 import { createTeamTask, getMember, type LiveTask } from "@/lib/data";
 
 export function TaskSheet({
@@ -26,6 +27,7 @@ export function TaskSheet({
   const [title, setTitle] = useState("");
   const [assigneeId, setAssigneeId] = useState<string | null>(meId);
   const [due, setDue] = useState("");
+  const [dueOpen, setDueOpen] = useState(false); // 마감 날짜 시트 (제안 만들기와 같은 모양)
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const t = title.trim();
@@ -55,7 +57,10 @@ export function TaskSheet({
     </button>
   );
 
+  // 오늘 (서울) — 마감은 오늘부터 고를 수 있어요
+  const today = new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10);
   return (
+    <>
     <Sheet open onClose={onClose} title="할 일 추가" sub="팀원 모두에게 보여요 · 다른 사람에게 맡기면 알림이 가요">
       <input
         className="input"
@@ -77,14 +82,36 @@ export function TaskSheet({
           {chip(null, "정하지 않음")}
         </div>
       </div>
-      <label className="stack gap-6">
+      <div className="stack gap-6">
         <span className="t-13 t-muted">언제까지? (선택)</span>
-        <input className="input" type="date" value={due} onChange={(e) => setDue(e.target.value)} aria-label="마감 날짜" />
-      </label>
+        <div className="hstack gap-8">
+          <button type="button" className={`input grow${due ? "" : " t-muted"}`} style={{ textAlign: "left" }} aria-label={`마감 날짜 ${due ? dateLabel(due) : "고르기"}`} onClick={() => setDueOpen(true)}>
+            {due ? `${dateLabel(due)}까지` : "마감 없음"}
+          </button>
+          {due ? (
+            <button type="button" className="btn btn--ghost btn--sm no-shrink" style={{ height: 44, border: "1px solid var(--line)" }} onClick={() => setDue("")}>
+              지우기
+            </button>
+          ) : null}
+        </div>
+      </div>
       {error ? <span className="t-12 t-warn">{error}</span> : null}
       <button type="button" className="btn btn--primary" style={{ height: 50 }} disabled={!t || busy} onClick={() => void save()}>
         {busy ? "추가하는 중…" : "할 일 추가"}
       </button>
     </Sheet>
+    {dueOpen ? (
+      <DatePickerSheet
+        title="언제까지 할까요?"
+        value={due || today}
+        min={today}
+        onClose={() => setDueOpen(false)}
+        onConfirm={(v) => {
+          setDue(v);
+          setDueOpen(false);
+        }}
+      />
+    ) : null}
+    </>
   );
 }

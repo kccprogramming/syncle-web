@@ -140,3 +140,22 @@ test('DB: B placeType is stored for offline meetings and rejected for online mee
   await assert.rejects(call(owner,'c_schedule_create',[team,offline,[]]),/C_INVALID_INPUT/);
  }finally{await db.close()}
 });
+
+test('DB: daily meeting hours survive storage, reject invalid ranges, and discard extra fields',async()=>{
+ const {db,call,state}=await dbFixture();try{
+  await db.exec(readFileSync('supabase/c-place-type-migration.sql','utf8'));
+  const requested=structuredClone(state) as any;
+  requested.conditions.schedule.meetingHours={start:'18:00',end:'21:00',secretOrigin:'비공개 위치'};
+  const saved=await call(owner,'c_schedule_create',[team,requested,[]]);
+  assert.deepEqual(saved.conditions.schedule.meetingHours,{start:'18:00',end:'21:00'});
+  assert.equal(JSON.stringify(saved).includes('비공개'),false);
+  const invalid=structuredClone(state) as any;
+  invalid.conditions.schedule.meetingHours={start:'22:00',end:'09:00'};
+  await assert.rejects(call(owner,'c_schedule_create',[team,invalid,[]]),/C_INVALID_(INPUT|CANDIDATE)/);
+  const fallback=await call(owner,'c_schedule_create',[team,state,[]]);
+  assert.deepEqual(fallback.conditions.schedule.meetingHours,{start:'09:00',end:'22:00'});
+  const midnight=structuredClone(state) as any;
+  midnight.candidates=[{id:'time:2030-11-10T00:00:00+09:00/2030-11-10T01:00:00+09:00',startAt:'2030-11-10T00:00:00+09:00',endAt:'2030-11-10T01:00:00+09:00'}];
+  await assert.rejects(call(owner,'c_schedule_create',[team,midnight,[]]),/C_INVALID_CANDIDATE/);
+ }finally{await db.close()}
+});

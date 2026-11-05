@@ -14,6 +14,7 @@ import { TopBar } from "@/components/TopBar";
 import { Sheet } from "@/components/Sheet";
 import { Toast, useToast } from "@/components/Toast";
 import { OriginPickerSheet } from "@/components/home/OriginPickerSheet";
+import { DatePickerSheet, dateLabel } from "@/components/DatePickerSheet";
 import { loadMyProfile, originForD, saveMyOrigin, seoulLabel, type MyProfile } from "@/lib/data";
 import { schedulingRequest, type LiveProposal } from "@/lib/scheduling-client";
 
@@ -225,27 +226,62 @@ function AddConditionSheet({
 }) {
   const min = toLocal(window.startAt);
   const max = toLocal(window.endAt);
+  // 찾는 기간의 첫날 · 마지막 날 (끝은 다음 날 0시라 1분 빼서)
+  const minDate = min.slice(0, 10);
+  const maxDate = toLocal(new Date(Date.parse(window.endAt) - 60_000).toISOString()).slice(0, 10);
   const [kind, setKind] = useState<"unavailable" | "preferred">("unavailable");
   const [start, setStart] = useState("");
   const [end, setEnd] = useState("");
+  const [picker, setPicker] = useState<null | "start" | "end">(null); // 날짜 · 시간 시트 (제안 만들기와 같은 모양)
   const ready = !!start && !!end && start < end && start >= min && end <= max;
+  const label = (v: string) => (v ? `${dateLabel(v.slice(0, 10))} ${v.slice(11, 16)}` : "");
   return (
-    <Sheet open onClose={onClose} title="이번 회의 조건 추가" sub={`이 회의에만 적용돼요 · ${slotLabel(window)} 안에서 · 한국 시간`}>
-      <div className="hstack gap-8">
-        <button type="button" aria-pressed={kind === "unavailable"} className={`chip${kind === "unavailable" ? " chip--on" : ""}`} onClick={() => setKind("unavailable")}>
-          안 돼요
+    <>
+      <Sheet open onClose={onClose} title="이번 회의 조건 추가" sub={`이 회의에만 적용돼요 · ${slotLabel(window)} 안에서 · 한국 시간`}>
+        <div className="hstack gap-8">
+          <button type="button" aria-pressed={kind === "unavailable"} className={`chip${kind === "unavailable" ? " chip--on" : ""}`} onClick={() => setKind("unavailable")}>
+            안 돼요
+          </button>
+          <button type="button" aria-pressed={kind === "preferred"} className={`chip${kind === "preferred" ? " chip--on" : ""}`} onClick={() => setKind("preferred")}>
+            되면 좋아요
+          </button>
+        </div>
+        <div className="hstack gap-8">
+          <button type="button" className={`input grow${start ? "" : " t-muted"}`} style={{ textAlign: "left" }} aria-label={`시작 ${label(start) || "고르기"}`} onClick={() => setPicker("start")}>
+            {label(start) || "시작"}
+          </button>
+          <span className="t-13 t-muted">~</span>
+          <button type="button" className={`input grow${end ? "" : " t-muted"}`} style={{ textAlign: "left" }} aria-label={`끝 ${label(end) || "고르기"}`} onClick={() => setPicker("end")}>
+            {label(end) || "끝"}
+          </button>
+        </div>
+        {start && end && !ready ? <span className="t-12 t-warn">끝이 시작보다 늦고, 찾는 기간 안이어야 해요</span> : null}
+        <button type="button" className="btn btn--primary" style={{ height: 50 }} disabled={busy || !ready} onClick={() => onSave(kind, { startAt: toKst(start), endAt: toKst(end) })}>
+          {busy ? "저장하는 중…" : "조건 추가"}
         </button>
-        <button type="button" aria-pressed={kind === "preferred"} className={`chip${kind === "preferred" ? " chip--on" : ""}`} onClick={() => setKind("preferred")}>
-          되면 좋아요
-        </button>
-      </div>
-      <div className="hstack gap-8">
-        <input className="input grow" type="datetime-local" step={1800} min={min} max={max} aria-label="시작" value={start} onChange={(e) => setStart(e.target.value)} />
-        <input className="input grow" type="datetime-local" step={1800} min={min} max={max} aria-label="끝" value={end} onChange={(e) => setEnd(e.target.value)} />
-      </div>
-      <button type="button" className="btn btn--primary" style={{ height: 50 }} disabled={busy || !ready} onClick={() => onSave(kind, { startAt: toKst(start), endAt: toKst(end) })}>
-        {busy ? "저장하는 중…" : "조건 추가"}
-      </button>
-    </Sheet>
+      </Sheet>
+      {picker ? (
+        <DatePickerSheet
+          title={picker === "start" ? "언제부터인가요?" : "언제까지인가요?"}
+          withTime
+          value={picker === "start" ? start || `${minDate}T19:00` : end || (start ? addHour(start) : `${minDate}T20:00`)}
+          min={picker === "end" && start ? start.slice(0, 10) : minDate}
+          max={maxDate}
+          onClose={() => setPicker(null)}
+          onConfirm={(v) => {
+            if (picker === "start") {
+              setStart(v);
+              if (!end || end <= v) setEnd(addHour(v));
+            } else setEnd(v);
+            setPicker(null);
+          }}
+        />
+      ) : null}
+    </>
   );
+}
+
+/** "2026-11-10T19:00" → 한 시간 뒤 "2026-11-10T20:00" */
+function addHour(local: string) {
+  return toLocal(new Date(Date.parse(`${local}:00+09:00`) + 3600_000).toISOString());
 }
