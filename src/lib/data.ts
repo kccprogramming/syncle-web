@@ -163,6 +163,53 @@ export async function loadMyTeams(): Promise<Team[] | null> {
   return teams.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 }
 
+/* ───────── 팀 설정 (A) ─────────
+ * 팀 이름 · AI 도우미 · AI가 읽는 범위는 방장만 바꿀 수 있어요 (A의 RLS).
+ */
+
+/** 팀 설정 바꾸기 — 방장이 아니면 "방장만 바꿀 수 있어요" */
+export async function updateTeam(teamId: string, patch: { name?: string; aiEnabled?: boolean; aiScope?: "all" | "mention" }): Promise<void> {
+  const supabase = getSupabase();
+  if (!supabase) throw new Error("로그인이 필요해요");
+  const row: Record<string, unknown> = {};
+  if (patch.name !== undefined) {
+    if (!patch.name.trim()) throw new Error("팀 이름을 입력해 주세요");
+    row.name = patch.name.trim();
+  }
+  if (patch.aiEnabled !== undefined) row.ai_enabled = patch.aiEnabled;
+  if (patch.aiScope !== undefined) row.ai_read_scope = patch.aiScope === "mention" ? "mentioned_only" : "all_messages";
+  // 권한이 없으면 오류 대신 0줄이 바뀌어서, 바뀐 줄을 돌려받아 확인해요
+  const { data, error } = await supabase.from("teams").update(row).eq("id", teamId).select("id");
+  if (error) throw new Error(error.message);
+  if (!data?.length) throw new Error("방장만 바꿀 수 있어요");
+}
+
+/** 방장 넘기기 — A (transfer_team_owner) */
+export async function transferTeamOwner(teamId: string, newOwnerId: string): Promise<void> {
+  const supabase = getSupabase();
+  if (!supabase) throw new Error("로그인이 필요해요");
+  const { error } = await supabase.rpc("transfer_team_owner", { p_team_id: teamId, p_new_owner_id: newOwnerId });
+  if (error) {
+    const m = error.message;
+    throw new Error(m.includes("OWNER_REQUIRED") ? "방장만 넘길 수 있어요" : m.includes("MUST_BE_MEMBER") ? "이 팀의 팀원에게만 넘길 수 있어요" : m);
+  }
+}
+
+/**
+ * 팀 나가기 — A (leave_team)
+ * 주의: 혼자 남은 방장이 나가면 A가 팀을 통째로 지워요 (대화 · 자료 · 할 일 모두). 화면에서 꼭 한 번 더 물어봐요.
+ */
+export async function leaveTeam(teamId: string): Promise<void> {
+  const supabase = getSupabase();
+  if (!supabase) throw new Error("로그인이 필요해요");
+  const { error } = await supabase.rpc("leave_team", { p_team_id: teamId });
+  if (error) throw new Error(error.message.includes("TRANSFER_OWNERSHIP_FIRST") ? "방장을 먼저 다른 팀원에게 넘겨 주세요" : error.message);
+  // DB 권한 때문에 아무것도 안 지워져도 오류가 안 날 수 있어서, 정말 빠졌는지 확인해요
+  const { id } = await signedIn();
+  const still = await supabase.from("team_members").select("team_id").eq("team_id", teamId).eq("member_id", id ?? "").maybeSingle();
+  if (still.data) throw new Error("팀에서 빠지지 않았어요 · DB의 leave_team 권한을 현서님께 확인해 주세요");
+}
+
 /* ───────── 진짜 대화방 (A · Supabase messages) ───────── */
 
 /** "2026-11-06T13:05:00Z" → "22:05" (이 기기 시간) */

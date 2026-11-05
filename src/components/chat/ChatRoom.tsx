@@ -61,8 +61,8 @@ export function ChatRoom({
   const team = liveTeam ?? getTeam(teamId);
   const isConfirmed = confirmed && teamId === DEMO_TEAM_ID;
   const proposalId = getTeamProposal(teamId, state.cProposal)?.id ?? "p-1";
-  const { aiOn, setAiOn } = useTeamAi(team);
   const toast = useToast();
+  const { aiOn, setAiOn } = useTeamAi(team, toast.show);
 
   const [extra, setExtra] = useState<ChatItem[]>([]); // 이 화면에서 새로 보낸 메시지들
   const [draft, setDraft] = useState("");

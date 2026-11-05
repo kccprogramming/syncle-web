@@ -77,9 +77,11 @@ h1, h2, h3, p { margin: 0; }
   overflow: hidden;
 }
 .screen--white { background: var(--surface); }
+/* 컴퓨터: 휴대폰 화면(최대 844px)을 창 높이에 맞춰 고정하고, 페이지 대신 화면 안만 스크롤해요 */
 @media (min-width: 500px) {
-  body { padding: 24px 0; }
-  .screen { border-radius: 28px; box-shadow: 0 10px 40px rgba(22, 26, 34, 0.18); height: 844px; }
+  html, body { height: 100%; overflow: hidden; }
+  body { padding: 16px 0; }
+  .screen { border-radius: 28px; box-shadow: 0 10px 40px rgba(22, 26, 34, 0.18); height: min(844px, calc(100dvh - 32px)); }
 }
 
 .screen__body {

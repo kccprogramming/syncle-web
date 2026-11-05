@@ -5,8 +5,9 @@
  * 데이터는 data.ts 함수로만 가져오고, 여기서는 화면에 보여 줄 모양으로 바꾸기만 해요.
  */
 import { useState } from "react";
-import { dueLabel, getMeetings, getPlaces, getProposal, getTasks, getMinutes, getMember, getMe, type LiveTask } from "@/lib/data";
+import { dueLabel, updateTeam, getMeetings, getPlaces, getProposal, getTasks, getMinutes, getMember, getMe, type LiveTask } from "@/lib/data";
 import { useDemo, type DemoState } from "@/lib/demo-store";
+import { isLiveId } from "@/lib/scheduling-client";
 import type { Meeting, PlaceOption, Proposal, Task, Team } from "@/types";
 
 /** 프로토타입 상태(useDemo)가 이어지는 팀. 다른 팀은 mock 데이터 그대로 보여요. */
@@ -137,11 +138,24 @@ export function shortTitle(p: Proposal): string {
  * AI 도우미 켜짐/꺼짐.
  * 데모 팀은 화면 사이에 이어지게 useDemo에 저장하고, 다른 팀은 이 화면 안에서만 바뀌어요.
  */
-export function useTeamAi(team: Team) {
+export function useTeamAi(team: Team, onError?: (message: string) => void) {
   const { state, update } = useDemo();
   const [localOn, setLocalOn] = useState(team.aiEnabled);
   if (team.id === DEMO_TEAM_ID) {
     return { aiOn: state.aiEnabled, setAiOn: (on: boolean) => update({ aiEnabled: on }) };
+  }
+  // 진짜 팀(A): 바로 바꿔 보여주고 저장해요. 방장이 아니거나 실패하면 되돌려요
+  if (isLiveId(team.id)) {
+    return {
+      aiOn: localOn,
+      setAiOn: (on: boolean) => {
+        setLocalOn(on);
+        updateTeam(team.id, { aiEnabled: on }).catch((e) => {
+          setLocalOn(!on);
+          onError?.(e instanceof Error ? e.message : "저장하지 못했어요");
+        });
+      },
+    };
   }
   return { aiOn: localOn, setAiOn: setLocalOn };
 }
