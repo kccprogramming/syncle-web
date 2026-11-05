@@ -1,6 +1,10 @@
 "use client";
 
-/** 6 장소 후보 — 지도 + 정렬 + 장소 카드 3개. 고르면 제안에 반영해요. */
+/**
+ * 6 장소 후보 — 지도 + 정렬 + 장소 카드 3개. 고르면 제안에 반영해요.
+ * '공평한 순'은 D 모듈(rankPlacesByFairness)과 같은 기준이에요:
+ * 가장 오래 걸리는 사람의 이동시간 → 같으면 사람 간 차이(최장−최단) → 같으면 맞는 선호 조건 수.
+ */
 import { useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { TopBar } from "@/components/TopBar";
@@ -12,17 +16,21 @@ import { walkMinutes } from "@/components/meeting/proposal-utils";
 
 /** 정렬 방법과 설명 */
 const SORTS = [
-  { id: "fair", label: "공평한 순", note: "공평한 순 = 가장 오래 걸리는 사람의 이동시간이 짧은 순" },
-  { id: "near", label: "가까운 순", note: "가까운 순 = 역에서 걸어가는 시간이 짧은 순" },
-  { id: "bookable", label: "예약 가능 먼저", note: "바로 예약할 수 있는 곳을 먼저 보여줘요" },
+  { id: "fair", label: "공평한 순", note: "가장 오래 걸리는 사람이 짧은 순 · 같으면 사람 간 차이가 작은 순" },
+  { id: "near", label: "가까운 순", note: "역에서 걸어가는 시간이 짧은 순" },
 ] as const;
+
+/** 사람 간 이동시간 차이 (가장 오래 − 가장 짧게 걸리는 사람, D의 travelTimeDifference) */
+function diffMinutes(p: PlaceOption) {
+  const m = p.travel.map((t) => t.minutes);
+  return Math.max(...m) - Math.min(...m);
+}
 type SortId = (typeof SORTS)[number]["id"];
 
 function sortPlaces(list: PlaceOption[], sort: SortId) {
   const copy = [...list];
-  if (sort === "fair") copy.sort((a, b) => a.maxMinutes - b.maxMinutes);
+  if (sort === "fair") copy.sort((a, b) => a.maxMinutes - b.maxMinutes || diffMinutes(a) - diffMinutes(b));
   if (sort === "near") copy.sort((a, b) => walkMinutes(a.walk) - walkMinutes(b.walk));
-  if (sort === "bookable") copy.sort((a, b) => Number(b.bookable) - Number(a.bookable) || a.maxMinutes - b.maxMinutes);
   return copy;
 }
 
@@ -83,7 +91,7 @@ export default function PlacesPage() {
         <button type="button" className="btn btn--primary" onClick={choose}>
           {selected.short}로 정하기
         </button>
-        <span className="t-12 t-muted t-center">예약은 회의가 확정된 뒤 회의 카드에서 할 수 있어요</span>
+        <span className="t-12 t-muted t-center">시설·인원·예약은 확정 뒤 회의 카드에서 장소 사이트로 확인해요</span>
       </footer>
     </main>
   );
@@ -123,7 +131,7 @@ function PlaceCard({ place, on, onPick }: { place: PlaceOption; on: boolean; onP
         </span>
       </span>
       <span className="t-12 t-muted">
-        {place.walk} · <span style={{ color: place.bookable ? "var(--ok)" : "var(--warn)" }}>{place.bookableLabel}</span> · 요금은 네이버 예약에서 확인
+        {place.walk} · 사람 간 차이 {diffMinutes(place)}분
       </span>
       <span className="hstack gap-6" style={{ flexWrap: "wrap" }}>
         {travel.map((t, i) => {

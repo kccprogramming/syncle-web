@@ -1,9 +1,9 @@
 "use client";
 
 /**
- * 8 확정 회의 카드 (+ 8-1 예약 시트, 8-2 참석 어려움 시트)
+ * 8 확정 회의 카드 (+ 8-2 참석 어려움 시트)
+ * 예약은 앱에서 하지 않고, '장소 사이트에서 예약하기'로 장소 사이트(카카오맵 장소 페이지)를 새 탭으로 열어요.
  * /meetings/m-1               기본
- * /meetings/m-1?sheet=reserve 예약 시트를 연 채로 시작
  * /meetings/m-1?sheet=absent  참석 어려움 시트를 연 채로 시작
  */
 import { Suspense, useState } from "react";
@@ -12,9 +12,8 @@ import { TopBar } from "@/components/TopBar";
 import { Icon } from "@/components/Icon";
 import { AvatarStack } from "@/components/Avatar";
 import { useDemo } from "@/lib/demo-store";
-import { getMe, getMeeting, getMember, getMembers, getPlaces, getProposal, getTeam } from "@/lib/data";
+import { getMe, getMeeting, getMember, getMembers, getPlaces, getTeam } from "@/lib/data";
 import { StatusPill } from "@/components/meeting/StatusPill";
-import { ReserveSheet } from "@/components/meeting/ReserveSheet";
 import { AbsentSheet } from "@/components/meeting/AbsentSheet";
 import { downloadIcs } from "@/components/meeting/ics";
 
@@ -48,8 +47,6 @@ function MeetingInner() {
   const team = getTeam(meeting.teamId);
   const owner = getMember(team.ownerId);
   const proposalId = meeting.proposalId ?? "p-1";
-  const proposal = getProposal(proposalId);
-  const timeLabel = (proposal.times.find((t) => t.recommended) ?? proposal.times[0]).label;
   const times = MEETING_TIMES[meeting.id] ?? MEETING_TIMES["m-1"];
   const chatHref = `/teams/${meeting.teamId}`;
 
@@ -102,7 +99,7 @@ function MeetingInner() {
                 ) : (
                   <>
                     <span className="t-12 t-muted">{place?.walk ?? meeting.placeMeta}</span>
-                    <span className="t-12 t-muted">예약은 네이버 예약에서 진행해요</span>
+                    <span className="t-12 t-muted">시설·요금·예약은 장소 사이트에서 확인해요</span>
                   </>
                 )}
               </div>
@@ -159,18 +156,16 @@ function MeetingInner() {
         </div>
 
         {online || !place ? null : (
-          <button type="button" className="btn btn--primary btn--lg no-shrink" onClick={() => setSheet("reserve")}>
-            예약하기
-          </button>
+          <a href={place.url} target="_blank" rel="noopener noreferrer" className="btn btn--primary btn--lg no-shrink">
+            장소 사이트에서 예약하기
+            <Icon name="external" size={16} strokeWidth={2.2} />
+          </a>
         )}
         <button type="button" className="btn no-shrink t-14 t-muted" style={{ height: 40, background: "none", fontWeight: 400, fontSize: 14 }} onClick={() => setSheet("absent")}>
           참석이 어려워요
         </button>
       </div>
 
-      {sheet === "reserve" && place && !online ? (
-        <ReserveSheet onClose={() => setSheet(null)} place={place} timeLabel={timeLabel} people={meeting.attendeeIds.length} booker={owner.name} />
-      ) : null}
       {sheet === "absent" ? (
         // 데모에서는 서연님 화면으로 보여줘요
         <AbsentSheet onClose={() => setSheet(null)} dayLabel={meeting.shortLabel.split(" ")[0]} viewerName={getMember("u-seoyeon").name} ownerName={owner.name} chatHref={chatHref} />

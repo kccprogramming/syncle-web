@@ -86,7 +86,7 @@ src/
 | 6 | 장소 후보 | `/proposals/p-1/places` |
 | 7 / 7-1 | 내 조건 / 조건 직접 추가 시트 | `/proposals/p-1/conditions` / `?sheet=add` |
 | 8 | 확정된 회의 카드 | `/meetings/m-1` |
-| 8-1 / 8-2 | 예약 시트 / 참석이 어려워요 시트 | `?sheet=reserve` / `?sheet=absent` |
+| 8-2 | 참석이 어려워요 시트 | `/meetings/m-1?sheet=absent` (예약은 '장소 사이트에서 예약하기'로 장소 사이트를 새 탭에서 열어요) |
 | 9 | AI 회의록 | `/meetings/m-0/minutes` |
 
 ## 4. 데모 상태

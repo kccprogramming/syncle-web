@@ -199,9 +199,16 @@ export function ConfirmedCard({ meetingId }: { meetingId: string }) {
           <Link href={`/meetings/${m.id}`} className="btn btn--ghost" style={{ height: 40, borderRadius: 10, fontSize: 13, color: "var(--ink)" }}>
             회의 카드 보기
           </Link>
-          <Link href={`/meetings/${m.id}?sheet=reserve`} className="btn btn--primary" style={{ height: 40, borderRadius: 10, fontSize: 13 }}>
-            예약하기
-          </Link>
+          <a
+            href={place?.url ?? `https://map.kakao.com/link/search/${encodeURIComponent(m.placeName)}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="btn btn--primary"
+            style={{ height: 40, borderRadius: 10, fontSize: 13, gap: 4 }}
+          >
+            장소 사이트
+            <Icon name="external" size={14} strokeWidth={2.2} />
+          </a>
         </div>
         <span className="t-muted" style={{ fontSize: 11 }}>
           전날 저녁과 출발 1시간 전에 알려드릴게요

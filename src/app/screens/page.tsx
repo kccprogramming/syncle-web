@@ -65,7 +65,6 @@ const groups: { title: string; items: [string, string, string][] }[] = [
     title: "확정 · 회의 후",
     items: [
       ["8", "확정된 회의 카드", "/meetings/m-1"],
-      ["8-1", "예약하기 (시트)", "/meetings/m-1?sheet=reserve"],
       ["8-2", "참석이 어려워요 (시트)", "/meetings/m-1?sheet=absent"],
       ["9", "AI 회의록", "/meetings/m-0/minutes"],
     ],

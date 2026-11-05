@@ -129,8 +129,9 @@ export interface PlaceOption {
   name: string; // "스터디룸 A · 6인실"
   short: string; // "스터디룸 A"
   walk: string; // "서울역 도보 4분"
-  bookable: boolean;
-  bookableLabel: string;
+  /** 장소 사이트 주소 (D의 detailUrl · 카카오맵 장소 페이지). 예약·요금·시설은 여기서 확인해요 */
+  url: string;
+  /** 가장 오래 걸리는 사람의 이동시간 (D의 maxTravelMinutes) */
   maxMinutes: number;
   travel: { who: string; minutes: number }[];
   reason: string;
