@@ -21,7 +21,7 @@ import { StatusPill } from '@/components/meeting/StatusPill';
 import { AreaPickerSheet } from './AreaPickerSheet';
 import { DatePickerSheet, dateLabel } from '@/components/DatePickerSheet';
 import { CheckBox } from '@/components/Controls';
-import { getMember, loadTeamMembers, seoulLabel } from '@/lib/data';
+import { getMember, loadMemberNeighborhoods, loadTeamMembers, seoulLabel } from '@/lib/data';
 import { schedulingRequest, suggestPlaceSearch, type LiveProposal } from '@/lib/scheduling-client';
 
 type Action = 'respond' | 'condition' | 'mode' | 'remind' | 'places' | 'confirm';
@@ -63,6 +63,8 @@ export function LiveProposal({ proposalId }: { proposalId: string }) {
   const [keyword, setKeyword] = useState('');
   const [areaNote, setAreaNote] = useState('');
   const [, setNamesReady] = useState(0);
+  const [hoods, setHoods] = useState<Record<string, string>>({}); // 팀원 출발 동네
+  const [hoodsOpen, setHoodsOpen] = useState(false); // '누가 어디서 출발해요' 펼침
 
   const load = useCallback(async () => {
     try {
@@ -83,6 +85,7 @@ export function LiveProposal({ proposalId }: { proposalId: string }) {
   useEffect(() => {
     if (!data) return;
     loadTeamMembers(data.memberIds).then(() => setNamesReady((v) => v + 1)).catch(() => undefined);
+    loadMemberNeighborhoods(data.memberIds).then(setHoods).catch(() => undefined);
   }, [data?.memberIds.join(',')]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 새 데이터가 오면: 확정할 시간은 '된다고 한 사람이 가장 많은 시간'(같으면 앞쪽). 방장이 직접 바꿨으면 그대로
@@ -435,6 +438,31 @@ export function LiveProposal({ proposalId }: { proposalId: string }) {
                           (areasText ? areasText.split(',').map((v) => v.trim()).filter(Boolean).join(' · ') : '팀원 출발지 가운데')}
                       </span>
                       <span className="t-12 t-muted">장소 종류 {keyword || '회의 장소'}</span>
+                      <button
+                        type="button"
+                        aria-expanded={hoodsOpen}
+                        className="t-12 t-accent"
+                        style={{ border: 0, background: 'none', padding: '4px 0 0', textAlign: 'left' }}
+                        onClick={() => setHoodsOpen(!hoodsOpen)}
+                      >
+                        누가 어디서 출발해요 {hoodsOpen ? '▴' : '▾'}
+                      </button>
+                      {hoodsOpen ? (
+                        <span className="stack" style={{ gap: 2 }}>
+                          {data.memberIds.map((id) => (
+                            <span key={id} className="t-12" style={{ lineHeight: 1.5 }}>
+                              <span className="t-strong">
+                                {nameOf(id)}
+                                {id === data.viewerId ? '(나)' : ''}
+                              </span>{' '}
+                              <span className={hoods[id] ? 't-ink2' : 't-warn'}>{hoods[id] ?? '출발지 미입력 · 장소 순위에서 빼고 계산해요'}</span>
+                            </span>
+                          ))}
+                          <span className="t-muted" style={{ fontSize: 11 }}>
+                            팀원에게는 동네까지만 보여요
+                          </span>
+                        </span>
+                      ) : null}
                     </span>
                     {owner && data.candidates.length > 1 ? (
                       <button type="button" className="btn btn--sm btn--ghost no-shrink" style={{ height: 34, fontSize: 13, border: '1px solid var(--line)' }} onClick={() => (busy ? toast.show('장소를 찾는 중이에요 · 끝나면 바꿀 수 있어요') : setSheet('time'))}>

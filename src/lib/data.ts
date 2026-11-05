@@ -448,6 +448,20 @@ export async function loadTeamMembers(memberIds: string[]): Promise<Member[]> {
   return list;
 }
 
+/**
+ * 팀원 출발 동네 { 팀원 id: 동네 } — A (profiles.departure_neighborhood).
+ * 팀원끼리는 동네까지만 보여요 (정확한 출발지는 서버만 읽어요). 아직 안 정했으면 빠져요.
+ */
+export async function loadMemberNeighborhoods(memberIds: string[]): Promise<Record<string, string>> {
+  const supabase = getSupabase();
+  if (!supabase || memberIds.length === 0) return {};
+  const { data, error } = await supabase.from("profiles").select("id,departure_neighborhood").in("id", memberIds);
+  if (error) throw new Error(error.message);
+  const out: Record<string, string> = {};
+  for (const p of data ?? []) if (p.departure_neighborhood) out[String(p.id)] = String(p.departure_neighborhood);
+  return out;
+}
+
 /** 대화 메시지 (오래된 것부터, 최근 200개) — A. 비공개 메시지는 받는 사람에게만 와요 (RLS) */
 export async function loadTeamMessages(teamId: string): Promise<Message[]> {
   const { supabase, id: me } = await signedIn();
