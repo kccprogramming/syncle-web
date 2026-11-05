@@ -1,0 +1,7 @@
+[
+  { "id": "n-1", "kind": "due", "teamName": "HCI 팀프로젝트 4조", "time": "방금", "text": "응답 마감이 내일 21:00이에요 · 지우님 응답 전 (3/4명)", "href": "/proposals/p-1", "unread": true, "group": "today" },
+  { "id": "n-2", "kind": "ai", "teamName": "HCI 팀프로젝트 4조", "time": "10분 전", "text": "싱클 AI가 다음 주 회의를 제안했어요 · 11/11(수) 19:00", "href": "/teams/hci4", "unread": true, "group": "today" },
+  { "id": "n-3", "kind": "file", "teamName": "HCI 팀프로젝트 4조", "time": "1시간 전", "text": "지우님이 중간발표_목차_초안.pptx를 올렸어요", "href": "/teams/hci4/all?tab=files", "unread": true, "group": "today" },
+  { "id": "n-4", "kind": "task", "teamName": "HCI 팀프로젝트 4조", "time": "오전 9:00", "text": "내 할 일 “목차 초안에 피드백 남기기” 마감이 내일이에요", "href": "/teams/hci4/all?tab=tasks", "unread": false, "group": "today" },
+  { "id": "n-5", "kind": "done", "teamName": "주말합주", "time": "11/3", "text": "11/7(토) 15:00 합주가 확정됐어요 · 합정역 주변 합주실", "href": "/home", "unread": false, "group": "before" }
+]

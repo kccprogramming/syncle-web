@@ -1,0 +1,191 @@
+"use client";
+
+/**
+ * 대화 메시지 목록. 메시지 type마다 다른 모양으로 그려요.
+ * 같은 사람이 연달아 보낸 메시지는 프로필을 한 번만 보여요.
+ */
+import { Fragment } from "react";
+import { Avatar } from "@/components/Avatar";
+import { AiAvatar } from "@/components/Logo";
+import { Icon } from "@/components/Icon";
+import { getMember } from "@/lib/data";
+import type { AiReply, Message } from "@/types";
+import { AiFailedCard, AiReplyCard, AiThinkingCard, AiWorkingCard, ConfirmedCard, ProposalCard } from "./AiCards";
+import { AskQuestionCard } from "./AskQuestionCard";
+
+/** 화면에서만 잠깐 쓰는 AI 상태 카드 (서버 메시지가 아니에요) */
+export type ChatItem =
+  | Message
+  | { id: string; type: "ai-working" | "ai-failed"; proposalId: string; at: string }
+  /** 요약·할 일 같은 부탁을 정리하는 동안 잠깐 */
+  | { id: string; type: "ai-thinking"; at: string }
+  /** 요약·할 일·자료·회의록·도움말 답 */
+  | { id: string; type: "ai-reply"; reply: AiReply; at: string };
+
+const AI_TYPES = ["ai-proposal", "ai-confirmed", "ai-question", "ai-working", "ai-failed", "ai-thinking", "ai-reply"];
+
+/** 누가 보낸 메시지인지 (AI 카드는 "ai", 시스템 줄은 매번 따로) */
+function senderKey(item: ChatItem): string {
+  if (item.type === "system") return `system-${item.id}`;
+  if (AI_TYPES.includes(item.type)) return "ai";
+  return "senderId" in item ? item.senderId : "?";
+}
+
+/** 연달아 같은 사람이 보낸 메시지끼리 묶기 */
+function groupItems(items: ChatItem[]) {
+  const groups: { key: string; items: ChatItem[] }[] = [];
+  for (const item of items) {
+    const key = senderKey(item);
+    const last = groups[groups.length - 1];
+    if (last && last.key === key) last.items.push(item);
+    else groups.push({ key, items: [item] });
+  }
+  return groups;
+}
+
+export function ChatMessages({
+  items,
+  viewerId,
+  teamId,
+  onOpenFiles,
+  onRetry,
+  onTimeOnly,
+  onToast,
+}: {
+  items: ChatItem[];
+  /** 지금 화면을 보는 사람. 이 사람이 보낸 메시지는 오른쪽에 파랗게 보여요. */
+  viewerId: string;
+  teamId: string;
+  onOpenFiles: () => void;
+  onRetry?: () => void;
+  onTimeOnly?: () => void;
+  onToast: (text: string) => void;
+}) {
+  // 받는 사람이 아니면 ai-question은 그리지 않아요
+  const visible = items.filter((m) => m.type !== "ai-question" || m.visibleTo.includes(viewerId));
+
+  return (
+    <>
+      {groupItems(visible).map((g) => {
+        const first = g.items[0];
+
+        if (first.type === "system") {
+          return (
+            <p key={first.id} className="system-line">
+              {first.text}
+            </p>
+          );
+        }
+
+        // 내가 보낸 메시지: 오른쪽 파란 말풍선
+        if (g.key === viewerId) {
+          return (
+            <div key={first.id} className="stack gap-4" style={{ alignItems: "flex-end" }}>
+              {g.items.map((m, i) => (
+                <Bubble key={m.id} item={m} mine first={i === 0} onOpenFiles={onOpenFiles} />
+              ))}
+            </div>
+          );
+        }
+
+        // 싱클 AI 카드
+        if (g.key === "ai") {
+          const onlyFor = first.type === "ai-question" ? ` · ${getMember(viewerId).name}님에게만 보여요` : "";
+          return (
+            <div key={first.id} className="msg">
+              <AiAvatar size={36} />
+              <div className="msg__col msg__col--wide">
+                <span className="msg__name">싱클 AI{onlyFor}</span>
+                {g.items.map((m) => (
+                  <Fragment key={m.id}>{renderAiCard(m, { teamId, viewerId, onRetry, onTimeOnly, onToast })}</Fragment>
+                ))}
+              </div>
+            </div>
+          );
+        }
+
+        // 다른 팀원 메시지
+        const sender = getMember(g.key);
+        return (
+          <div key={first.id} className="msg">
+            <Avatar member={sender} size={36} />
+            <div className="msg__col">
+              <span className="msg__name">{sender.name}</span>
+              {g.items.map((m, i) => (
+                <Bubble key={m.id} item={m} mine={false} first={i === 0} onOpenFiles={onOpenFiles} />
+              ))}
+            </div>
+          </div>
+        );
+      })}
+    </>
+  );
+}
+
+function renderAiCard(
+  m: ChatItem,
+  o: { teamId: string; viewerId: string; onRetry?: () => void; onTimeOnly?: () => void; onToast: (t: string) => void },
+) {
+  switch (m.type) {
+    case "ai-proposal":
+      return <ProposalCard proposalId={m.proposalId} teamId={o.teamId} />;
+    case "ai-confirmed":
+      return <ConfirmedCard meetingId={m.meetingId} />;
+    case "ai-question":
+      return <AskQuestionCard proposalId={m.proposalId} viewerId={o.viewerId} onToast={o.onToast} />;
+    case "ai-working":
+      return <AiWorkingCard proposalId={m.proposalId} />;
+    case "ai-thinking":
+      return <AiThinkingCard />;
+    case "ai-reply":
+      return <AiReplyCard reply={m.reply} />;
+    case "ai-failed":
+      return <AiFailedCard proposalId={m.proposalId} onRetry={o.onRetry ?? (() => {})} onTimeOnly={o.onTimeOnly ?? (() => {})} />;
+    default:
+      return null;
+  }
+}
+
+/** 말풍선 하나 (글, @AI 부르기, 파일) */
+function Bubble({ item, mine, first, onOpenFiles }: { item: ChatItem; mine: boolean; first: boolean; onOpenFiles: () => void }) {
+  // 묶음의 첫 말풍선만 꼬리 쪽 모서리를 덜 둥글게
+  const radius = first ? undefined : 14;
+
+  if (item.type === "file") {
+    return (
+      <div className={`bubble${mine ? " bubble--mine" : ""} hstack gap-10`} style={{ padding: 12, borderRadius: radius }}>
+        <div style={{ width: 40, height: 40, borderRadius: 10, background: "var(--accent-soft)", color: "var(--accent)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+          <Icon name="file" size={20} strokeWidth={1.8} />
+        </div>
+        <div className="stack gap-2" style={{ minWidth: 0 }}>
+          <span className="t-14 t-strong" style={{ wordBreak: "break-all" }}>
+            {item.fileName}
+          </span>
+          <button
+            type="button"
+            onClick={onOpenFiles}
+            className="t-12"
+            style={{ border: 0, background: "none", padding: "2px 0", textAlign: "left", color: mine ? "#fff" : "var(--accent)" }}
+          >
+            {item.size} · 팀 자료에 저장됨 ›
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (item.type === "text" || item.type === "mention-ai") {
+    return (
+      <p className={`bubble${mine ? " bubble--mine" : ""}`} style={{ borderRadius: radius, maxWidth: 260, wordBreak: "break-word" }}>
+        {item.type === "mention-ai" ? (
+          <>
+            <span className="mention">@AI</span>{" "}
+          </>
+        ) : null}
+        {item.text}
+      </p>
+    );
+  }
+
+  return null;
+}

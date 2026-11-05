@@ -1,0 +1,6 @@
+[
+  { "id": "u-minji", "name": "민지", "initial": "민", "color": "#D9DEFA", "ink": "#23307A" },
+  { "id": "u-jiwoo", "name": "지우", "initial": "지", "color": "#DDE6F7", "ink": "#23407A" },
+  { "id": "u-minsu", "name": "민수", "initial": "민", "color": "#E9E0F5", "ink": "#4F2C7A" },
+  { "id": "u-seoyeon", "name": "서연", "initial": "서", "color": "#F7E6D8", "ink": "#7A3F12" }
+]

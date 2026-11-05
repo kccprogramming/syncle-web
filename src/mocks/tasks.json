@@ -1,0 +1,10 @@
+{
+  "hci4": {
+    "tasks": [
+      { "id": "t-1", "title": "목차 초안에 피드백 남기기", "assigneeId": "u-minji", "due": "11/6(금)까지", "done": false, "source": "manual" },
+      { "id": "t-2", "title": "참고자료 2개 더 찾기", "assigneeId": "u-seoyeon", "due": "11/8(일)까지", "done": false, "source": "manual" },
+      { "id": "t-3", "title": "주제 선정 회의록 공유", "assigneeId": "u-jiwoo", "due": "10/29 완료", "done": true, "source": "minutes" }
+    ],
+    "aiSuggestion": { "id": "t-4", "title": "발표 템플릿 정하기", "assigneeId": "u-minsu", "due": "기한 없음", "done": false, "source": "ai" }
+  }
+}

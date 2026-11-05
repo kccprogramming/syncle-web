@@ -1,0 +1,10 @@
+{
+  "hci4": [
+    { "id": "f-1", "kind": "file", "ext": "PPT", "name": "중간발표_목차_초안.pptx", "meta": "지우 · 오늘 · 2.4MB", "isNew": true },
+    { "id": "f-2", "kind": "file", "ext": "PDF", "name": "참고논문_요약.pdf", "meta": "서연 · 11/2" },
+    { "id": "f-3", "kind": "link", "ext": "링크", "name": "와이어프레임 (Figma)", "meta": "민수 · 11/1" },
+    { "id": "f-4", "kind": "file", "ext": "AI", "name": "주제 선정 회의록", "meta": "싱클 AI 정리 · 10/28" },
+    { "id": "f-5", "kind": "photo", "ext": "사진", "name": "화이트보드_아이디어.jpg", "meta": "민지 · 10/28" },
+    { "id": "f-6", "kind": "link", "ext": "링크", "name": "사전 설문 (Google Form)", "meta": "서연 · 10/27" }
+  ]
+}

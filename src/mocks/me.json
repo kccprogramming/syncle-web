@@ -1,0 +1,15 @@
+{
+  "id": "u-minji",
+  "name": "민지",
+  "initial": "민",
+  "color": "#D9DEFA",
+  "ink": "#23307A",
+  "provider": "kakao",
+  "origin": "대화역 (일산)",
+  "originArea": "일산",
+  "notificationsOn": true,
+  "weeklyBlocks": [
+    { "id": "wb-1", "days": ["화"], "allDay": false, "start": "14:00", "end": "18:00", "memo": "알바" },
+    { "id": "wb-2", "days": ["월", "수"], "allDay": false, "start": "10:00", "end": "12:00", "memo": "수업" }
+  ]
+}
