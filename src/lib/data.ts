@@ -367,6 +367,88 @@ export async function loadTeamMaterials(teamId: string): Promise<TeamFile[]> {
   });
 }
 
+/* ───────── 팀 할 일 (A · team_tasks) ─────────
+ * A의 /api/tasks와 같은 일을 같은 규칙(팀원만 · 만든 사람 = 나)으로 해요.
+ */
+export interface LiveTask {
+  id: string;
+  title: string;
+  /** 맡은 사람. 없으면 null (팀 전체) */
+  assigneeId: string | null;
+  /** 마감 (ISO). 없으면 null */
+  dueAt: string | null;
+  done: boolean;
+}
+
+const DOW = ["일", "월", "화", "수", "목", "금", "토"];
+/** "2026-11-10T23:59:00+09:00" → "11/10(화)까지" */
+export function dueLabel(dueAt: string | null): string {
+  if (!dueAt) return "마감 없음";
+  const d = new Date(dueAt);
+  return Number.isFinite(d.getTime()) ? `${d.getMonth() + 1}/${d.getDate()}(${DOW[d.getDay()]})까지` : "마감 없음";
+}
+
+/** 팀 할 일 — 안 끝난 것 먼저, 마감 빠른 순 */
+export async function loadTeamTasks(teamId: string): Promise<LiveTask[]> {
+  const supabase = getSupabase();
+  if (!supabase) return [];
+  const { data, error } = await supabase
+    .from("team_tasks")
+    .select("id,title,assigned_to,due_at,is_complete,created_at")
+    .eq("team_id", teamId)
+    .order("is_complete")
+    .order("due_at", { nullsFirst: false })
+    .order("created_at", { ascending: false });
+  if (error) throw new Error(error.message);
+  return (data ?? []).map((r) => ({
+    id: String(r.id),
+    title: String(r.title),
+    assigneeId: r.assigned_to ? String(r.assigned_to) : null,
+    dueAt: r.due_at ? String(r.due_at) : null,
+    done: !!r.is_complete,
+  }));
+}
+
+/**
+ * 할 일 만들기 — A. 다른 팀원에게 맡기면 그 사람에게 앱 안 알림을 보내요 (A와 같게).
+ * due: 날짜 "2026-11-10" (그날 23:59 서울 시간까지). 비우면 마감 없음.
+ */
+export async function createTeamTask(teamId: string, input: { title: string; assigneeId: string | null; due: string | null }): Promise<LiveTask> {
+  const { supabase, id } = await signedIn();
+  if (!supabase || !id) throw new Error("로그인이 필요해요");
+  const title = input.title.trim();
+  if (!title) throw new Error("할 일을 입력해 주세요");
+  const dueAt = input.due && /^\d{4}-\d{2}-\d{2}$/.test(input.due) ? `${input.due}T23:59:00+09:00` : null;
+  const { data, error } = await supabase
+    .from("team_tasks")
+    .insert({ team_id: teamId, title, assigned_to: input.assigneeId, due_at: dueAt, created_by: id })
+    .select("id,title,assigned_to,due_at,is_complete")
+    .single();
+  if (error) throw new Error(error.message);
+  if (input.assigneeId && input.assigneeId !== id) {
+    await supabase.rpc("create_team_notification", {
+      p_team_id: teamId,
+      p_recipient_id: input.assigneeId,
+      p_type: "task_assigned",
+      p_title: "새 할 일이 배정됐어요",
+      p_body: title,
+      p_reference_id: data.id,
+    });
+  }
+  return { id: String(data.id), title: String(data.title), assigneeId: data.assigned_to ? String(data.assigned_to) : null, dueAt: data.due_at ? String(data.due_at) : null, done: !!data.is_complete };
+}
+
+/** 할 일 완료 체크 — A */
+export async function setTaskDone(taskId: string, done: boolean): Promise<void> {
+  const supabase = getSupabase();
+  if (!supabase) return;
+  const { error } = await supabase
+    .from("team_tasks")
+    .update({ is_complete: done, completed_at: done ? new Date().toISOString() : null })
+    .eq("id", taskId);
+  if (error) throw new Error(error.message);
+}
+
 /** 팀 자료 하나 열기 → 1시간 동안 열 수 있는 주소 (링크 자료면 그 주소) */
 export async function materialUrl(f: TeamFile): Promise<string | null> {
   if (f.url) return f.url;

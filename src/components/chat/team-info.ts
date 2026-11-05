@@ -5,7 +5,7 @@
  * 데이터는 data.ts 함수로만 가져오고, 여기서는 화면에 보여 줄 모양으로 바꾸기만 해요.
  */
 import { useState } from "react";
-import { getMeetings, getPlaces, getProposal, getTasks, getMinutes, getMember, getMe } from "@/lib/data";
+import { dueLabel, getMeetings, getPlaces, getProposal, getTasks, getMinutes, getMember, getMe, type LiveTask } from "@/lib/data";
 import { useDemo, type DemoState } from "@/lib/demo-store";
 import type { Meeting, PlaceOption, Proposal, Task, Team } from "@/types";
 
@@ -76,6 +76,15 @@ export interface TaskView {
   done: boolean;
   /** mock 데이터에서 처음부터 끝나 있던 할 일 */
   wasDone: boolean;
+}
+
+/** 진짜 팀 할 일(A) → 화면용. meId: 로그인한 나 */
+export function liveTaskViews(tasks: LiveTask[], meId: string | null): TaskView[] {
+  return tasks.map((t) => {
+    const mine = !!meId && t.assigneeId === meId;
+    const who = t.assigneeId ? getMember(t.assigneeId).name : "팀 전체";
+    return { id: t.id, title: t.title, meta: `${who === "?" ? "팀원" : who}${mine ? "(나)" : ""} · ${dueLabel(t.dueAt)}`, mine, done: t.done, wasDone: false };
+  });
 }
 
 /**

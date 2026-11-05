@@ -10,11 +10,12 @@ import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
 import { TopBar } from "@/components/TopBar";
 import { CheckBox } from "@/components/Controls";
-import { getFiles, getMember, getTeam, loadTeam, loadTeamMaterials, loadTeamMembers, materialUrl } from "@/lib/data";
+import { getFiles, getMember, getTeam, loadTeam, loadTeamMaterials, loadTeamMembers, loadTeamTasks, materialUrl, myUserId, setTaskDone, type LiveTask } from "@/lib/data";
+import { TaskSheet } from "@/components/chat/TaskSheet";
 import { isLiveId } from "@/lib/scheduling-client";
 import { useDemo } from "@/lib/demo-store";
 import type { Team, TeamFile } from "@/types";
-import { DEMO_TEAM_ID, getChosenPlace, getTeamMeetings, getTeamTaskViews, meetingLine, respondedText } from "@/components/chat/team-info";
+import { DEMO_TEAM_ID, getChosenPlace, getTeamMeetings, getTeamTaskViews, liveTaskViews, meetingLine, respondedText } from "@/components/chat/team-info";
 
 type Tab = "meet" | "photos" | "files" | "tasks";
 type FileFilter = "all" | TeamFile["kind"];
@@ -52,6 +53,9 @@ function Inner() {
   const live = isLiveId(teamId);
   const [liveTeam, setLiveTeam] = useState<Team | null>(null);
   const [liveFiles, setLiveFiles] = useState<TeamFile[] | null>(null);
+  const [liveTasks, setLiveTasks] = useState<LiveTask[] | null>(null);
+  const [meId, setMeId] = useState<string | null>(null);
+  const [taskSheet, setTaskSheet] = useState(false);
   const [toast, setToast] = useState("");
   useEffect(() => {
     if (!live) return;
@@ -60,9 +64,12 @@ function Inner() {
       .then(async (t) => {
         if (gone || !t) return;
         setLiveTeam(t);
-        await loadTeamMembers(t.memberIds).catch(() => undefined); // 올린 사람 이름
-        const list = await loadTeamMaterials(teamId);
-        if (!gone) setLiveFiles(list);
+        await loadTeamMembers(t.memberIds).catch(() => undefined); // 올린 사람 · 맡은 사람 이름
+        const [list, tasks, id] = await Promise.all([loadTeamMaterials(teamId), loadTeamTasks(teamId).catch(() => []), myUserId()]);
+        if (gone) return;
+        setLiveFiles(list);
+        setLiveTasks(tasks);
+        setMeId(id);
       })
       .catch(() => !gone && setLiveFiles([]));
     return () => {
@@ -98,7 +105,9 @@ function Inner() {
         setToast("파일을 열지 못했어요");
       });
   };
-  const { list: tasks, suggestion } = getTeamTaskViews(teamId, state);
+  const demoTasks = getTeamTaskViews(teamId, state);
+  const tasks = live ? liveTaskViews(liveTasks ?? [], meId) : demoTasks.list;
+  const suggestion = live ? null : demoTasks.suggestion;
 
   const tabs: { id: Tab; label: string }[] = [
     { id: "meet", label: `회의 ${(meetings.proposal ? 1 : 0) + meetings.upcoming.length + meetings.past.length}` },
@@ -108,7 +117,16 @@ function Inner() {
   ];
 
   const toggleTask = (id: string, done: boolean) => {
-    if (isDemo) update((s) => ({ taskDone: { ...s.taskDone, [id]: !done } }));
+    if (!live) {
+      if (isDemo) update((s) => ({ taskDone: { ...s.taskDone, [id]: !done } }));
+      return;
+    }
+    // 진짜 팀: 바로 바꿔 보여주고 저장해요 (실패하면 되돌려요)
+    setLiveTasks((prev) => prev?.map((t) => (t.id === id ? { ...t, done: !done } : t)) ?? prev);
+    setTaskDone(id, !done).catch(() => {
+      setLiveTasks((prev) => prev?.map((t) => (t.id === id ? { ...t, done } : t)) ?? prev);
+      setToast("할 일을 저장하지 못했어요");
+    });
   };
 
   return (
@@ -274,6 +292,11 @@ function Inner() {
         {/* ── 할 일 탭 ── */}
         {tab === "tasks" ? (
           <>
+            {live && liveTeam ? (
+              <button type="button" className="btn btn--ghost btn--block" style={{ height: 44 }} onClick={() => setTaskSheet(true)}>
+                + 할 일 추가
+              </button>
+            ) : null}
             {suggestion ? (
               <div className="hstack gap-10 no-shrink" style={{ background: "var(--accent-softer)", border: "1px solid var(--accent-line)", borderRadius: 14, padding: "12px 14px" }}>
                 <span className="t-13 grow" style={{ lineHeight: 1.5, color: "var(--accent-ink)" }}>
@@ -314,13 +337,27 @@ function Inner() {
                       </span>
                     </button>
                   ))}
-                  {g.items.length === 0 ? <span className="t-13 t-muted" style={{ padding: "16px 0" }}>할 일이 없어요</span> : null}
+                  {g.items.length === 0 ? (
+                    <span className="t-13 t-muted" style={{ padding: "16px 0", display: "block" }}>{live && liveTasks === null ? "불러오는 중…" : "할 일이 없어요"}</span>
+                  ) : null}
                 </div>
               </div>
             ))}
           </>
         ) : null}
       </div>
+      {taskSheet && liveTeam ? (
+        <TaskSheet
+          teamId={liveTeam.id}
+          memberIds={liveTeam.memberIds}
+          meId={meId}
+          onClose={() => setTaskSheet(false)}
+          onCreated={(t) => {
+            setLiveTasks((prev) => [t, ...(prev ?? [])]);
+            setTaskSheet(false);
+          }}
+        />
+      ) : null}
     </main>
   );
 }

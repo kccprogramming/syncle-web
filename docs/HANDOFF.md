@@ -115,7 +115,8 @@
    - **대화 메시지 연결 완료 (11/6)**: 진짜 팀 대화방은 `loadTeamMessages`(최근 200개) · `sendTeamMessage`(general) · `subscribeTeamMessages`(Supabase Realtime, 새 메시지 바로 표시)를 써요. 팀원 이름은 `loadTeamMembers`가 불러와 `getMember`가 진짜 이름을 돌려줘요. 확정 · 알림 같은 AI 메시지는 지금은 한 줄 안내(system)로 보여요. '@AI'는 저장만 하고 "C 연결 뒤에 열려요" 안내.
    - **사진 · 파일 올리기 (11/6)**: 4 + 메뉴는 사진 · 파일 · 할 일 · AI로 회의 잡기 4개 (투표 · 링크는 뺌, AI 회의 잡기 강조 없앰). 진짜 팀이면 `uploadTeamFile`이 비공개 보관함 `team-materials`의 `팀ID/내ID/무작위.확장자`에 올리고(20MB 제한), 대화방에 `📎 이름 · 크기` 메시지를 남기고, `team_materials`에 그 메시지(`source_message_id`)와 이어서 저장해요. 사진은 대화방에서 사진으로 보여요(`teamImageUrls`, 1시간짜리 서명 주소), 다른 파일은 📎 말풍선 → 누르면 새 탭으로 열려요. 고르면 시트가 바로 닫히고 대화방에 '올리는 중…' 말풍선(사진은 흐린 미리보기)이 먼저 떠요. '올리는 중' 표시는 누른 버튼(사진/파일)에만.
    - **팀 메뉴 · 전체 보기의 사진 · 자료 (11/6)**: 진짜 팀이면 `loadTeamMaterials`로 팀 자료를 읽어요 (메뉴를 열 때마다 새로). 팀 메뉴에 '사진' 칸(썸네일 8장)과 '자료' 칸(사진 아닌 파일 3개), 전체 보기에 '사진' 탭(3칸 격자) 추가. 누르면 `materialUrl`로 새 탭에서 열려요.
-   - 아직: 팀 메뉴의 회의 · 할 일은 데모 함수라 진짜 팀에서는 비어 있어요. + 메뉴의 '할 일'도 준비 중.
+   - **할 일 연결 (11/6)**: `loadTeamTasks` · `createTeamTask`(다른 팀원에게 맡기면 `create_team_notification` 알림, A /api/tasks와 같게) · `setTaskDone`. + 메뉴 '할 일'과 전체 보기 할 일 탭의 '+ 할 일 추가'가 `TaskSheet`(무엇을 · 누가 · 언제까지)를 열어요. 팀 메뉴는 안 끝난 할 일, 전체 보기는 내 할 일 / 팀 할 일. 체크는 바로 저장(실패하면 되돌림). A의 API 대신 같은 규칙(RLS)으로 테이블을 바로 써요.
+   - 아직: 팀 메뉴의 회의는 데모 함수라 진짜 팀에서는 비어 있어요 (C 저장 뒤 `c_schedule_list`로). AI가 대화로 할 일 찾기는 B 요청 중 (7장).
    - 다음: 대화방 '@AI 회의 잡아줘' → C 제안 만들기 (C SQL 적용 뒤). 그다음 대화방 '@AI 회의 잡아줘' → C 제안 만들기(`createLiveProposal`, 응답 마감 · 자료 마감 입력).
    - 팀원 출발지: D 계산용 정확한 출발지는 `profile_private_locations`에 있고, 서버만 `get_team_private_origins_for_calculation`(005, service role 키)으로 읽어요. 브라우저에서 부르지 않아요.
    - `src/lib/data.ts`의 함수 안쪽만 API 호출로 바꿔요 (각 함수 위에 담당·API 주소 주석). `saveMyOrigin`이 출발지 저장 자리예요
@@ -146,9 +147,15 @@
 
 ## 7. 팀원에게 전달할 것
 
-- **성하님 (B)**
-  - AI 출력에 '장소 종류'(placeType) 항목 추가 → 지금의 낱말 규칙(`place-intent.ts`) 대신 AI가 직접 정하게
-  - `classifyRequest`가 '합주 잡아줘', '회식 잡아줘'도 일정 잡기로 받게 (지금은 회의·미팅만)
+- **성하님 (B) — AI 기능 전부 (11/6 정리)**. 지금 B는 '회의 잡기'만 돼요. '요약'은 알아듣지만 "아직 준비 중"이고, 할 일 · 자료 · 회의록은 분류도 없어요 ("@AI 할 일 정리해줘"는 '정리' 때문에 요약으로 잘못 분류돼요).
+  - 공통: 대화 메시지(+ 필요하면 팀 자료 · 할 일 · 확정 회의)를 받아 **제안만** 돌려주기 (저장은 사람이 '추가'를 눌러야). 결과마다 근거 메시지 ID(`sourceMessageIds`). 팀 설정 'AI 읽는 범위'(`ai_read_scope`: 전체 / @AI만)와 AI 꺼짐 지키기. 비공개 메시지(`visible_to`)는 읽지 않기. 화면 카드 모양은 `src/types.ts`의 `AiReply` { kind, title, basis(무엇을 보고 답했는지), items[{ text, sub, tag }] }에 맞춰 주면 바로 붙어요.
+  - 요청 분류(`classifyRequest`)에 종류 추가: `tasks`(할 일 정리), `files`(자료 모아줘), `minutes`(회의록 정리). '합주 · 회식 · 모임 잡아줘'도 `schedule`로.
+  - ① 회의 잡기 (있음): 출력에 장소 종류(`placeType`) 추가 → `place-intent.ts` 낱말 규칙 대신.
+  - ② 대화 요약 (분류만 있음, 출력 없음): 기간(오늘 / 마지막 요약 뒤) 기준 요약 3~5줄 + 정해진 것 / 아직 안 정해진 것.
+  - ③ 할 일 정리 (없음): 할 일 후보 [{ title, assigneeId(팀원 ID 또는 null), due(날짜 또는 null), sourceMessageIds }]. 이미 있는 할 일(`team_tasks`)과 겹치면 빼기. → 앱은 '추가'를 누르면 `createTeamTask`로 저장.
+  - ④ 공유된 자료 (없음): 팀 자료(`team_materials`: 올린 파일 · 대화 속 링크는 A가 자동 저장)를 종류별로 묶고 한 줄 설명 + "올리기로 했는데 아직 없는 자료" 찾기.
+  - ⑤ 회의록 정리 (없음): 출력은 `Minutes` 모양 { summary[], decided[{ text, settled }], tasks[] }. 입력은 **직접 붙여 넣은 회의 메모 + 회의 시간 동안의 대화방 메시지** (11/6 결정). 녹음은 이번 범위에서 빼요.
+  - 실제로 돌리려면 `GEMINI_API_KEY`가 필요해요 (누가 발급 · 무료 한도 확인).
 - **현규님 (D)**
   - 새 추천 기준(1시간 제한 → 차이 → 최장)을 D 코드에 반영할지. 지금 D의 `rankPlacesByFairness`는 예전 기준(최장 우선)이라 앱은 `place-ranking.ts`를 써요
   - `findPlaces`가 글자로만 검색해서 다른 동네 장소가 섞여요 → 좌표·반경 검색 (`area-search.ts` 참고)

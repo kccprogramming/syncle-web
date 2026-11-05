@@ -6,11 +6,11 @@ import Link from "next/link";
 import { AvatarStack } from "@/components/Avatar";
 import { CheckBox, Switch } from "@/components/Controls";
 import { Icon, type IconName } from "@/components/Icon";
-import { getFiles, getMember, getMembers, loadTeamMaterials, materialUrl } from "@/lib/data";
+import { getFiles, getMember, getMembers, loadTeamMaterials, loadTeamTasks, materialUrl, myUserId, setTaskDone, type LiveTask } from "@/lib/data";
 import { isLiveId } from "@/lib/scheduling-client";
 import { useDemo } from "@/lib/demo-store";
 import type { Team, TeamFile } from "@/types";
-import { DEMO_TEAM_ID, copyInviteLink, getTeamMeetings, getTeamTaskViews, meetingLine, respondedText } from "./team-info";
+import { DEMO_TEAM_ID, copyInviteLink, getTeamMeetings, getTeamTaskViews, liveTaskViews, meetingLine, respondedText } from "./team-info";
 
 /** 섹션 제목 줄: "회의 2 ··· 전체 보기" */
 function SectionHead({ title, count, href }: { title: string; count: number; href: string }) {
@@ -65,12 +65,24 @@ export function TeamDrawer({
   // 진짜 팀(A): 메뉴를 열 때마다 팀 자료를 새로 불러와요 (방금 올린 사진 · 파일도 보이게)
   const live = isLiveId(team.id);
   const [liveFiles, setLiveFiles] = useState<TeamFile[] | null>(null);
+  const [liveTasks, setLiveTasks] = useState<LiveTask[] | null>(null);
+  const [meId, setMeId] = useState<string | null>(null);
+  // 메뉴를 열 때 이미 끝나 있던 할 일 (메뉴에는 안 보여요. 방금 체크한 건 줄 그은 채로 남아요)
+  const [doneAtOpen, setDoneAtOpen] = useState<Set<string>>(new Set());
   useEffect(() => {
     if (!open || !live) return;
     let gone = false;
     loadTeamMaterials(team.id)
       .then((list) => !gone && setLiveFiles(list))
       .catch(() => !gone && setLiveFiles([]));
+    Promise.all([myUserId(), loadTeamTasks(team.id)])
+      .then(([id, list]) => {
+        if (gone) return;
+        setMeId(id);
+        setLiveTasks(list);
+        setDoneAtOpen(new Set(list.filter((t) => t.done).map((t) => t.id)));
+      })
+      .catch(() => !gone && setLiveTasks([]));
     return () => {
       gone = true;
     };
@@ -101,10 +113,21 @@ export function TeamDrawer({
   // 진짜 팀은 사진을 따로 모아 보여줘요
   const photos = live ? allFiles.filter((f) => f.kind === "photo") : [];
   const files = live ? allFiles.filter((f) => f.kind !== "photo") : allFiles;
-  const { list: tasks, suggestion } = getTeamTaskViews(team.id, state);
-  // 드로어에는 아직 안 끝난 할 일만 (방금 체크한 건 줄이 그어진 채로 남아요)
-  const openTasks = tasks.filter((t) => !t.wasDone);
   const isDemo = team.id === DEMO_TEAM_ID;
+  const demoTasks = getTeamTaskViews(team.id, state);
+  const tasks = live ? liveTaskViews(liveTasks ?? [], meId) : demoTasks.list;
+  const suggestion = live ? null : demoTasks.suggestion;
+  /** 할 일 체크 — 진짜 팀은 저장하고(실패하면 되돌려요), 데모 팀은 데모 상태에 */
+  const toggleTask = (id: string, done: boolean) => {
+    if (!live) return isDemo && update((s) => ({ taskDone: { ...s.taskDone, [id]: !done } }));
+    setLiveTasks((prev) => prev?.map((t) => (t.id === id ? { ...t, done: !done } : t)) ?? prev);
+    setTaskDone(id, !done).catch(() => {
+      setLiveTasks((prev) => prev?.map((t) => (t.id === id ? { ...t, done } : t)) ?? prev);
+      onToast("할 일을 저장하지 못했어요");
+    });
+  };
+  // 드로어에는 아직 안 끝난 할 일만 (방금 체크한 건 줄이 그어진 채로 남아요)
+  const openTasks = tasks.filter((t) => (live ? !doneAtOpen.has(t.id) : !t.wasDone));
   const meetingCount = (meetings.proposal ? 1 : 0) + meetings.upcoming.length + (lastPast ? 1 : 0);
 
   return (
@@ -264,7 +287,7 @@ export function TeamDrawer({
                 aria-pressed={t.done}
                 className="hstack gap-10"
                 style={{ minHeight: 40, border: 0, background: "none", padding: 0, textAlign: "left" }}
-                onClick={() => isDemo && update((s) => ({ taskDone: { ...s.taskDone, [t.id]: !t.done } }))}
+                onClick={() => toggleTask(t.id, t.done)}
               >
                 <CheckBox on={t.done} />
                 <span className="stack" style={{ gap: 1 }}>
@@ -291,7 +314,9 @@ export function TeamDrawer({
                 </button>
               </div>
             ) : null}
-            {openTasks.length === 0 && !suggestion ? <span className="t-13 t-muted">아직 할 일이 없어요</span> : null}
+            {openTasks.length === 0 && !suggestion ? (
+              <span className="t-13 t-muted">{live && liveTasks === null ? "불러오는 중…" : live ? "아직 할 일이 없어요 · 대화방 + 메뉴에서 추가해요" : "아직 할 일이 없어요"}</span>
+            ) : null}
           </section>
         </div>
 

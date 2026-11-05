@@ -18,6 +18,7 @@ import { AI_CHIPS, AiHelpPanel } from "./AiHelpPanel";
 import { ChatMessages, type ChatItem } from "./ChatMessages";
 import { Composer } from "./Composer";
 import { ShareSheet, type UploadKind } from "./ShareSheet";
+import { TaskSheet } from "./TaskSheet";
 import { SummaryBar } from "./SummaryBar";
 import { TeamDrawer } from "./TeamDrawer";
 import { DEMO_TEAM_ID, getTeamMeetings, getTeamProposal, meetingLine, shortTitle, taskSummary, useTeamAi } from "./team-info";
@@ -69,6 +70,7 @@ export function ChatRoom({
   const [shareOpen, setShareOpen] = useState(startShare);
   const [menuOpen, setMenuOpen] = useState(startMenu);
   const [uploading, setUploading] = useState<UploadKind | null>(null); // 올리는 중인 버튼 (사진 / 파일)
+  const [taskOpen, setTaskOpen] = useState(false); // + 메뉴 → 할 일 추가 시트 (진짜 팀)
   // 사진 메시지의 미리보기 주소 { 메시지 id: 주소 }
   const [imageUrls, setImageUrls] = useState<Record<string, string>>({});
   const inputRef = useRef<HTMLInputElement>(null);
@@ -402,7 +404,28 @@ export function ChatRoom({
         onSoon={() => toast.show("준비 중이에요")}
         onPickFile={pickFile}
         uploading={uploading}
+        onTask={
+          liveTeam
+            ? () => {
+                setShareOpen(false);
+                setTaskOpen(true);
+              }
+            : undefined
+        }
       />
+
+      {taskOpen && liveTeam ? (
+        <TaskSheet
+          teamId={liveTeam.id}
+          memberIds={liveTeam.memberIds}
+          meId={meId}
+          onClose={() => setTaskOpen(false)}
+          onCreated={(t) => {
+            setTaskOpen(false);
+            toast.show(`할 일을 추가했어요 · ${t.title}`);
+          }}
+        />
+      ) : null}
 
       <TeamDrawer
         open={menuOpen}

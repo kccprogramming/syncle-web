@@ -31,6 +31,7 @@ export function ShareSheet({
   onAiMeeting,
   onAiHelp,
   onSoon,
+  onTask,
   onPickFile,
   uploading = null,
 }: {
@@ -42,6 +43,8 @@ export function ShareSheet({
   onAiHelp: () => void;
   /** 아직 없는 기능 */
   onSoon: () => void;
+  /** '할 일' (없으면 준비 중) */
+  onTask?: () => void;
   /** 사진 · 파일을 골랐을 때 (어느 버튼으로 골랐는지 같이 넘겨요) */
   onPickFile: (file: File, kind: UploadKind) => void;
   /** 올리는 중인 버튼. 그 버튼만 '올리는 중…'으로 바뀌고 잠겨요 */
@@ -69,7 +72,7 @@ export function ShareSheet({
       <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 8, marginTop: -4 }}>
         {tile("image", uploading === "photo" ? "올리는 중…" : "사진", () => photoRef.current?.click(), uploading === "photo")}
         {tile("file", uploading === "file" ? "올리는 중…" : "파일", () => fileRef.current?.click(), uploading === "file")}
-        {tile("task", "할 일", onSoon)}
+        {tile("task", "할 일", onTask ?? onSoon)}
         {tile("calendarAdd", "AI로 회의 잡기", onAiMeeting)}
       </div>
       <input ref={photoRef} type="file" accept="image/*" hidden onChange={picked("photo")} />
