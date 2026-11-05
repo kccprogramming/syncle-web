@@ -47,6 +47,22 @@ export function inferPlaceIntent(texts: (string | null | undefined)[]): PlaceInt
   return { ...DEFAULT_INTENT, reason: "대화에서 장소 종류를 찾지 못해 회의 장소로 찾았어요" };
 }
 
+/**
+ * B가 대화를 보고 정한 장소 종류(placeType, 예: "합주실" · "회식 장소")가 있으면 그걸 먼저 써요.
+ * 카카오 검색 낱말은 위 규칙으로 맞추고(회의 장소 → 스터디룸), 규칙에 없으면 B의 말 그대로 찾아요.
+ * placeType이 없으면(온라인 · 모름 · 예전 제안) 예전처럼 낱말 규칙으로 골라요.
+ */
+export function placeIntentFrom(placeType: string | null | undefined, texts: (string | null | undefined)[]): PlaceIntent {
+  const type = placeType?.trim();
+  if (!type) return inferPlaceIntent(texts);
+  const rule = RULES.find((r) => r.test.test(type));
+  return {
+    keyword: rule?.keyword ?? type,
+    label: rule?.label ?? type,
+    reason: `AI가 대화를 보고 ‘${type}’${hasBatchim(type) ? "을" : "를"} 골랐어요`,
+  };
+}
+
 /** '@AI … 잡아줘' 같은 일정 잡기 부탁인지 (회의뿐 아니라 합주·회식·모임도) */
 export function isSchedulingRequest(text: string): boolean {
   if (/회의록/.test(text)) return false;

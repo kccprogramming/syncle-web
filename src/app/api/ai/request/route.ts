@@ -10,8 +10,9 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getDemoConditions, getMember, getMemberOrigin, getMessages, getProposal, getTeam, type AiRequestResponse } from "@/lib/data";
 import { handleAiRequest } from "@/server/b/mvp";
+import { geminiGenerate } from "@/server/gemini-generate";
 import { seoulDate, toExtractionInput, toReply } from "@/server/ai-adapter";
-import { inferPlaceIntent } from "@/lib/place-intent";
+import { inferPlaceIntent, placeIntentFrom } from "@/lib/place-intent";
 import { buildProposal } from "@/server/proposal-adapter";
 import type { Conditions } from "@/server/b/b-c-contract";
 import type { Message } from "@/types";
@@ -57,10 +58,10 @@ export async function POST(req: NextRequest) {
   const input = toExtractionInput({ team, members, messages: allMessages, referenceDate: seoulDate() });
 
   try {
-    const result = await handleAiRequest(text, input);
-    // B가 뽑은 목적·필요한 장소·안건을 먼저 보고, 없으면 대화에서 골라요
+    const result = await handleAiRequest(text, input, geminiGenerate);
+    // B가 정한 장소 종류(placeType)를 먼저 쓰고, 없으면 목적·필요한 장소·안건·대화에서 골라요
     const c = result.status === "ready" ? result.conditions : result.status === "needs_confirmation" ? result.draft : undefined;
-    const placeIntent = inferPlaceIntent(c ? [c.purpose, ...c.placeRequirements, ...c.agenda, ...chatTexts] : chatTexts);
+    const placeIntent = placeIntentFrom(c?.placeType, c ? [c.purpose, ...c.placeRequirements, ...c.agenda, ...chatTexts] : chatTexts);
     const built = await proposalFrom(c);
     const data: AiRequestResponse = {
       source: "gemini",

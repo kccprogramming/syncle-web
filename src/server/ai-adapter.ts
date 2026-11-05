@@ -59,6 +59,8 @@ export function toReply(result: MvpRequestResult, nameOf: (memberId: string) => 
     case "not_supported":
     case "clarify_request":
       return { kind: "notice", title: result.message, basis: "지금은 회의 잡기만 AI가 직접 정리해요", items: [{ text: "@AI 회의 잡아줘" }] };
+    case "card":
+      return cardReply(result.card);
     case "ready":
       return conditionsReply(result.conditions, nameOf, intent);
     case "needs_confirmation":
@@ -71,6 +73,24 @@ export function toReply(result: MvpRequestResult, nameOf: (memberId: string) => 
         items: result.questions.map((q) => ({ text: q.question, sub: q.memberId ? `${nameOf(q.memberId)}님` : undefined })),
       };
   }
+}
+
+/** B의 앱 카드(요약 · 할 일 · 자료 · 회의록) → 대화방 답 카드 */
+function cardReply(card: Extract<MvpRequestResult, { status: "card" }>["card"]): AiReply {
+  const basis = `메시지 ${card.basis.length}개를 근거로 정리했어요`;
+  if (card.kind === "minutes") {
+    return {
+      kind: "minutes",
+      title: card.title,
+      basis,
+      items: [
+        ...card.summary.map((text) => ({ text })),
+        ...card.decided.map((d) => ({ text: d.text, tag: d.settled ? "확정" : "미정" })),
+        ...card.tasks.map((t) => ({ text: t.taskName, sub: t.dueDate || undefined, tag: "할 일" })),
+      ],
+    };
+  }
+  return { kind: card.kind === "schedule" ? "notice" : card.kind, title: card.title, basis, items: card.items };
 }
 
 type Conditions = Extract<MvpRequestResult, { status: "ready" }>["conditions"];

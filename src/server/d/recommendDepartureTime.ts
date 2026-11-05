@@ -1,3 +1,4 @@
+import assert from 'node:assert/strict';
 import type { KakaoErrorDetail } from './kakaoApiError.ts';
 
 type DepartureInput = {

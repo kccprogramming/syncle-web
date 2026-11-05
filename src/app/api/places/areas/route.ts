@@ -12,7 +12,7 @@ import { authenticated, errorResponse, jsonBody, ok, rpc } from "@/server/schedu
 import type { StoredProposal } from "@/features/scheduling/proposals";
 import { loadPrivateTeamOriginsForCalculation, TeamOriginLoadError } from "@/server/a/private-team-origins";
 import { findCenterStations } from "@/server/area-search";
-import { inferPlaceIntent } from "@/lib/place-intent";
+import { placeIntentFrom } from "@/lib/place-intent";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 30;
@@ -22,7 +22,8 @@ export async function POST(request: Request) {
     const { db } = await authenticated(request);
     const body = await jsonBody(request);
     const proposal = await rpc<StoredProposal>(db, "c_schedule_get", { p_id: String(body.proposalId ?? "") });
-    const intent = inferPlaceIntent([proposal.title, ...proposal.conditions.placeRequirements, ...proposal.conditions.agenda]);
+    // B의 placeType이 저장돼 있으면 그걸 먼저 써요 (지금 C 저장 SQL은 placeType을 저장하지 않아서 대부분 낱말 규칙으로 골라요)
+    const intent = placeIntentFrom(proposal.conditions.placeType, [proposal.title, ...proposal.conditions.placeRequirements, ...proposal.conditions.agenda]);
 
     if (!process.env.KAKAO_REST_API_KEY) {
       return Response.json({ ok: false, error: { code: "KAKAO_NOT_CONFIGURED", message: "카카오 키가 없어서 지역을 찾지 못했어요. 직접 입력해 주세요." } }, { status: 503 });

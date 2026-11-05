@@ -1,4 +1,4 @@
-export type KakaoStage = 'place_search' | 'origin_search' | 'transit_route';
+export type KakaoStage = 'place_search' | 'origin_search' | 'transit_route' | 'walking_route';
 
 const messages = {
   KAKAO_AUTH_ERROR: '카카오 API 인증에 실패했습니다.',

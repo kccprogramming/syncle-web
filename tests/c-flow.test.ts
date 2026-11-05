@@ -13,7 +13,7 @@ const proposal: StoredProposal = {
   meetingUrl: null, meeting: null, placeResults: [], progress: { step: 'times' }, responses: [],
   candidates: [{ id, ...slot, availableMemberIds: ['u1'], unavailableMemberIds: [], unknownMemberIds: ['u2'], availableCount: 1, requiredMembersSatisfied: false, needsConfirmation: true }],
   conditions: {
-    purpose: '회의', meetingMode: 'online', agenda: [], sourceMessageIds: [], origins: [], placeRequirements: [],
+    purpose: '회의', meetingMode: 'online', agenda: [], sourceMessageIds: [], origins: [], placeRequirements: [], placeType: null,
     schedule: { teamId: 'team', timezone: 'Asia/Seoul', searchWindow: { startAt: '2030-11-10T18:00:00+09:00', endAt: '2030-11-10T21:00:00+09:00' }, durationMinutes: 60,
       requiredMemberIds: ['u1', 'u2'], members: [
         { memberId: 'u1', responseStatus: 'provided', availableSlots: [slot], unavailableSlots: [] },

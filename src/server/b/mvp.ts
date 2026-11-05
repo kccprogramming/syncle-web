@@ -5,10 +5,13 @@ import type {
   CandidateProposal,
   CandidateResponse,
   ConfirmationCard,
+  AiSettings,
+  AiCardResponse,
 } from './b-c-contract';
 
 import {
   analyzeMessages,
+  analyzeAiCard,
   ConfirmationRequiredError,
   type ExtractionResult,
   type GenerateText,
@@ -19,52 +22,66 @@ import {
 
 export type RequestKind =
   | 'schedule'
+  | 'summary'
+  | 'tasks'
+  | 'files'
+  | 'minutes'
   | 'place'
   | 'agenda'
-  | 'summary'
   | 'clarify'
   | 'ignore';
 
 /** 명시적인 @AI 요청만 분류한다. */
-export function classifyRequest(
-  text: string,
-): RequestKind {
-  if (
-    !/(?:^|[^A-Za-z0-9_@])@AI(?=$|\s|[,:!?])/i.test(
-      text,
-    )
-  ) {
+export function classifyRequest(text: string): RequestKind {
+  if (!/(?:^|[^A-Za-z0-9_@])@AI(?=$|\s|[,:!?])/i.test(text)) {
     return 'ignore';
   }
 
   const kinds: RequestKind[] = [];
 
-  if (
-    /일정|시간|언제|(?:회의|미팅)\s*(?:[을를]\s*)?잡/.test(
-      text,
-    )
-  ) {
+  // 1. 할 일 정리 (요약보다 우선 분류하여 '@AI 할 일 정리해줘' 오분류 방지)
+  if (/할\s*일|할일|과제|투두|todo/i.test(text)) {
+    kinds.push('tasks');
+  }
+
+  // 2. 회의록 정리
+  if (/회의록|미팅록/i.test(text)) {
+    kinds.push('minutes');
+  }
+
+  // 3. 공유된 자료 정리
+  if (/자료|파일|링크|첨부/i.test(text)) {
+    kinds.push('files');
+  }
+
+  // 4. 일정 잡기 ('합주', '회식', '모임' 포함)
+  if (/일정|시간|언제|(?:회의|미팅|합주|회식|모임)\s*(?:[을를]\s*)?잡/.test(text)) {
     kinds.push('schedule');
   }
 
+  // 5. 장소
   if (/장소|어디/.test(text)) {
     kinds.push('place');
   }
 
+  // 6. 안건
   if (/안건/.test(text)) {
     kinds.push('agenda');
   }
 
+  // 7. 대화 요약 (할 일, 회의록, 자료, 안건 키워드가 없는 단순 요약/정리 요청만 해당)
   if (
     /요약|정리/.test(text) &&
-    !/안건/.test(text)
+    !/할\s*일|할일|회의록|자료|파일|안건/.test(text)
   ) {
     kinds.push('summary');
   }
 
-  return kinds.length === 1
-    ? kinds[0]
-    : 'clarify';
+  if (kinds.length === 1) {
+    return kinds[0];
+  }
+
+  return kinds.length === 0 ? 'clarify' : kinds[0]; // 매칭된 가장 첫 번째 Intent 선택
 }
 
 /**
@@ -204,26 +221,29 @@ export type MvpRequestResult =
     }
   | {
       status: 'not_supported';
-      requestKind:
-        | 'place'
-        | 'agenda'
-        | 'summary';
+      requestKind: 'place' | 'agenda';
       message: string;
     }
   | {
       status: 'clarify_request';
       message: string;
     }
+  | {
+      status: 'card';
+      card: AiCardResponse;
+    }
   | ExtractionResult;
 
 /**
  * A에서 호출할 MVP 진입점.
- * 미지원 요청은 API 호출 경로에 진입하지 않는다.
+ * 요약, 할 일 정리, 공유 자료, 회의록 정리는 앱 카드 형태(card)로 반환된다.
  */
 export async function handleAiRequest(
   text: string,
   input: ExtractionInput,
   generate?: GenerateText,
+  aiSettings: AiSettings = { isEnabled: true, readScope: 'ALL' },
+  existingTasks: string[] = [],
 ): Promise<MvpRequestResult> {
   const kind = classifyRequest(text);
 
@@ -233,11 +253,7 @@ export async function handleAiRequest(
     };
   }
 
-  if (
-    kind === 'place' ||
-    kind === 'agenda' ||
-    kind === 'summary'
-  ) {
+  if (kind === 'place' || kind === 'agenda') {
     return {
       status: 'not_supported',
       requestKind: kind,
@@ -249,10 +265,30 @@ export async function handleAiRequest(
     return {
       status: 'clarify_request',
       message:
-        '현재는 회의 잡기만 지원해요. 회의 일정을 요청해 주세요.',
+        '요청을 명확히 이해하지 못했어요. 일정 잡기, 요약, 할 일 정리, 공유 자료, 회의록 정리 중 필요한 내용을 말씀해 주세요.',
     };
   }
 
+  // 신규 카드 형태 처리 (summary, tasks, files, minutes)
+  if (
+    kind === 'summary' ||
+    kind === 'tasks' ||
+    kind === 'files' ||
+    kind === 'minutes'
+  ) {
+    const card = await analyzeAiCard(
+      input,
+      aiSettings,
+      existingTasks,
+      generate,
+    );
+    return {
+      status: 'card',
+      card,
+    };
+  }
+
+  // 회의 잡기 (schedule)
   return analyzeForScheduling(
     input,
     generate,

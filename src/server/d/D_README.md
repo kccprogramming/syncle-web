@@ -1,6 +1,6 @@
 # KCC 미니 캡스톤 D 담당 코드 전달 안내
 
-AI 회의 조율 협업툴에서 C는 회의 요청을 만들고, D의 `findPlaces`는 장소 후보와 참석자별 이동시간을 계산합니다. 오프라인 요청은 검색 지역과 회의 목적을 합쳐 카카오에서 검색합니다. 시연 옵션을 켜면 최대 두 후보에 대해 출발지 주소를 좌표로 바꾸고, 대중교통 경로를 조회한 다음 공평성 순위를 계산합니다. 같은 요청의 동일 주소와 동일 출발·도착 좌표 쌍은 조회 결과를 재사용합니다.
+AI 회의 조율 협업툴에서 C는 회의 요청을 만들고, D의 `findPlaces`는 장소 후보와 참석자별 이동시간을 계산합니다. 오프라인 요청은 검색 지역을 중심 좌표로 바꾼 뒤, 그 반경 안에서 회의 목적을 키워드로 검색합니다. 시연 옵션을 켜면 최대 두 후보에 대해 출발지를 좌표로 바꾸고, 대중교통 경로를 조회한 다음 공평성 순위를 계산합니다. 같은 요청의 동일 주소와 동일 출발·도착 좌표 쌍은 조회 결과를 재사용합니다.
 
 ## 파일 역할
 
@@ -10,6 +10,7 @@ AI 회의 조율 협업툴에서 C는 회의 요청을 만들고, D의 `findPlac
 | `geocodeAddress.ts` | 도로명·지번 주소를 좌표로 변환. 0건과 복수 후보를 미확인 사유로 구분 |
 | `resolveOrigin.ts` | 주소는 기존 주소 변환 함수에 전달하고, 역 이름은 카카오 지하철역 검색으로 좌표 확인 |
 | `getTransitRoute.ts` | 가장 빠른 대중교통 경로를 골라 분으로 반올림하고 환승 횟수를 반환 |
+| `getWalkingRoute.ts` | 카카오맵 도보 경로의 시간과 거리 조회 |
 | `rankPlacesByFairness.ts` | 최장 이동시간, 시간 차이, 순위와 한국어 추천 이유 계산 |
 | `kakaoApiError.ts` | 카카오 요청과 오류 코드, 화면용 메시지를 공통 처리 |
 | `recommendDepartureTime.ts` | 기존 참석자별 이동시간과 여유시간으로 출발 권장 시각 계산 |
@@ -50,7 +51,7 @@ node --env-file=.env.local .\findPlaces.ts
 
 ## C 프로젝트에서 호출하기
 
-여덟 TypeScript 파일을 C 프로젝트의 **서버 코드 폴더**에 함께 복사하세요. 상대 import를 쓰므로 여덟 파일을 같은 폴더에 두면 됩니다. C의 서버 실행 환경에서 `KAKAO_REST_API_KEY`를 주입하고 서버 함수에서 `findPlaces`를 불러오세요. 아래 import 경로는 호출 파일과 D 코드가 같은 폴더일 때의 예시입니다.
+아홉 TypeScript 파일을 C 프로젝트의 **서버 코드 폴더**에 함께 복사하세요. 상대 import를 쓰므로 아홉 파일을 같은 폴더에 두면 됩니다. C의 서버 실행 환경에서 `KAKAO_REST_API_KEY`를 주입하고 서버 함수에서 `findPlaces`를 불러오세요. 아래 import 경로는 호출 파일과 D 코드가 같은 폴더일 때의 예시입니다.
 
 ```ts
 import { findPlaces } from './findPlaces.ts';
@@ -85,6 +86,44 @@ const demo = await findPlaces(input, { previewUnverified: true });
 
 `resolveOrigin`을 직접 호출하면 검색 0건(`not_found`)과 확인 필요(`confirmation_required`)를 구분할 수 있습니다. 기존 `findPlaces` 응답에서는 둘 다 해당 참석자의 `unknown`으로 표시합니다. 검색 요청 자체가 실패하면 `error`입니다. 모두 이동시간은 `null`입니다. 계약 초안에 현재 지원 형식을 기록했습니다.
 
+### 검색 지역과 반경
+
+서울역 근처 합주실은 `searchArea: '서울역'`, `meetingPurpose: '합주실'`로 나누어 보내세요. 선택 입력 `searchRadiusMeters`는 1~20,000의 정수이며, 생략하면 1,500m입니다. 카카오 요청에도 반경을 전달하고, 받은 후보의 좌표로 중심까지의 직선거리를 다시 검사합니다. 경계 안의 장소만 후보로 사용합니다.
+
+정확한 주소, 역 이름, 이름이 정확하고 하나로 확인되는 장소를 중심으로 쓸 수 있습니다. 가까운 동일 이름의 환승역 좌표는 검색 중심을 정할 때만 평균을 사용합니다. 중심을 확정할 수 없으면 `SEARCH_AREA_UNRESOLVED`이므로 C 화면에서 주소나 역 이름을 다시 받으세요. 반경 내 후보가 없으면 `status: "ok"`와 `places: []`입니다.
+
+### 여러 지역 통합 추천 (C 연동 임시안)
+
+```ts
+const result = await findPlaces(
+  { ...input, searchAreas: ['서울역', '시청역', '종로3가역'], searchRadiusMeters: 1500 },
+  { previewUnverified: true },
+);
+```
+
+`searchAreas`는 1~3개 지역 문자열이며, 함께 전달된 `searchArea`보다 우선합니다. 지정한 지역만 검색하고, 같은 반경과 제외 목록을 지역마다 적용합니다. 지역당 최대 두 후보를 모은 뒤 같은 `placeId`를 합칩니다. 참가자의 출발지와 동일 경로는 요청 안에서 재사용하며, 합친 후보에 대해 전원 60분 기본 상한과 시간 차이 우선 기준으로 순위를 한 번만 계산합니다. 순위 미확정 후보는 마지막에 남습니다.
+
+다음은 응답의 관련 필드만 발췌한 가상 예시입니다.
+
+```json
+{
+  "status": "ok",
+  "areaResults": [
+    { "searchArea": "서울역", "status": "ok", "candidateCount": 1 },
+    { "searchArea": "시청역", "status": "empty", "candidateCount": 0 },
+    { "searchArea": "종로3가역", "status": "error", "error": {
+      "code": "KAKAO_TEMPORARY_FAILURE", "message": "카카오 서비스에 일시적인 장애가 발생했습니다.",
+      "stage": "place_search", "httpStatus": 503
+    } }
+  ],
+  "places": [
+    { "placeId": "example-01", "rank": 1, "matchedSearchAreas": ["서울역"] }
+  ]
+}
+```
+
+C는 정상 후보를 표시하면서 실패한 지역을 따로 안내할 수 있습니다. 전 지역이 실패하면 최상위 코드는 `ALL_SEARCH_AREAS_FAILED`이며 원인은 `areaResults`에서 확인하세요. 결과가 비었을 때는 지역별 `empty`와 `error`를 구분하세요. `candidateCount`는 통합 전 지역별 수입니다. 표시 순위는 조회한 일부 후보를 비교한 결과입니다.
+
 ### 같은 시간에 다른 장소 보기
 
 기존 요청의 세 ID와 `startAt`, `endAt`을 그대로 넘기고, 이전에 보여준 장소 ID를 추가하세요. `excludedPlaceIds`는 C와 합의 전인 선택 입력입니다.
@@ -97,6 +136,12 @@ const next = await findPlaces(
 ```
 
 제외 목록이 있으면 같은 검색어의 추가 페이지도 확인하며, 새 후보는 최대 두 곳입니다. 새 후보의 이동시간과 순위는 이 요청에서 계산합니다. 결과가 없으면 `status: "ok"`와 `places: []`, 검색 요청이 실패하면 `status: "error"`와 원인별 `error.code`가 반환됩니다. 미리보기 옵션을 생략하면 기존 장소 검증 정책을 적용합니다. C 서버에서 기존 시간 후보와 누적 제외 목록을 불러와 이 함수를 호출하고, 화면 응답과 제안 저장을 연결하세요.
+
+### 가까운 거리의 도보 경로
+
+대중교통 경로가 없고 두 지점의 직선거리가 1,500m 이하일 때만 도보 API를 조회합니다. 1,500m는 C와 합의 전인 시연용 기준이며 장소 검색 반경과 별개입니다. 이동시간은 API의 실제 도보 경로 소요시간(초)을 분으로 올림한 값입니다.
+
+C 화면에서는 `calculationMethod: "walking_route"`이면 **도보**로 표시하고, 선택 필드 `routeDistanceMeters`가 있으면 경로 거리를 함께 보여 주세요. 환승은 기존 필드 `transferCount`에 0을 반환합니다. 도보 경로도 없으면 `unknown`, API 오류는 `error`이며 둘 다 `minutes: null`입니다. 도보 API 오류의 위치는 `error.stage: "walking_route"`입니다. 대중교통 성공 응답은 기존 형식을 사용합니다.
 
 ### 출발 권장 시각 계산 (C 연동 임시안)
 
@@ -209,7 +254,7 @@ const departures = selectedPlace.travelTimes.map((travel) =>
     "maxTravelMinutes": 12,
     "travelTimeDifference": 4,
     "rank": 1,
-    "recommendationReason": "최장 이동시간 12분을 우선 비교한 결과 1위입니다. 이동시간 차이는 4분이고 확인된 선호 조건은 0개입니다."
+    "recommendationReason": "전원이 60분 이내이며, 이동시간 차이 4분을 우선 비교한 결과 1위입니다. 최장 이동시간은 12분이고 확인된 선호 조건은 0개입니다."
   }],
   "preview": {
     "venueConditions": "unverified",
@@ -309,7 +354,9 @@ const departures = selectedPlace.travelTimes.map((travel) =>
 
 ## 순위 표시와 계약 차이
 
-- 팀 기획 기준에 따라 최장 이동시간이 짧은 곳부터 순위를 매깁니다. 동점이면 이동시간 차이가 작은 곳, 확인된 선호 조건을 더 많이 충족한 곳, 장소 ID 오름차순으로 비교합니다. 예를 들어 A의 이동시간이 12·20분, B가 18·22분이면 기존에는 차이가 4분인 B가 1위였고, 현재는 최장 시간이 20분인 A가 1위입니다. 통합 코드에서 선호 조건 충족 건수는 0으로 전달됩니다. 응답 배열 자체는 순위순으로 재정렬되지 않으므로 화면 정렬에는 `rank`를 사용하세요.
+- 기본 상한은 시연용 60분입니다. C는 `findPlaces(input, { previewUnverified: true, maxTravelMinutesLimit: 45 })`처럼 두 번째 인수로 0 이상의 안전한 정수(분)를 전달할 수 있습니다. 상한과 같은 이동시간은 허용합니다. 한 명이라도 초과하면 후보와 이동시간은 남기고 `rank: null`, `rankExclusionReason: "max_travel_time_exceeded"`를 반환합니다.
+- 통과한 후보는 **이동시간 차이가 작은 순 → 최장 시간이 짧은 순 → 확인된 선호 조건이 많은 순 → 장소 ID 오름차순**으로 순위를 매깁니다. 통합 코드에서 확인된 선호 조건 수는 0입니다. 예를 들어 A가 20·38분, B가 30·42분이면 이전에는 A가 1위였고 이제는 차이가 12분인 B가 1위입니다. 전원이 60분인 곳도 차이가 0분이므로 20·35분인 곳보다 앞설 수 있습니다. 상한 이내에서는 이동 부담의 균등함을 먼저 평가하기 때문입니다.
+- 이동시간을 확인하지 못하면 `rankExclusionReason: "travel_time_unavailable"`, 확인값은 있지만 참석자가 2명 미만이면 `insufficient_members`입니다. 기존 개별 오류는 `travelTimes`에서 확인하세요. 화면 정렬에는 `rank`를 사용하고 순위 없는 후보의 사유는 구분해서 표시하세요.
 - 순위는 `members`에 포함된 조회 대상이 2명 이상이고 모두의 이동시간을 확인했을 때만 계산합니다. **전체 참석자 기준**이라고 표시하려면 출발지를 모르는 사람도 `memberId`를 포함하세요.
 - 현재 경로 조회에는 `startAt`을 전달하지 않습니다. 회의 시간대 교통을 반영한 값으로 표시하지 마세요. 시연 응답의 `preview`와 오프라인 mock 미지원 오류는 현행 코드의 동작이며 계약 확정 항목이 아닙니다.
 - DB 저장, 프런트엔드, HTTP 서버 및 `ok/data/error` 포장, 시설·수용 인원·예약 검증은 구현 범위에 남아 있습니다. 현재 함수는 내부 결과 객체를 반환합니다.

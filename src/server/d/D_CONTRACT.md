@@ -25,7 +25,9 @@
 | `expectedAttendeeCount` | 오프라인 필수 | 1 이상의 정수. 장소 수용 인원 확인에 사용하며 이동시간 조회 대상 수와 별개다. |
 | `requiredConditions` | 선택 | 비어 있지 않은 문자열의 배열. 반드시 충족해야 하는 장소 조건 |
 | `preferredConditions` | 선택 | 비어 있지 않은 문자열의 배열. 후보 비교에 사용하는 선호 조건 |
-| `searchArea` | 오프라인 필수 | 문자열. 장소를 찾을 지역 |
+| `searchArea` | 오프라인에서 `searchAreas`를 생략할 때 필수 | 문자열. 중심 좌표를 찾을 정확한 주소, 역 이름 또는 고유 장소명 |
+| `searchAreas` | 선택, 임시 확장 | 검색 지역 문자열 1~3개. 전달하면 `searchArea`보다 우선한다. 정규화한 중복 지역은 한 번만 조회한다. |
+| `searchRadiusMeters` | 선택, 임시 확장 | 정수 1~20,000. 검색 중심으로부터의 직선거리 반경(미터). 기본 1,500 |
 | `excludedPlaceIds` | 선택, 임시 확장 | 비어 있지 않은 장소 ID 문자열의 배열. 같은 회의 시간 후보에서 이미 제안한 장소를 제외할 때 사용 |
 | `dataMode` | 필수 | 문자열. 오프라인은 `api` 지원. `mock`은 입력값으로 인식하지만 오프라인에서는 `UNSUPPORTED_DATA_MODE` 반환 |
 | `members` | 선택 | 배열. 이동시간을 확인할 구성원 목록 |
@@ -44,7 +46,7 @@
   "expectedAttendeeCount": 4,
   "requiredConditions": ["화면 공유 장비"],
   "preferredConditions": ["조용한 공간"],
-  "searchArea": "서울 성북구 국민대학교 인근",
+  "searchArea": "국민대학교",
   "dataMode": "api",
   "members": [
     { "memberId": "member-01", "origin": "길음역" },
@@ -58,6 +60,16 @@ C는 같은 팀의 제안과 그 제안에 속한 시간 후보의 ID 및 시각
 역 이름은 카카오 지하철역 카테고리(`SW8`)로 검색한다. 이름이 정확하고 후보를 하나로 식별할 수 있을 때만 좌표를 사용한다. 검색 0건이나 호선 구분이 필요하면 해당 이동 항목은 `unknown`이다. 주소나 호선까지 포함한 역 이름으로 다시 입력할 수 있다.
 
 ## 4. findPlaces 내부 반환 JSON (임시안)
+
+### 여러 지역 통합 검색 (C 연동 임시안)
+
+각 지역에 동일한 `searchRadiusMeters`(기본 1,500m)와 `excludedPlaceIds`를 적용한다. 지역당 기존 페이지 한도 내에서 최대 두 후보를 가져온다. 같은 `placeId`는 최초 후보 정보와 검색에 포함된 모든 지역 이름을 유지한다. 미리보기에서는 합친 후보에 대해 같은 `members`로 이동시간을 조회하고, 순위를 한 번만 매긴다. 순위가 있는 후보는 오름차순으로, `rank: null` 후보는 뒤에 둔다. 이 순위는 조회한 후보끼리의 비교다.
+
+`searchAreas`를 사용하면 오프라인 검색 결과에 `areaResults`가 추가된다. 각 항목은 `searchArea`와 상태를 담는다. `ok`는 후보를 찾음, `empty`는 지역 검색은 성공했으나 필터를 통과한 후보 없음이며 둘 다 통합 전 `candidateCount`를 반환한다. `error`는 중심 확인 실패 또는 API 오류이며 `error.code`와 메시지, 가능한 경우 단계·HTTP 상태가 있다. 모든 지역이 실패하면 전체 `error.code: "ALL_SEARCH_AREAS_FAILED"`와 지역별 상세를 반환한다. 한 지역이라도 검색이 성공하면 전체는 `ok`다. 모든 정상 지역의 결과가 비어 있으면 `places: []`다. 일반 호출의 미검증 후보 제외 정책은 동일하다.
+
+통합 장소에는 `matchedSearchAreas: string[]`가 추가된다. 단일 `searchArea` 호출은 기존 응답 필드와 배열 순서를 사용한다.
+
+오프라인 검색은 `searchArea`를 중심 좌표로 변환하고 `meetingPurpose`만 키워드로 사용한다. 카카오 요청에 `x`(경도), `y`(위도), `radius`를 전달한 뒤, 반환 좌표로 직선거리를 다시 계산해 반경 밖과 좌표가 유효하지 않은 후보를 제외한다. 반경 경계는 포함한다. 같은 이름의 환승역 후보가 모두 600m 이내에 모여 있으면 지역 검색에 한해 좌표 평균을 중심으로 사용한다. 중심을 확정할 수 없으면 `SEARCH_AREA_UNRESOLVED`, 카카오 요청 실패는 해당 오류 코드, 반경 내 후보 없음은 `ok`와 빈 배열이다. 반경 필터나 제외 목록 적용 후 후보가 부족하면 기존 페이지 상한 안에서 추가 조회한다.
 
 `findPlaces(input)`는 일반 호출이다. `findPlaces(input, { previewUnverified: true })`는 두 번째 인수로 미검증 후보의 시연 표시를 허용한다. 이 옵션은 입력 JSON 안의 필드가 아니다. 현재 일반 오프라인 호출에서 검색이 성공하면 `places: []`를 반환한다. 미리보기에서도 검색 결과가 0건이면 같은 빈 응답이며 `preview`는 생략된다.
 
@@ -77,13 +89,15 @@ C는 같은 팀의 제안과 그 제안에 속한 시간 후보의 ID 및 시각
 | `places[].maxTravelMinutes` | 장소마다 필수 | 가장 오래 걸리는 구성원의 이동시간(정수 분), 계산 불가 시 `null` |
 | `places[].travelTimeDifference` | 장소마다 필수 | 가장 긴 이동시간에서 가장 짧은 이동시간을 뺀 값(정수 분), 계산 불가 시 `null` |
 | `places[].rank` | 장소마다 필수 | 공평성 순위(1부터 시작하는 정수), 계산 불가 시 `null` |
+| `places[].rankExclusionReason` | 선택 | 순위 제외 사유. `insufficient_members`, `travel_time_unavailable`, `max_travel_time_exceeded` 중 하나 |
 | `places[].recommendationReason` | 장소마다 필수 | 문자열. 추천 근거 또는 순위를 매길 수 없는 이유 |
 | `places[].travelTimes` | 장소마다 필수 | 배열. 요청의 구성원마다 항목 하나를 반환하며, 구성원이 없으면 빈 배열 |
 | `places[].travelTimes[].memberId` | 이동 항목마다 필수 | 문자열. 입력에 있는 구성원 ID |
 | `places[].travelTimes[].status` | 이동 항목마다 필수 | 문자열. `ok`는 계산 성공, `unknown`은 출발지나 경로 미확인, `error`는 조회 실패 |
 | `places[].travelTimes[].minutes` | 이동 항목마다 필수 | 성공 시 0 이상의 정수, 그 외에는 `null` |
 | `places[].travelTimes[].transferCount` | 이동 항목마다 필수 | 0 이상의 정수. 환승이 적용되지 않거나 미확인·실패 시 `null` |
-| `places[].travelTimes[].calculationMethod` | 이동 항목마다 필수 | 성공 시 `transit_route`, 미확인·실패 시 `null` |
+| `places[].travelTimes[].calculationMethod` | 이동 항목마다 필수 | 대중교통 성공 시 `transit_route`, 도보 성공 시 `walking_route`, 미확인·실패 시 `null` |
+| `places[].travelTimes[].routeDistanceMeters` | 선택 | 도보 성공 시에만 제공하는 실제 경로 거리(미터) |
 | `places[].travelTimes[].checkedAt` | 이동 항목마다 필수 | 문자열. 조회 결과를 확인한 서울 기준 시각. 확인하지 못한 경우 `null` |
 | `preview` | 미검증 후보가 반환될 때만 | `venueConditions: "unverified"`, `travelTimeBasis: "api_estimate_without_meeting_time"` |
 | `places[].travelTimes[].error` | 선택 | 개별 출발지·경로 오류 정보. 없으면 생략 |
@@ -108,6 +122,7 @@ C는 같은 팀의 제안과 그 제안에 속한 시간 후보의 ID 및 시각
       "maxTravelMinutes": null,
       "travelTimeDifference": null,
       "rank": null,
+      "rankExclusionReason": "travel_time_unavailable",
       "recommendationReason": "일부 구성원의 유효한 이동시간이 없어 공평성 순위를 계산할 수 없습니다.",
       "travelTimes": [
         { "memberId": "member-01", "status": "ok", "minutes": 12, "transferCount": 1, "calculationMethod": "transit_route", "checkedAt": "2026-11-04T12:00:00+09:00" },
@@ -155,14 +170,22 @@ C는 같은 팀의 제안과 그 제안에 속한 시간 후보의 ID 및 시각
 | `KAKAO_REQUEST_FAILED` | 기타 API 요청 실패 |
 | `KAKAO_CONFIGURATION_ERROR` | 서버의 카카오 API 키 설정 누락 |
 
-장소 검색의 최상위 `error.code`는 기존 단일 코드 대신 위 원인별 코드를 사용한다. 출발지·경로 조회만 실패하면 기존 장소와 전체 `status: "ok"`를 유지하며, 해당 `travelTimes[]`에 선택 필드 `error`를 담는다. 오류 객체에는 `code`, 화면용 한국어 `message`, 발생 위치인 `stage`(`place_search`, `origin_search`, `transit_route`), 확인 가능한 경우 외부 서버의 `httpStatus`가 포함된다. 확인되지 않은 이동시간은 `null`이다. 카카오 원본 메시지는 전달하지 않는다. HTTP API로 포장할 때 `httpStatus`는 외부 서비스 정보이며 C 서버가 응답할 HTTP 상태와 구분한다.
+장소 검색의 최상위 `error.code`는 기존 단일 코드 대신 위 원인별 코드를 사용한다. 출발지·경로 조회만 실패하면 기존 장소와 전체 `status: "ok"`를 유지하며, 해당 `travelTimes[]`에 선택 필드 `error`를 담는다. 오류 객체에는 `code`, 화면용 한국어 `message`, 발생 위치인 `stage`(`place_search`, `origin_search`, `transit_route`, `walking_route`), 확인 가능한 경우 외부 서버의 `httpStatus`가 포함된다. 확인되지 않은 이동시간은 `null`이다. 카카오 원본 메시지는 전달하지 않는다. HTTP API로 포장할 때 `httpStatus`는 외부 서비스 정보이며 C 서버가 응답할 HTTP 상태와 구분한다.
 
 ## 6. 온라인 회의와 공평성 (임시안)
 
 - `meetingMode`가 `online`이면 공통 필수 입력을 검증한 뒤 장소·경로 API 호출과 공평성 계산을 생략한다. 내부 함수는 `status: "skipped"`, `dataSource: null`, `places: []`와 입력의 세 ID를 반환한다. 오프라인에서 검색 결과가 없는 경우의 `status: "ok"`와 구분된다.
 - 대중교통 경로 조회에 회의 시작 시각 `startAt`을 전달하지 않는다. 이동시간은 조회 시점의 API 추정값을 정수 분으로 반올림한 값이다. `checkedAt`은 조회 확인 시각이다.
 - 공평성은 요청에 포함된 구성원이 2명 이상이고 모든 구성원의 이동시간을 확인한 장소에만 계산한다. 예를 들어 12분과 20분이면 최대 이동시간은 20분, 차이는 8분이다. 일부만 확인했거나 대상이 부족하면 두 지표와 순위는 모두 `null`이다.
-- 팀 기획 기준에 따라 최장 이동시간이 짧은 곳부터 순위를 매긴다. 같으면 이동시간 차이가 작은 곳, 충족한 선호 조건 수가 많은 곳, `placeId` 문자열 오름차순으로 비교한다. 이전에는 이동시간 차이를 최장 이동시간보다 먼저 비교했다. 순위는 후보를 비교하는 값이며 배열 자체의 순서는 보장하지 않는다.
+- 먼저 C가 전달한 참석자 전원의 이동시간을 확인한다. 하나라도 미확인 또는 실패면 `travel_time_unavailable`, 유효한 이동시간만 있고 참석자가 2명 미만이면 `insufficient_members`다. 순위와 두 지표는 모두 `null`이다. 개별 조회 상태와 오류 정보는 그대로 유지한다.
+- 두 명 이상 모두 확인되면, 최장 이동시간이 상한을 초과한 후보에는 `rank: null`과 `rankExclusionReason: "max_travel_time_exceeded"`를 반환한다. 후보와 실제 이동시간, 두 지표는 유지한다. 기본 상한 60분은 시연용 임시값이며 정확히 60분은 허용한다. C는 두 번째 인수 `{ previewUnverified: true, maxTravelMinutesLimit: 45 }`처럼 0 이상의 안전한 정수(분)로 바꿀 수 있다. 잘못된 오프라인 옵션은 `INVALID_INPUT`이다.
+- 상한을 통과한 후보는 이동시간 차이가 작은 순, 최장 시간이 짧은 순, 충족한 선호 조건 수가 많은 순, `placeId` 오름차순으로 비교한다. 이전 기준은 최장 시간 우선이었다. 배열 자체는 순위순으로 정렬하지 않는다.
+
+### 가까운 거리의 도보 경로 (시연용 임시안)
+
+대중교통 조회가 성공하면 해당 경로를 사용한다. API가 정상 응답으로 이용 가능한 대중교통 경로가 없다고 반환하고 출발지와 목적지의 직선거리가 1,500m 이하일 때만 카카오맵 도보 경로를 조회한다. 이 거리는 C와 합의 전인 시연 기준이며 장소 검색 반경 `searchRadiusMeters`와 별개다.
+
+도보 성공 시 `calculationMethod: "walking_route"`, `transferCount: 0`, `routeDistanceMeters`, `checkedAt`을 반환한다. `minutes`는 도보 API의 초 단위 시간을 60으로 나눠 올림한 값이다. 공평성 순위와 출발 권장 시각은 이 값을 기존 방식으로 사용한다. 도보 경로도 없으면 `unknown`과 `minutes: null`, 도보 API 오류는 `error`와 `minutes: null` 및 `error.stage: "walking_route"`다. 대중교통 API 오류에서는 도보를 호출하지 않는다.
 
 ### 출발 권장 시각 함수 (별도 연동 임시안)
 

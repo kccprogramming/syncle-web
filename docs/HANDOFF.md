@@ -24,7 +24,7 @@ Google 로그인 → 내 정보(출발지 · 매주 안 되는 시간 · 알림 
 
 1. **내 정보(1-1)**: '이름 수정' 연결 완료 (6장 1번). 로그인한 계정으로 한 번 확인. **회원 탈퇴는 이번 범위에서 뺐어요** (11/6 결정 — 버튼도 없앰).
 2. **Vercel 미리보기 배포**: Vercel 환경 변수 7개(`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `KAKAO_REST_API_KEY`, `GEMINI_API_KEY`, `SCHEDULE_LIVE_AI_ENABLED`, `SCHEDULE_LIVE_PLACES_ENABLED`) + Supabase Authentication → URL Configuration → Redirect URLs에 Vercel 주소(`https://syncle-web-*.vercel.app/**`) 추가 → 미리보기에서 로그인 · 제안까지 확인.
-3. 팀원 코드 대기: 성하님 B(요약 · 할 일 · 자료 · 회의록, 시간 정리 보완 — 7장), 현규님 D(출발지 위치 인식 — 7장).
+3. 팀원 코드: **B `86eed61` · D `4a829da` 최신으로 바꿔 끼움 (11/6)**. 성하님께 B 테스트 5개 실패 · 시간 정리 보완 전달(7장). 대화방에서 '@AI 요약 · 할 일 정리'를 B 카드로 여는 화면 연결은 아직이에요.
 4. 남은 데모 화면: 8 확정 회의 카드 · 9 회의록 · 7 내 조건은 아직 가짜 데이터(진짜 제안은 C 화면 하나로 처리 중).
 5. `integration/b-d` → `final` 저장소 (팀 확인 뒤).
 
@@ -80,7 +80,9 @@ Google 로그인 → 내 정보(출발지 · 매주 안 되는 시간 · 알림 
 | D 현규 | `src/server/d` | `src/server/area-search.ts`, `places-adapter.ts` | `/api/places/recommend` |
 | A 현서 | 아직 안 가져옴 (PR 아래 4장) | `src/lib/data.ts` | Supabase 직접 + A의 `/api/tasks`·`/api/notifications`·`/api/account` |
 
-받은 코드에서 바꾼 것은 두 가지뿐이에요: 각 파일 끝의 단독 실행 예시(`if (import.meta.main) {…}`) 삭제, C의 `shared/b-c-contract.ts`를 B 최신 규격으로 연결.
+받은 코드에서 바꾼 것: 각 파일 끝의 단독 실행 예시(`if (import.meta.main) {…}`) 삭제, C의 `shared/b-c-contract.ts`를 B 최신 규격으로 연결, D `resolveOrigin.ts`의 `points` 변수에 타입 한 줄(우리 TypeScript 설정에서 오류가 나서, 동작은 그대로).
+
+B 최신(`placeType` 필수)에 맞춰 연결 쪽에서 고친 것: C `src/server/scheduling/service.ts`(조건에 `placeType` 넣기 · B의 새 `card` 응답이면 제안을 만들지 않고 돌려주기), `tests/c-flow.test.ts`(`placeType: null`), `ai-adapter.ts`(`card` → 대화방 답 카드), `place-intent.ts`의 `placeIntentFrom`(B `placeType`을 먼저 쓰고 없으면 낱말 규칙). C 저장 SQL은 모르는 칸을 버려서 **`placeType`이 DB에 저장되지 않아요** → 실제 제안의 장소 종류는 아직 낱말 규칙으로 골라요 (11/6 지우님께 `safe_conditions`에 `placeType` 추가 부탁 전달함 · 답 기다리는 중).
 
 ---
 
@@ -89,9 +91,9 @@ Google 로그인 → 내 정보(출발지 · 매주 안 되는 시간 · 알림 
 | 담당 | 브랜치 | 가져온 커밋 |
 |---|---|---|
 | A 현서 | `a-hyunseo/feature-code` → `contributions/a-hyunseo/` ([PR #2](https://github.com/kccprogramming/just_keeping/pull/2), 열림) | 아직 안 가져옴 |
-| B 성하 | `share/sungha-b-final` → `sungha_B_code/` | `1ec9384` |
+| B 성하 | `share/sungha-b-final` → `sungha_B_code/` | `86eed61` (11/6, 이전 `1ec9384`) — 테스트 파일 · `schedule.ts` · `check-ai.ts`는 안 가져옴 |
 | C 지우 | `share/jiwoo-c-code` → `jiwoo_C_code/` | `f482f55` (예시 흐름), `a9c6fb0`의 `integration/syncle-web/` (실제 저장) |
-| D 현규 | `feature/d-place-recommendation` → `D_HANDOFF/` | `2426bba` |
+| D 현규 | `feature/d-place-recommendation` → `D_HANDOFF/` | `4a829da` (11/6, 이전 `2426bba`) — `getWalkingRoute.ts`, `C_INTEGRATION_GUIDE.md` 추가 |
 
 팀원이 코드를 고치면 해당 폴더(`src/server/b|c|d`)만 새 버전으로 바꿔 끼우고, 연결 파일이 깨지는지 확인하면 돼요.
 
@@ -104,7 +106,7 @@ Google 로그인 → 내 정보(출발지 · 매주 안 되는 시간 · 알림 
 | `KAKAO_REST_API_KEY` | `.env.local` + Vercel 환경 변수 (이미 넣음) | 장소 검색·추천이 예시 데이터로 동작 |
 | `GEMINI_API_KEY` | `.env.local` (넣음) + Vercel (아직) | 데모 흐름은 예시 조건, 진짜 팀 제안 만들기는 안 돼요 |
 | `SCHEDULE_LIVE_AI_ENABLED` · `SCHEDULE_LIVE_PLACES_ENABLED` | `.env.local` (`true`) + Vercel (아직) | 진짜 팀의 제안 만들기 · 장소 찾기가 막혀요 (C 서버 스위치) |
-| `GEMINI_MODEL` | 선택 | B 기본값 `gemini-3.1-flash-lite` |
+| `GEMINI_MODEL` | 선택 | B 기본값 `gemini-2.5-flash` (11/6 B 최신부터, 이전 `gemini-3.1-flash-lite`) |
 | `NEXT_PUBLIC_SUPABASE_URL` | `.env.local` + Vercel (각자 직접) | A 연결 전이라 지금은 안 써요 |
 | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | `.env.local` + Vercel (각자 직접, 채팅으로 안 보내요) | 〃 |
 | `SUPABASE_SERVICE_ROLE_KEY` | 서버 `.env.local` + Vercel만 (브라우저·GitHub 금지) | 회원 탈퇴, 팀원 출발지 읽기(005)가 안 돼요 |
@@ -175,6 +177,14 @@ Google 로그인 → 내 정보(출발지 · 매주 안 되는 시간 · 알림 
 
 ## 7. 팀원에게 전달할 것
 
+- **성하님 (B) — 11/6 `86eed61`을 가져와서 확인한 것** (11/6 희원이 성하님께 전달함 · 답 기다리는 중)
+  - 반영됨: `placeType`(장소 종류), '합주 · 회식 · 모임 잡아줘', 요청 분류(`tasks` · `files` · `minutes`), 앱 카드(`analyzeAiCard`), 비공개 메시지 · AI 읽는 범위 거르기.
+  - B 자체 테스트 5개 실패 (받은 코드 그대로 돌림): `mvp.test.ts` 'mention routing and ambiguous requests'(이제 여러 뜻이면 첫 번째로 정해서 `clarify`가 안 나옴), `place-type.test.ts` 'AI prompt requests contextual placeType …', `revision.test.ts` '@AI 대화 요약' · '@AI 회의 요약'(요약이 이제 AI를 불러요), 'ignored/ambiguous requests avoid API …'. 바뀐 동작에 맞게 테스트를 고칠지, 동작을 되돌릴지 확인 부탁.
+  - 회의 조건 프롬프트의 [중요] 규칙이 많이 빠졌어요 (초 00 · +09:00, 모르면 null, 불가 시간만 말하면 가능으로 채우지 않기, 정정 반영 등) → 아래 '시간 정리 실패'가 더 자주 날 수 있어요. 빠진 규칙을 되살려 달라고 부탁.
+  - 기본 모델이 `gemini-3.1-flash-lite` → `gemini-2.5-flash`로 바뀌었는데, **`gemini-2.5-flash`는 새 사용자에게 막혀 404**가 나요 (11/6 제안 만들기 실패 원인).
+  - **앱 쪽 임시 해결 (11/6)**: B를 부를 때 `src/server/gemini-generate.ts`의 `geminiGenerate`를 넘겨요 (`handleAiRequest(text, input, geminiGenerate)`, C 제안 만들기 · `/api/ai/request` 둘 다). ① 모델 기본값 `gemini-3.1-flash-lite`(`GEMINI_MODEL`로 바꿀 수 있음) ② AI 답의 시각을 분 단위로 맞춤(`23:59:59` → 다음 날 `00:00:00`) ③ `origins`에 빠진 팀원을 `station: null`로 채움. 실제 'KCC해커톤' 대화로 5번 연속 `ready` 확인. 성하님이 B 프롬프트 · 검사를 고치면 ②③은 지워도 돼요.
+  - 실패 원인은 화면에 안 보이고(C가 '입력 형식과 회의 조건을 확인해 주세요'로 감춰요) 개발 서버 기록에 `[scheduling] request failed: …` 한 줄로 남아요.
+  - 아직: '나는 7시 이후' 같은 시간 정리 보완(아래), 앱 카드 `basis`는 메시지 ID 목록이라 앱은 'N개 근거'로만 보여줘요.
 - **성하님 (B) — AI 기능 전부 (11/6 정리)**. 지금 B는 '회의 잡기'만 돼요. '요약'은 알아듣지만 "아직 준비 중"이고, 할 일 · 자료 · 회의록은 분류도 없어요 ("@AI 할 일 정리해줘"는 '정리' 때문에 요약으로 잘못 분류돼요).
   - 공통: 대화 메시지(+ 필요하면 팀 자료 · 할 일 · 확정 회의)를 받아 **제안만** 돌려주기 (저장은 사람이 '추가'를 눌러야). 결과마다 근거 메시지 ID(`sourceMessageIds`). 팀 설정 'AI 읽는 범위'(`ai_read_scope`: 전체 / @AI만)와 AI 꺼짐 지키기. 비공개 메시지(`visible_to`)는 읽지 않기. 화면 카드 모양은 `src/types.ts`의 `AiReply` { kind, title, basis(무엇을 보고 답했는지), items[{ text, sub, tag }] }에 맞춰 주면 바로 붙어요.
   - **(11/6 실제 테스트에서 발견) 시간 정리 실패**: "나는 7시 이후에 가능해"를 AI가 `11/8 19:00 ~ 11/14 23:59:59` 한 덩어리로 써서 B 검사(`초는 00`, 기간 안)에 걸려요 → C가 "입력 형식과 회의 조건을 확인해 주세요"만 돌려줘요. 부탁: ① AI 출력의 초를 00으로 맞추기(또는 23:59:59 → 다음 날 00:00:00) ② '매일 N시 이후' 같은 반복 시간은 날짜별 구간으로 나누기 ③ 검사에 걸리면 오류 대신 확인 질문(needs_confirmation)으로 돌려주기. 날짜 · 시간을 구체적으로 쓰면("11/10(화) 19:00~22:00 가능") 지금도 통과해요.
@@ -185,7 +195,8 @@ Google 로그인 → 내 정보(출발지 · 매주 안 되는 시간 · 알림 
   - ④ 공유된 자료 (없음): 팀 자료(`team_materials`: 올린 파일 · 대화 속 링크는 A가 자동 저장)를 종류별로 묶고 한 줄 설명 + "올리기로 했는데 아직 없는 자료" 찾기.
   - ⑤ 회의록 정리 (없음): 출력은 `Minutes` 모양 { summary[], decided[{ text, settled }], tasks[] }. 입력은 **직접 붙여 넣은 회의 메모 + 회의 시간 동안의 대화방 메시지** (11/6 결정). 녹음은 이번 범위에서 빼요.
   - 실제로 돌리려면 `GEMINI_API_KEY`가 필요해요 (누가 발급 · 무료 한도 확인).
-- **현규님 (D)**
+- **현규님 (D) — 11/6 `4a829da`를 가져와서 확인한 것**: 팀 추천 기준(1시간 → 차이 → 최장, `rankExclusionReason`), 지역 반경 검색(`searchArea` 주변만, `searchAreas` 1~3곳), 가까우면 걷는 시간(`getWalkingRoute`) 모두 반영됨. 실제 카카오로 '서울역' 스터디룸 → 근처 2곳 · 1위 서울역 삼경교육센터(27분 · 20분) 확인. 출발지 위치 인식(`resolveOrigin`)은 예전과 결과가 같아요 ('서울역' · '구로역' · '서울역 1호선'은 아직 못 정함, '구로역 1호선'은 됨).
+- **현규님 (D)** (예전 메모)
   - 새 추천 기준(1시간 제한 → 차이 → 최장)을 D 코드에 반영할지. 지금 D의 `rankPlacesByFairness`는 예전 기준(최장 우선)이라 앱은 `place-ranking.ts`를 써요
   - `findPlaces`가 글자로만 검색해서 다른 동네 장소가 섞여요 → 좌표·반경 검색 (`area-search.ts` 참고)
   - 걸어갈 만큼 가까우면 대중교통 경로가 없어 '미확인'이 돼요 → 도보 시간으로 처리

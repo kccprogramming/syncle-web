@@ -4,6 +4,7 @@ import type { Conditions, ExtractionInput, Slot } from '@/server/b/b-c-contract'
 import { calculateTimeCandidates } from '@/features/scheduling/calculate-time-candidates';
 import { ScheduleError, assertDeadlines, projectProposal, type StoredProposal, type PlaceResult } from '@/features/scheduling/proposals';
 import { handleAiRequest, buildConfirmationCards } from '@/server/b/mvp';
+import { geminiGenerate } from '@/server/gemini-generate';
 import { findPlaces } from '@/server/d/findPlaces';
 import { combineRegionPlaces } from '@/features/scheduling/region-places';
 import { loadPrivateTeamOriginsForCalculation, TeamOriginLoadError } from '@/server/a/private-team-origins';
@@ -46,13 +47,15 @@ export function errorResponse(error: unknown) {
     return Response.json({ok:false,error:{code:'AI_UNAVAILABLE',message:'AI 요청이 제한되었거나 일시적으로 사용할 수 없어요. 잠시 후 다시 시도해 주세요.'}},{status:503});
   }
   // Never return provider exceptions, URLs containing credentials, or raw extracted JSON.
+  // 화면에는 숨기고 서버 기록에만 원인 첫 줄을 남겨요 (예: 'Invalid extraction: availableSlots.endAt', 모델 404)
+  console.error('[scheduling] request failed:', error instanceof Error ? error.message.split('\n')[0].slice(0,200) : String(error).slice(0,200));
   return Response.json({ok:false,error:{code:'INVALID_INPUT',message:'입력 형식과 회의 조건을 확인해 주세요.'}},{status:400});
 }
 export function ok(data: unknown) { return Response.json({ok:true,data}); }
 const text = (v:unknown) => typeof v==='string' ? v : '';
 function safeConditions(value: Conditions): Conditions {
   const s=value.schedule;
-  return { purpose:value.purpose,meetingMode:value.meetingMode,agenda:value.agenda,sourceMessageIds:value.sourceMessageIds,origins:[],placeRequirements:value.placeRequirements,
+  return { purpose:value.purpose,meetingMode:value.meetingMode,agenda:value.agenda,sourceMessageIds:value.sourceMessageIds,origins:[],placeRequirements:value.placeRequirements,placeType:value.placeType??null,
     schedule:{teamId:s.teamId,timezone:s.timezone,searchWindow:s.searchWindow,durationMinutes:s.durationMinutes,requiredMemberIds:s.requiredMemberIds,stepMinutes:30,maxCandidates:3,
       members:s.members.map(m=>({memberId:m.memberId,responseStatus:m.responseStatus,availableSlots:m.availableSlots,unavailableSlots:m.unavailableSlots,...(m.preferredSlots?{preferredSlots:m.preferredSlots}:{})}))} };
 }
@@ -82,8 +85,8 @@ export async function createSchedule(db:SupabaseClient,userId:string,teamId:stri
   assertDeadlines(responseDeadline,materialDeadline);
   const input=await teamInput(db,userId,teamId,body);
   if (process.env.SCHEDULE_LIVE_AI_ENABLED!=='true') throw new ScheduleError('LIVE_AI_DISABLED','실제 AI 호출이 비활성화되어 있어요. 테스트·시연 승인 후 서버 설정을 확인해 주세요.',503);
-  const extraction=await handleAiRequest(text(body.text),input);
-  if (extraction.status==='ignored'||extraction.status==='not_supported'||extraction.status==='clarify_request') return extraction;
+  const extraction=await handleAiRequest(text(body.text),input,geminiGenerate);
+  if (extraction.status==='ignored'||extraction.status==='not_supported'||extraction.status==='clarify_request'||extraction.status==='card') return extraction;
   const conditions=extraction.status==='ready'?extraction.conditions:extraction.draft;
   if (!conditions) return extraction;
   if (conditions.schedule.durationMinutes>720) throw new ScheduleError('INVALID_INPUT','회의 길이는 12시간 이내로 설정해 주세요.');

@@ -1,5 +1,56 @@
 /** B(성하) → C(지우) 공유 규격 */
 
+/** AI 요청 처리 가능 종류 */
+export type AiRequestKind = 'schedule' | 'summary' | 'tasks' | 'files' | 'minutes';
+
+/** AI 팀 설정 정보 */
+export type AiSettings = {
+  isEnabled: boolean;
+  readScope: 'ALL' | 'MENTION_ONLY';
+};
+
+/** 일반 앱 카드 아이템 규격 */
+export type AiCardItem = {
+  text: string;
+  sub?: string; // 담당자, 마감일, 자료 설명 등
+  tag?: string; // 장소 종류(합주실, 회식 장소 등), 확정/미정 상태 등
+};
+
+/** 일반 응답 앱 카드 규격 (schedule, summary, tasks, files) */
+export type AiStandardCardResponse = {
+  kind: 'schedule' | 'summary' | 'tasks' | 'files';
+  title: string;
+  basis: string[]; // 근거 메시지 ID 목록
+  items: AiCardItem[];
+};
+
+/** 회의록 전용 할 일 아이템 */
+export type AiMinutesTask = {
+  taskName: string;
+  assignee?: string; // 팀원 ID (모르면 비움)
+  dueDate?: string;  // 마감 날짜 (모르면 비움)
+  basis: string;     // 근거 메시지 ID
+};
+
+/** 회의록 전용 결정 사항 아이템 */
+export type AiMinutesDecided = {
+  text: string;
+  settled: boolean; // true: 확정, false: 미정
+};
+
+/** 회의록 전용 응답 앱 카드 규격 (minutes) */
+export type AiMinutesCardResponse = {
+  kind: 'minutes';
+  title: string;
+  basis: string[]; // 근거 메시지 ID 목록
+  summary: string[];
+  decided: AiMinutesDecided[];
+  tasks: AiMinutesTask[];
+};
+
+/** 통합 AI 앱 카드 응답 타입 */
+export type AiCardResponse = AiStandardCardResponse | AiMinutesCardResponse;
+
 export type Slot = {
   startAt: string;
   endAt: string;
@@ -29,6 +80,8 @@ export type Conditions = {
   schedule: ScheduleInput;
   purpose: string;
   meetingMode: 'offline' | 'online';
+  /** AI가 문맥에서 추출한 장소 종류(합주실, 회식 장소, 회의 장소 등). 미정 또는 온라인이면 null. */
+  placeType: string | null;
   agenda: string[];
   sourceMessageIds: string[];
   origins: {
@@ -54,6 +107,7 @@ export type ExtractionInput = {
     senderId: string;
     text: string;
     sentAt: string;
+    visible_to?: string[] | null; // 비공개 메시지 여부 확인용
   }[];
 };
 
@@ -136,6 +190,7 @@ export const EXAMPLE_B_OUTPUT: Conditions = {
   },
   purpose: '발표 자료 역할 분담',
   meetingMode: 'offline',
+  placeType: '회의 장소',
   agenda: ['발표 파트별 담당 정하기'],
   sourceMessageIds: ['m1', 'm2'],
   origins: [
