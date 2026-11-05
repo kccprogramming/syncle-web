@@ -117,6 +117,7 @@
    - **팀 메뉴 · 전체 보기의 사진 · 자료 (11/6)**: 진짜 팀이면 `loadTeamMaterials`로 팀 자료를 읽어요 (메뉴를 열 때마다 새로). 팀 메뉴에 '사진' 칸(썸네일 8장)과 '자료' 칸(사진 아닌 파일 3개), 전체 보기에 '사진' 탭(3칸 격자) 추가. 누르면 `materialUrl`로 새 탭에서 열려요.
    - **할 일 연결 (11/6)**: `loadTeamTasks` · `createTeamTask`(다른 팀원에게 맡기면 `create_team_notification` 알림, A /api/tasks와 같게) · `setTaskDone`. + 메뉴 '할 일'과 전체 보기 할 일 탭의 '+ 할 일 추가'가 `TaskSheet`(무엇을 · 누가 · 언제까지)를 열어요. 팀 메뉴는 안 끝난 할 일, 전체 보기는 내 할 일 / 팀 할 일. 체크는 바로 저장(실패하면 되돌림). A의 API 대신 같은 규칙(RLS)으로 테이블을 바로 써요.
    - **팀 설정 (11/6)**: 진짜 팀이면 이름 · AI 도우미 · AI가 읽는 범위(`updateTeam`, **방장만** — 권한 없으면 0줄이 바뀌는 걸로 알아채요), 방장 넘기기(`transfer_team_owner`), 팀 나가기(`leave_team`). 팀 메뉴의 AI 스위치도 저장돼요. **혼자 남은 방장이 나가면 A가 팀을 통째로 지워요** → 확인 시트에서 "팀 지우고 나가기"로 분명히 알리고, 나간 뒤 정말 빠졌는지 다시 확인해요.
+   - **알림 (11/6)**: 1-2 알림은 `loadMyNotifications`(A `app_notifications`, 최근 100개), 하나 열면 그것만 · '모두 읽음'은 전부 `markNotificationsRead`. 홈 🔔은 `countUnreadNotifications` + `subscribeMyNotifications`(실시간). 지금 생기는 알림: `task_assigned`(할 일 배정 → 그 팀 할 일 탭), `meeting_response`(C '다시 알림' → 제안 화면). 실제 두 계정으로 확인.
    - 화면 크기: 컴퓨터(500px 이상)에서는 휴대폰 화면 높이를 `min(844px, 창 높이 − 32px)`로 고정하고 페이지 스크롤을 막아요. 화면 안(`.screen__body`)만 스크롤.
    - 아직: 팀 메뉴의 회의는 데모 함수라 진짜 팀에서는 비어 있어요 (C 저장 뒤 `c_schedule_list`로). AI가 대화로 할 일 찾기는 B 요청 중 (7장).
    - 다음: 대화방 '@AI 회의 잡아줘' → C 제안 만들기 (C SQL 적용 뒤). 그다음 대화방 '@AI 회의 잡아줘' → C 제안 만들기(`createLiveProposal`, 응답 마감 · 자료 마감 입력).

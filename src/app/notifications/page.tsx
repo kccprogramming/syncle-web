@@ -1,10 +1,15 @@
 "use client";
 
-/** 1-2 알림 — '오늘' / '이전'으로 묶어 보여주고, '모두 읽음'을 누르면 굵은 글씨·파란 점이 사라져요. */
+/**
+ * 1-2 알림 — '오늘' / '이전'으로 묶어 보여주고, '모두 읽음'을 누르면 굵은 글씨·파란 점이 사라져요.
+ * 로그인했으면 내 진짜 알림(A · app_notifications): 할 일 배정, 회의 응답 다시 알림 …
+ */
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { TopBar } from "@/components/TopBar";
 import { useDemo } from "@/lib/demo-store";
-import { getNotifications } from "@/lib/data";
+import { getNotifications, loadMyNotifications, markNotificationsRead } from "@/lib/data";
+import { useAuthUser } from "@/lib/use-auth-user";
 import type { AppNotification } from "@/types";
 
 // 알림 종류별 동그라미 아이콘 (글자, 배경색, 글자색)
@@ -23,7 +28,31 @@ const GROUPS: { key: AppNotification["group"]; label: string }[] = [
 
 export default function NotificationsPage() {
   const { state, update } = useDemo();
-  const all = getNotifications();
+  const user = useAuthUser();
+  // 로그인했으면 진짜 알림. undefined = 불러오는 중
+  const [live, setLive] = useState<AppNotification[] | undefined>(undefined);
+  const [failed, setFailed] = useState(false);
+  useEffect(() => {
+    if (!user) return;
+    loadMyNotifications()
+      .then((list) => setLive(list ?? []))
+      .catch(() => {
+        setFailed(true);
+        setLive([]);
+      });
+  }, [user]);
+  const isLive = !!user;
+  const all = isLive ? (live ?? []) : getNotifications();
+  const readAll = () => {
+    if (!isLive) return update({ notificationsRead: true });
+    setLive((prev) => prev?.map((n) => ({ ...n, unread: false })));
+    void markNotificationsRead().catch(() => undefined);
+  };
+  const readOne = (id: string) => {
+    if (!isLive) return;
+    setLive((prev) => prev?.map((n) => (n.id === id ? { ...n, unread: false } : n)));
+    void markNotificationsRead(id).catch(() => undefined);
+  };
 
   return (
     <main className="screen">
@@ -36,7 +65,7 @@ export default function NotificationsPage() {
             type="button"
             className="t-13 t-accent"
             style={{ height: 40, padding: "0 10px", border: 0, background: "none" }}
-            onClick={() => update({ notificationsRead: true })}
+            onClick={readAll}
           >
             모두 읽음
           </button>
@@ -44,6 +73,14 @@ export default function NotificationsPage() {
       />
 
       <div className="screen__body" style={{ padding: "12px 16px", gap: 10 }}>
+        {isLive && live === undefined ? <p className="t-13 t-muted">불러오는 중…</p> : null}
+        {failed ? <p className="t-13 t-warn">알림을 불러오지 못했어요 · 새로고침해 주세요</p> : null}
+        {isLive && live && live.length === 0 && !failed ? (
+          <div className="stack gap-6 t-center" style={{ alignItems: "center", margin: "40px 0" }}>
+            <span className="t-15 t-strong">아직 알림이 없어요</span>
+            <span className="t-13 t-muted" style={{ lineHeight: 1.5 }}>할 일이 나에게 오거나 회의 응답을 부탁받으면 여기에 와요</span>
+          </div>
+        ) : null}
         {GROUPS.map((g) => {
           const items = all.filter((n) => n.group === g.key);
           if (items.length === 0) return null;
@@ -52,7 +89,7 @@ export default function NotificationsPage() {
               <h2 className="section-label" style={{ marginTop: 4 }}>{g.label}</h2>
               <div className="card card--flush" style={{ overflow: "hidden" }}>
                 {items.map((n) => (
-                  <NoticeRow key={n.id} n={n} unread={n.unread && !state.notificationsRead} />
+                  <NoticeRow key={n.id} n={n} unread={n.unread && (isLive || !state.notificationsRead)} onOpen={() => readOne(n.id)} />
                 ))}
               </div>
             </section>
@@ -66,11 +103,12 @@ export default function NotificationsPage() {
   );
 }
 
-function NoticeRow({ n, unread }: { n: AppNotification; unread: boolean }) {
+function NoticeRow({ n, unread, onOpen }: { n: AppNotification; unread: boolean; onOpen?: () => void }) {
   const icon = KIND_ICON[n.kind];
   return (
     <Link
       href={n.href}
+      onClick={onOpen}
       className="hstack gap-12"
       style={{
         padding: "12px 14px",

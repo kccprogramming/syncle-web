@@ -635,6 +635,80 @@ export async function teamFileUrl(messageId: string): Promise<string | null> {
   return signed.data?.signedUrl ?? null;
 }
 
+/* ───────── 앱 안 알림 (A · app_notifications) ───────── */
+
+type NotificationRow = { id: string; team_id: string; notification_type: string; title: string; body: string; reference_id: string | null; is_read: boolean; created_at: string; teams: { name: string } | null };
+
+/** DB 알림 한 줄 → 화면 알림 (종류마다 누르면 갈 곳을 정해요) */
+function toNotification(r: NotificationRow): AppNotification {
+  const d = new Date(r.created_at);
+  const today = new Date().toDateString() === d.toDateString();
+  const hm = `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+  const kind: AppNotification["kind"] = r.notification_type === "task_assigned" ? "task" : r.notification_type === "meeting_response" ? "due" : "ai";
+  const href =
+    r.notification_type === "task_assigned"
+      ? `/teams/${r.team_id}/all?tab=tasks`
+      : r.notification_type === "meeting_response" && r.reference_id
+        ? `/proposals/${r.reference_id}`
+        : `/teams/${r.team_id}`;
+  return {
+    id: r.id,
+    kind,
+    teamName: r.teams?.name ?? "팀",
+    time: today ? hm : `${d.getMonth() + 1}/${d.getDate()} ${hm}`,
+    text: r.body ? `${r.title} · ${r.body}` : r.title,
+    href,
+    unread: !r.is_read,
+    group: today ? "today" : "before",
+  };
+}
+
+/** 내 알림 (최근 100개) — 로그인 안 했으면 null (화면은 가짜 데이터) */
+export async function loadMyNotifications(): Promise<AppNotification[] | null> {
+  const { supabase, id } = await signedIn();
+  if (!supabase || !id) return null;
+  const { data, error } = await supabase
+    .from("app_notifications")
+    .select("id,team_id,notification_type,title,body,reference_id,is_read,created_at,teams(name)")
+    .eq("recipient_id", id)
+    .order("created_at", { ascending: false })
+    .limit(100);
+  if (error) throw new Error(error.message);
+  return (data ?? []).map((r) => toNotification(r as unknown as NotificationRow));
+}
+
+/** 안 읽은 알림 수 (홈 🔔) — 로그인 안 했으면 null */
+export async function countUnreadNotifications(): Promise<number | null> {
+  const { supabase, id } = await signedIn();
+  if (!supabase || !id) return null;
+  const { count, error } = await supabase.from("app_notifications").select("id", { count: "exact", head: true }).eq("recipient_id", id).eq("is_read", false);
+  if (error) return 0;
+  return count ?? 0;
+}
+
+/** 알림 읽음 처리 — id가 없으면 모두 (A의 PATCH /api/notifications와 같게) */
+export async function markNotificationsRead(notificationId?: string): Promise<void> {
+  const { supabase, id } = await signedIn();
+  if (!supabase || !id) return;
+  let q = supabase.from("app_notifications").update({ is_read: true, read_at: new Date().toISOString() }).eq("recipient_id", id).eq("is_read", false);
+  if (notificationId) q = q.eq("id", notificationId);
+  const { error } = await q;
+  if (error) throw new Error(error.message);
+}
+
+/** 새 알림 실시간 받기 (Supabase Realtime) — 끊을 함수를 돌려줘요 */
+export function subscribeMyNotifications(userId: string, onNew: () => void): () => void {
+  const supabase = getSupabase();
+  if (!supabase) return () => {};
+  const channel = supabase
+    .channel(`my-notifications:${userId}`)
+    .on("postgres_changes", { event: "INSERT", schema: "public", table: "app_notifications", filter: `recipient_id=eq.${userId}` }, () => onNew())
+    .subscribe();
+  return () => {
+    void supabase.removeChannel(channel);
+  };
+}
+
 /** 지금 로그인한 내 id (A) */
 export async function myUserId(): Promise<string | null> {
   return (await signedIn()).id ?? null;

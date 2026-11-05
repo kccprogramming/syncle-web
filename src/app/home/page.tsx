@@ -13,7 +13,7 @@ import { Icon } from "@/components/Icon";
 import { TeamBadge } from "@/components/Avatar";
 import { HomeHeader } from "@/components/home/HomeHeader";
 import { useDemo, useProposal } from "@/lib/demo-store";
-import { getMeetings, getNotifications, getPlaces, getTeam, getTeams, loadMyTeams, loadUpcoming, seoulLabel, type UpcomingItem } from "@/lib/data";
+import { countUnreadNotifications, getMeetings, getNotifications, getPlaces, getTeam, getTeams, loadMyTeams, loadUpcoming, seoulLabel, subscribeMyNotifications, type UpcomingItem } from "@/lib/data";
 import type { Meeting, Team } from "@/types";
 import { useAuthUser } from "@/lib/use-auth-user";
 import { getChosenPlace, type PlacePick } from "@/components/chat/team-info";
@@ -32,6 +32,14 @@ function Inner() {
   // 로그인한 사람의 진짜 팀. undefined = 불러오는 중
   const [liveTeams, setLiveTeams] = useState<Team[] | undefined>(undefined);
   const [liveUpcoming, setLiveUpcoming] = useState<UpcomingItem[] | null>(null);
+  const [liveUnread, setLiveUnread] = useState(0);
+  // 진짜 알림: 안 읽은 수 + 새 알림이 오면 다시 세요
+  useEffect(() => {
+    if (!user) return;
+    const recount = () => void countUnreadNotifications().then((n) => setLiveUnread(n ?? 0));
+    recount();
+    return subscribeMyNotifications(user.id, recount);
+  }, [user]);
   const [failed, setFailed] = useState(false);
   useEffect(() => {
     if (!user) return;
@@ -50,13 +58,13 @@ function Inner() {
   if (!user) return sp.get("empty") === "1" ? <EmptyHome /> : <FullHome />; // 데모
   if (failed) return <FullHome live={[]} error="팀 목록을 불러오지 못했어요 · 새로고침해 주세요" />;
   if (liveTeams === undefined) return null;
-  return liveTeams.length === 0 ? <EmptyHome /> : <FullHome live={liveTeams} liveUpcoming={liveUpcoming} />;
+  return liveTeams.length === 0 ? <EmptyHome /> : <FullHome live={liveTeams} liveUpcoming={liveUpcoming} liveUnread={liveUnread} />;
 }
 
 /* ───────── 1 홈 ───────── */
 
 /** live: 로그인한 사람의 진짜 팀 (없으면 데모) */
-function FullHome({ live, liveUpcoming, error }: { live?: Team[]; liveUpcoming?: UpcomingItem[] | null; error?: string }) {
+function FullHome({ live, liveUpcoming, liveUnread = 0, error }: { live?: Team[]; liveUpcoming?: UpcomingItem[] | null; liveUnread?: number; error?: string }) {
   const { state } = useDemo();
   const teams = live ?? getTeams();
 
@@ -68,7 +76,7 @@ function FullHome({ live, liveUpcoming, error }: { live?: Team[]; liveUpcoming?:
         .sort((a, b) => dateValue(a) - dateValue(b));
 
   // 안 읽은 알림 수 (모두 읽음을 누르면 0)
-  const unread = live || state.notificationsRead ? 0 : getNotifications().filter((n) => n.unread).length;
+  const unread = live ? liveUnread : state.notificationsRead ? 0 : getNotifications().filter((n) => n.unread).length;
 
   return (
     <main className="screen">
