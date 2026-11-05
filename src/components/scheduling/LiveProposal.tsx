@@ -465,7 +465,7 @@ export function LiveProposal({ proposalId }: { proposalId: string }) {
                                 {nameOf(id)}
                                 {id === data.viewerId ? '(나)' : ''}
                               </span>{' '}
-                              <span className={hoods[id] ? 't-ink2' : 't-warn'}>{hoods[id] ?? '출발지 미입력 · 장소 순위에서 빼고 계산해요'}</span>
+                              <span className={hoods[id] ? 't-ink2' : 't-warn'}>{hoods[id] ?? '출발 동네 미입력'}</span>
                             </span>
                           ))}
                           <span className="t-muted" style={{ fontSize: 11 }}>
