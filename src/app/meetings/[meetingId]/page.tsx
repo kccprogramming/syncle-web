@@ -126,9 +126,10 @@ function MeetingInner() {
           <section className="card" style={{ borderRadius: 16, padding: 16 }}>
             <span className="t-13 t-strong">내 이동 경로</span>
             <div className="hstack gap-10 t-14">
-              <span>{meeting.myRoute?.from}</span>
+              {/* 내 출발지 → 고른 장소의 기준 역 (6에서 고른 실제 장소가 있으면 그걸로) */}
+              <span className="t-ellipsis">{state.origin?.name ?? meeting.myRoute?.from}</span>
               <Icon name="arrowRight" size={18} strokeWidth={2} color="var(--muted)" />
-              <span>{meeting.myRoute?.to}</span>
+              <span className="t-ellipsis">{state.chosenPlace && place?.id === state.chosenPlace.id ? place.walk.split(" ")[0] : meeting.myRoute?.to}</span>
               <span className="t-13 t-muted" style={{ marginLeft: "auto" }}>
                 약 {myTravel}분
               </span>

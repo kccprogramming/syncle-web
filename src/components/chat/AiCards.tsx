@@ -53,9 +53,16 @@ export function ProposalCard({ proposalId, teamId }: { proposalId: string; teamI
         <InfoRow icon="timer" iconColor="var(--warn)" right={respondedText(p, state)}>
           응답 마감 {p.deadline}
         </InfoRow>
-        <InfoRow icon="pin" right={`최장 ${s.maxMinutes}분`}>
-          {s.placeLabel}
-        </InfoRow>
+        {/* 6에서 실제로 고른 장소가 있으면 그 장소, 없으면 아직 찾는 중이라는 안내 */}
+        {state.chosenPlace && state.chosenPlace.id === state.placeId ? (
+          <InfoRow icon="pin" right={state.chosenPlace.diffMinutes == null ? "" : `차이 ${state.chosenPlace.diffMinutes}분`}>
+            {state.chosenPlace.short}
+          </InfoRow>
+        ) : (
+          <InfoRow icon="pin" right="장소 후보 보기">
+            팀원 사이 공평한 지역에서 찾아요
+          </InfoRow>
+        )}
       </div>
       {pendingName && !state.jiwooResponded ? (
         <Link
@@ -105,7 +112,7 @@ export function AiWorkingCard({ proposalId }: { proposalId: string }) {
   const steps = [
     { label: "최근 대화 읽기", doing: "최근 대화 읽기", right: `메시지 ${p.progress.messageCount}개` },
     { label: "팀원 가능 시간 맞추기", doing: "팀원 가능 시간 맞추는 중", right: `${p.respondedIds.length}/${p.respondedIds.length + p.pendingIds.length}명` },
-    { label: "장소 찾기", doing: `${p.cardSummary.placeLabel.split(" ")[0]} 주변 장소 찾는 중`, right: "" },
+    { label: "장소 찾기", doing: "팀원 사이 공평한 지역 찾는 중", right: "" },
   ];
 
   return (

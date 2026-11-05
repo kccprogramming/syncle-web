@@ -8,7 +8,7 @@
  * B가 준 값을 먼저 쓰고 이 규칙은 비상용으로만 남기면 돼요.
  */
 export interface PlaceIntent {
-  /** 카카오 키워드 검색에 쓰는 장소 종류 (예: 합주실, 맛집) */
+  /** 카카오 키워드 검색에 쓰는 장소 종류 (예: 합주실, 회식) */
   keyword: string;
   /** 화면에 보여줄 이름 (예: 합주실, 회식 장소) */
   label: string;
@@ -21,7 +21,7 @@ const RULES: { test: RegExp; keyword: string; label: string }[] = [
   { test: /합주|밴드|연주|리허설|공연\s*연습|악기|드럼|기타\s*연습/, keyword: "합주실", label: "합주실" },
   { test: /노래방|코노|노래\s*연습/, keyword: "노래방", label: "노래방" },
   { test: /촬영|사진\s*찍|영상\s*찍|스튜디오/, keyword: "촬영 스튜디오", label: "촬영 스튜디오" },
-  { test: /회식|뒤풀이|종강|쫑파티|저녁\s*(?:먹|식사)|밥\s*먹|술\s*(?:한잔|마시)|맛집|식사|축하\s*파티/, keyword: "맛집", label: "회식 장소" },
+  { test: /회식|뒤풀이|종강|쫑파티|저녁\s*(?:먹|식사)|밥\s*먹|술\s*(?:한잔|마시)|맛집|식사|축하\s*파티/, keyword: "회식", label: "회식 장소" },
   { test: /스터디\s*카페/, keyword: "스터디카페", label: "스터디카페" },
   { test: /보드\s*게임/, keyword: "보드게임카페", label: "보드게임카페" },
   { test: /(?<!스터디\s*)카페|커피/, keyword: "카페", label: "카페" },
@@ -62,4 +62,11 @@ export function wasLabel(label: string): string {
 function hasBatchim(text: string): boolean {
   const last = text.charCodeAt(text.length - 1);
   return last >= 0xac00 && last <= 0xd7a3 && (last - 0xac00) % 28 !== 0;
+}
+
+/** "스터디룸 A로" / "카공족 홍제역점으로" — 받침이 없거나 ㄹ받침이면 '로', 나머지는 '으로' */
+export function withRo(name: string): string {
+  const last = name.charCodeAt(name.length - 1);
+  const jong = last >= 0xac00 && last <= 0xd7a3 ? (last - 0xac00) % 28 : 0;
+  return `${name}${jong === 0 || jong === 8 ? "로" : "으로"}`;
 }

@@ -123,10 +123,18 @@ src/
 
 | 담당 | 서버 주소 | 쓰는 화면 | 필요한 키 | 키가 없으면 |
 |---|---|---|---|---|
-| D 장소 추천 | `POST /api/places/recommend` | 6 장소 후보 → 5·8·대화방 카드 | `KAKAO_REST_API_KEY` | 가짜 장소 3곳 ('예시 데이터' 표시) |
+| D 장소 추천 | `POST /api/places/recommend` | 6 장소 후보 → 5·8·대화방 카드 | `KAKAO_REST_API_KEY` | 가짜 장소 3곳 ('예시 데이터' 표시, 같은 추천 기준 적용) |
 | B 회의 조건 | `POST /api/ai/request` | 3 대화방 '@AI 회의 잡아줘' | `GEMINI_API_KEY` | 지금까지의 예시 흐름 |
 
+**장소 추천 기준** (`src/lib/place-ranking.ts`, 팀 합의 11/5)
+1. 누군가 1시간(`MAX_TRAVEL_MINUTES`)을 넘게 걸리는 장소는 뺀다
+2. 남은 장소는 팀원 간 이동시간 차이(최장 − 최단)가 작은 순
+3. 차이가 같으면 가장 오래 걸리는 사람의 시간이 짧은 순
+
+**지역 찾기** (`src/server/area-search.ts`): 팀원 출발지의 가운데에서 가까운 지하철역 3곳(서로 1.5km 이상 떨어진 곳)을 후보 지역으로 잡고,
+역 1km 안(없으면 2.5km)에서 AI가 대화로 고른 장소 종류(`src/lib/place-intent.ts`)를 찾아요. 출발지·경로 계산은 D 함수(`resolveOrigin`, `getTransitRoute`)를 그대로 써요.
+D의 `findPlaces`·`rankPlacesByFairness`는 글자 검색·예전 순위 기준이라 지금은 쓰지 않아요 (D 담당과 맞추기).
+
 아직 임시로 정해 둔 것 (C와 합의 필요):
-- 장소 검색어: 검색 지역(제안의 지역, 예: 서울역) + 장소 종류 `스터디룸` (`DEFAULT_PLACE_KEYWORD`)
 - 팀원 출발지: `src/mocks/member-origins.json` (나중에 A의 프로필 출발역)
 - B가 조건을 정리한 뒤 나오는 시간 제안 카드는 아직 C가 아니라 예시 데이터예요

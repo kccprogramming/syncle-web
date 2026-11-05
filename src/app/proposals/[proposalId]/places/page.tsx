@@ -1,15 +1,16 @@
 "use client";
 
 /**
- * 6 장소 후보 — 지도 + 정렬 + 장소 카드. 고르면 제안에 반영해요.
+ * 6 장소 후보 — 추천 지역(기준 역) 3곳과 지역마다 장소 2곳. 고르면 제안에 반영해요.
  *
- * 장소는 data.ts의 recommendPlaces → 서버 /api/places/recommend → D 모듈(findPlaces)로 찾아요.
- * 찾을 장소 종류(합주실 · 회의 장소 · 회식 장소 …)는 AI가 대화를 보고 골라요 (3 '@AI … 잡아줘' → place-intent).
- * 사람은 '바꾸기'로만 직접 고르고, 'AI 추천으로'를 누르면 다시 AI가 고른 종류로 돌아가요.
+ * 지역과 장소는 data.ts의 recommendPlaces → 서버 /api/places/recommend → src/server/area-search.ts로 찾아요.
+ *   팀원 출발지 가운데에서 가까운 지하철역들을 후보 지역으로 잡고, 역 근처에서 장소를 찾아
+ *   팀 기준(src/lib/place-ranking.ts)으로 순위를 매겨요:
+ *   ① 1시간 넘게 걸리는 사람이 있는 곳은 빼고 ② 팀원 간 이동시간 차이가 작은 순 ③ 같으면 가장 먼 사람이 짧은 순
  * 카카오 키가 없으면 서버가 가짜 데이터를 돌려줘요 (화면 위에 '예시 데이터'로 표시).
  *
- * '공평한 순'은 D의 rankPlacesByFairness와 같은 기준이에요:
- * 가장 오래 걸리는 사람의 이동시간 → 같으면 사람 간 차이(최장−최단) → 같으면 맞는 선호 조건 수.
+ * 찾을 장소 종류(합주실 · 회의 장소 · 회식 장소 …)는 AI가 대화를 보고 골라요 (3 '@AI … 잡아줘' → place-intent).
+ * 사람은 '바꾸기'로만 직접 고르고, 'AI 추천으로'를 누르면 다시 AI가 고른 종류로 돌아가요.
  */
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
@@ -19,38 +20,16 @@ import { Sheet } from "@/components/Sheet";
 import { useDemo } from "@/lib/demo-store";
 import { getMe, getProposal, originForD, recommendPlaces, type PlaceRecommendation } from "@/lib/data";
 import type { PlaceOption } from "@/types";
-import { inferPlaceIntent, wasLabel } from "@/lib/place-intent";
+import { inferPlaceIntent, wasLabel, withRo } from "@/lib/place-intent";
 import { PlaceMap } from "@/components/meeting/PlaceMap";
-import { walkMinutes } from "@/components/meeting/proposal-utils";
 
-/** 정렬 방법과 설명 */
-const SORTS = [
-  { id: "fair", label: "공평한 순", note: "가장 오래 걸리는 사람이 짧은 순 · 같으면 사람 간 차이가 작은 순" },
-  { id: "near", label: "가까운 순", note: "역에서 걸어가는 시간이 짧은 순" },
-] as const;
-type SortId = (typeof SORTS)[number]["id"];
-
-/** 사람 간 이동시간 차이. D가 준 값이 있으면 그 값, 없으면 직접 계산 (모르는 사람이 있으면 null) */
+/** 사람 간 이동시간 차이 (모르는 사람이 있으면 null) */
 function diffOf(p: PlaceOption): number | null {
-  if (p.diffMinutes !== undefined) return p.diffMinutes;
-  const m = p.travel.map((t) => t.minutes);
-  if (m.some((x) => x === null)) return null;
-  const known = m as number[];
-  return Math.max(...known) - Math.min(...known);
-}
-
-/** 모르는 값(null)은 맨 뒤로 */
-const nullLast = (v: number | null | undefined) => (v === null || v === undefined ? Number.MAX_SAFE_INTEGER : v);
-
-function sortPlaces(list: PlaceOption[], sort: SortId) {
-  const copy = [...list];
-  if (sort === "fair") copy.sort((a, b) => nullLast(a.maxMinutes) - nullLast(b.maxMinutes) || nullLast(diffOf(a)) - nullLast(diffOf(b)));
-  if (sort === "near") copy.sort((a, b) => walkMinutes(a.walk) - walkMinutes(b.walk));
-  return copy;
+  return p.diffMinutes ?? null;
 }
 
 /** '바꾸기'를 눌렀을 때 보여 줄 장소 종류. 그 밖의 것은 '직접 입력'으로 */
-const PLACE_KEYWORDS = ["스터디룸", "스터디카페", "카페", "합주실", "맛집", "회의실"];
+const PLACE_KEYWORDS = ["스터디룸", "스터디카페", "카페", "합주실", "회식", "회의실"];
 
 export default function PlacesPage() {
   const { proposalId } = useParams<{ proposalId: string }>();
@@ -61,8 +40,8 @@ export default function PlacesPage() {
   const [data, setData] = useState<PlaceRecommendation | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [retry, setRetry] = useState(0);
+  const [areaIdx, setAreaIdx] = useState(0);
   const [selId, setSelId] = useState(state.placeId);
-  const [sort, setSort] = useState<SortId>("fair");
 
   const [keywordSheet, setKeywordSheet] = useState(false);
   const [showKinds, setShowKinds] = useState(false);
@@ -85,7 +64,7 @@ export default function PlacesPage() {
     return o;
   }, [originsKey, meId]);
 
-  // 장소 추천 불러오기 (장소 종류나 출발지가 바뀌면 다시)
+  // 지역·장소 추천 불러오기 (장소 종류나 출발지가 바뀌면 다시)
   useEffect(() => {
     const ctrl = new AbortController();
     setData(null);
@@ -93,20 +72,23 @@ export default function PlacesPage() {
     recommendPlaces(proposal.id, { keyword, origins }, ctrl.signal)
       .then((d) => {
         setData(d);
-        // 전에 고른 장소가 목록에 없으면 1위 장소를 골라 둬요
-        setSelId((cur) => (d.places.some((p) => p.id === cur) ? cur : (sortPlaces(d.places, "fair")[0]?.id ?? cur)));
+        // 전에 고른 장소가 있는 지역을 펼치고, 없으면 1위 지역의 1위 장소를 골라 둬요
+        const prev = d.areas.findIndex((a) => a.places.some((p) => p.id === state.placeId));
+        const idx = prev >= 0 ? prev : 0;
+        setAreaIdx(idx);
+        setSelId(prev >= 0 ? state.placeId : (d.areas[0]?.places[0]?.id ?? state.placeId));
       })
       .catch((e: unknown) => {
         if ((e as Error).name !== "AbortError") setError((e as Error).message || "장소를 찾지 못했어요");
       });
     return () => ctrl.abort();
+    // state.placeId는 처음 펼칠 지역을 고를 때만 써요
   }, [proposal.id, keyword, origins, retry]);
 
   const live = data?.source === "kakao";
-  const sorts = live ? SORTS.filter((s) => s.id === "fair") : SORTS; // 실제 결과에는 도보 시간이 없어서 '가까운 순'은 숨겨요
-  const places = data ? sortPlaces(data.places, sort) : [];
+  const area = data?.areas[areaIdx];
+  const places = area?.places ?? [];
   const selected = places.find((p) => p.id === selId) ?? places[0];
-  const sortNote = SORTS.find((s) => s.id === sort)?.note;
 
   function choose() {
     if (!selected) return;
@@ -123,8 +105,8 @@ export default function PlacesPage() {
         right={<span className="t-12 t-muted no-shrink" style={{ marginRight: 8 }}>{data?.timeLabel ?? ""}</span>}
       />
 
-      {data && places.length ? (
-        <PlaceMap places={places} selectedId={selected?.id ?? ""} areaLabel={data.areaLabel} onPick={setSelId} />
+      {area && places.length ? (
+        <PlaceMap places={places} selectedId={selected?.id ?? ""} areaLabel={area.name} onPick={setSelId} />
       ) : (
         <div className="no-shrink" style={{ height: 140, background: "var(--line)" }} aria-hidden="true" />
       )}
@@ -142,9 +124,9 @@ export default function PlacesPage() {
           <div role="status" className="card stack gap-10" style={{ padding: 14 }}>
             <div className="hstack gap-10">
               <Spinner size={18} />
-              <span className="t-14 t-strong">장소와 팀원별 이동시간을 찾고 있어요</span>
+              <span className="t-14 t-strong">모두에게 공평한 지역과 {intent.label === "회의 장소" ? "장소" : intent.label}를 찾고 있어요</span>
             </div>
-            <span className="t-12 t-muted">카카오 장소 검색 → 팀원 출발지 확인 → 대중교통 시간 계산 · 보통 5초 안에 끝나요</span>
+            <span className="t-12 t-muted">팀원 출발지 확인 → 가운데 지역 고르기 → 장소 찾기 → 팀원별 대중교통 시간 계산</span>
             <div className="pulse stack gap-6" aria-hidden="true">
               <div style={{ height: 64, borderRadius: 12, background: "var(--line-2)" }} />
               <div style={{ height: 64, borderRadius: 12, background: "var(--line-2)" }} />
@@ -154,7 +136,7 @@ export default function PlacesPage() {
           <>
             <div className="hstack gap-8 no-shrink">
               <h1 className="grow" style={{ fontSize: 16, fontWeight: 700 }}>
-                {data.title}
+                추천 지역 {data.areas.filter((a) => a.rank !== null).length}곳
               </h1>
               {live ? null : <span className="tag tag--gray no-shrink">예시 데이터</span>}
             </div>
@@ -200,27 +182,39 @@ export default function PlacesPage() {
               </div>
             ) : null}
 
-            {sorts.length > 1 ? (
-              <div className="hstack gap-6 no-shrink" role="group" aria-label="정렬">
-                {sorts.map((s) => (
+            {/* 지역 탭: 순위 · 기준 역 · 그 지역에서 가장 고른 곳의 차이 */}
+            <div className="hstack gap-6 no-shrink" role="tablist" aria-label="추천 지역" style={{ overflowX: "auto", flexWrap: "nowrap", margin: "0 -16px", padding: "0 16px" }}>
+              {data.areas.map((a, i) => {
+                const best = a.places.find((p) => p.rank !== null);
+                const on = i === areaIdx;
+                return (
                   <button
-                    key={s.id}
+                    key={a.name}
                     type="button"
-                    aria-pressed={sort === s.id}
-                    onClick={() => setSort(s.id)}
-                    className={`chip${sort === s.id ? " chip--on" : ""}`}
-                    style={{ minHeight: 30, padding: "0 10px", fontSize: 12, borderRadius: 14 }}
+                    role="tab"
+                    aria-selected={on}
+                    onClick={() => {
+                      setAreaIdx(i);
+                      setSelId(a.places[0]?.id ?? "");
+                    }}
+                    className={`chip no-shrink${on ? " chip--on" : ""}`}
+                    style={{ minHeight: 34, padding: "0 12px", fontSize: 13, borderRadius: 17, gap: 4, opacity: a.rank === null ? 0.6 : 1 }}
                   >
-                    {s.label}
+                    <span className="t-bold">{a.rank ?? "–"}</span> {a.name}
+                    {best ? <span style={{ fontWeight: 400, opacity: 0.8 }}> · 차이 {best.diffMinutes}분</span> : null}
                   </button>
-                ))}
-              </div>
+                );
+              })}
+            </div>
+            {area ? (
+              <span className="t-12 no-shrink" style={{ color: "var(--ink-2)", lineHeight: 1.5 }}>
+                {area.reason}
+              </span>
             ) : null}
-            <span className="t-12 t-muted no-shrink">{sortNote}</span>
 
             {places.length === 0 ? (
               <div className="card" style={{ padding: 14 }}>
-                <span className="t-14 t-ink2">조건에 맞는 장소가 없어요. 검색 지역을 바꿔서 다시 찾아볼 수 있어요.</span>
+                <span className="t-14 t-ink2">이 지역에는 추천할 곳이 없어요. 다른 지역을 눌러 보세요.</span>
               </div>
             ) : (
               <div role="radiogroup" aria-label="장소 고르기" className="stack" style={{ gap: 10 }}>
@@ -229,13 +223,18 @@ export default function PlacesPage() {
                 ))}
               </div>
             )}
+
+            <span className="t-12 t-muted no-shrink">
+              추천 기준 · {data.rule}
+              {data.unknownOrigins.length ? ` · ${data.unknownOrigins.join(", ")}님은 출발지를 몰라 빼고 계산했어요` : ""}
+            </span>
           </>
         )}
       </div>
 
       <footer className="footer" style={{ padding: "10px 16px 18px", gap: 6 }}>
         <button type="button" className="btn btn--primary" onClick={choose} disabled={!selected}>
-          {selected ? `${selected.short}로 정하기` : "장소 고르기"}
+          {selected ? `${withRo(selected.short)} 정하기` : "장소 고르기"}
         </button>
         <span className="t-12 t-muted t-center">
           {data?.unverified ? "시설·수용 인원은 아직 확인 전이에요 · 확정 뒤 장소 사이트에서 확인해요" : "시설·인원·예약은 확정 뒤 회의 카드에서 장소 사이트로 확인해요"}

@@ -129,15 +129,31 @@ export function originForD(o: PlaceSearchResult): string {
   return /역(\s+\S+선)?$/.test(o.name) ? o.name : o.roadAddress;
 }
 
+/** 6 장소 후보의 지역 하나 (기준 역 + 그 주변 장소) */
+export interface AreaView {
+  /** 지역 이름 = 기준 역 (예: 종로3가역) */
+  name: string;
+  /** 지역 순위 (1부터). 추천할 장소가 없으면 null */
+  rank: number | null;
+  /** 이 지역을 이 순위로 둔 이유 */
+  reason: string;
+  places: PlaceOption[];
+  /** 이동시간 제한을 넘어서 뺀 장소 수 */
+  excludedCount: number;
+}
+
 /** 6 장소 후보 응답 (POST /api/places/recommend) */
 export interface PlaceRecommendation {
-  /** kakao = D가 실제로 찾은 결과, mock = 카카오 키가 없어서 가짜 데이터 */
+  /** kakao = 실제로 찾은 결과, mock = 카카오 키가 없어서 가짜 데이터 */
   source: "kakao" | "mock";
-  areaLabel: string;
-  title: string;
   timeLabel: string;
-  places: PlaceOption[];
-  /** true면 시설·수용 인원을 확인하지 않은 후보예요 (D preview.venueConditions) */
+  /** 추천 지역 (순위 순서). 지역마다 장소 몇 곳 */
+  areas: AreaView[];
+  /** 출발지를 확인하지 못한 팀원 이름 */
+  unknownOrigins: string[];
+  /** 추천 기준 설명 */
+  rule: string;
+  /** true면 시설·수용 인원을 확인하지 않은 후보예요 */
   unverified: boolean;
 }
 
