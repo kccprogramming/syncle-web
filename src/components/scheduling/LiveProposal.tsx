@@ -251,7 +251,7 @@ export function LiveProposal({ proposalId }: { proposalId: string }) {
         ? ranked.some((p) => p.rank !== null)
           ? '장소 후보 중 하나를 골라 주세요'
           : ranked.length
-            ? '고를 수 있는 장소가 없어요 · 이동시간을 아는 팀원이 2명 이상 필요해요'
+            ? '고를 수 있는 장소가 없어요 · 모두 1시간을 넘거나 이동시간을 아는 팀원이 2명보다 적어요'
             : '‘이 시간의 장소 찾기’를 눌러 주세요'
         : '이제 확정할 수 있어요';
   const pct = data.totalCount ? (data.respondedCount / data.totalCount) * 100 : 0;
@@ -465,8 +465,9 @@ export function LiveProposal({ proposalId }: { proposalId: string }) {
                           {
                             text:
                               p.rank === null
-                                ? '순위 제외 · 이동시간 미확인 또는 1시간 초과'
-                                : `두 사람 차이 ${p.travelTimeDifference ?? '?'}분 · 가장 오래 걸리는 사람 ${p.maxTravelMinutes ?? '?'}분`.replace('두 사람', p.travel.length > 2 ? '사람 간' : '두 사람'),
+                                ? '순위 제외 · 누군가 1시간 초과, 또는 이동시간을 아는 팀원이 2명보다 적어요'
+                                : `${p.rank}위 · ${p.travel.length > 2 ? '사람 간' : '두 사람'} 차이 ${p.travelTimeDifference ?? '?'}분 · 가장 오래 걸리는 사람 ${p.maxTravelMinutes ?? '?'}분` +
+                                  (p.travel.some((t) => t.minutes === null) ? ` · 미확인 ${p.travel.filter((t) => t.minutes === null).length}명 빼고 계산` : ''),
                             className: 't-12 t-muted',
                           },
                         ]}
