@@ -25,9 +25,9 @@ Google 로그인 → 내 정보(출발지 · 매주 안 되는 시간 · 알림 
 
 1. **답 기다리는 중 (11/6 밤 전달함)**
    - 성하님(B): **`c6e07ed`로 해결 · 통합본 반영함** (앱 카드를 요청 종류 하나로 · 근거 인용 검사 · 지어내기 금지, 테스트 196개 통과, 타입도 고침). 남은 것은 회의 조건의 `origins` 검사(앱이 빠진 팀원을 채우는 중) 정도.
-   - 지우님(C): 한밤중 시간 후보 → **`9834b43`로 해결 (매일 회의 가능 시간 `meetingHours`, 기본 09:00~22:00) · 통합본 반영함**. **Supabase에 고친 `supabase/c-place-type-migration.sql`을 한 번 더 실행해야 해요** (함수만 바꿔서 다시 실행해도 안전). 이미 00:00에 확정된 회의는 그대로라 새로 만들어 확인.
+   - 지우님(C): 한밤중 시간 후보 → **`9834b43`로 해결 (매일 회의 가능 시간 `meetingHours`, 기본 09:00~22:00) · 통합본 반영함**. Supabase에 고친 `supabase/c-place-type-migration.sql` **실행함 (11/6 희원)**. 남은 확인: 실제 계정으로 대면 제안을 새로 만들어 장소 종류 · 시간 후보(09:00~22:00 안) · 장소 찾기 보기 (이미 00:00에 확정된 회의는 그대로).
    - 답이 오면 `just_keeping`에서 가져와 `src/server/b` · C 파일만 바꿔 끼우고 테스트(4장 방법).
-2. **미리보기를 팀원에게 열지 (팀 결정)**: Vercel → Settings → Deployment Protection → Vercel Authentication 끄면 링크로 누구나 열고 각자 Google로 로그인해 써 볼 수 있어요. 주소: `https://syncle-web-git-integration-b-d-unione1.vercel.app` (`integration/b-d`의 최신 배포).
+2. **미리보기 팀원에게 열어 전달함 (11/6 희원)**: Vercel Authentication을 꺼서 링크로 누구나 열고 각자 Google로 로그인해 써 볼 수 있어요. 주소: `https://syncle-web-git-integration-b-d-unione1.vercel.app` (`integration/b-d`의 최신 배포, 로그인 없이 열리는 것 · 카카오 장소 검색 확인). 팀원 의견이 오면 반영.
 3. **push 뒤 미리보기가 안 생기면**: Vercel이 GitHub push를 놓친 적이 있어요(11/6 `bcec398`). Deployments → `⋯` → Create Deployment → `integration/b-d`, 또는 Settings → Git → Deploy Hooks의 `b-d` 훅 주소를 POST (주소는 비밀이라 문서에 안 적어요 · 희원이 가지고 있음).
 4. `integration/b-d` → `final` 저장소 (팀 확인 뒤).
 
@@ -107,13 +107,14 @@ B 최신(`placeType` 필수)에 맞춰 연결 쪽에서 고친 것: C `src/serve
 | 이름 | 어디에 | 없으면 |
 |---|---|---|
 | `KAKAO_REST_API_KEY` | `.env.local` + Vercel 환경 변수 (이미 넣음) | 장소 검색·추천이 예시 데이터로 동작 |
-| `GEMINI_API_KEY` | `.env.local` (넣음) + Vercel (아직) | 데모 흐름은 예시 조건, 진짜 팀 제안 만들기는 안 돼요 |
-| `SCHEDULE_LIVE_AI_ENABLED` · `SCHEDULE_LIVE_PLACES_ENABLED` | `.env.local` (`true`) + Vercel (아직) | 진짜 팀의 제안 만들기 · 장소 찾기가 막혀요 (C 서버 스위치) |
+| `GEMINI_API_KEY` | `.env.local` + Vercel (넣음, 11/6 확인) | 데모 흐름은 예시 조건, 진짜 팀 제안 만들기는 안 돼요 |
+| `SCHEDULE_LIVE_AI_ENABLED` · `SCHEDULE_LIVE_PLACES_ENABLED` | `.env.local` + Vercel (`true`, 11/6 확인) | 진짜 팀의 제안 만들기 · 장소 찾기가 막혀요 (C 서버 스위치) |
 | `GEMINI_MODEL` | 선택 | B 기본값 `gemini-2.5-flash` (11/6 B 최신부터, 이전 `gemini-3.1-flash-lite`) |
-| `NEXT_PUBLIC_SUPABASE_URL` | `.env.local` + Vercel (각자 직접) | A 연결 전이라 지금은 안 써요 |
-| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | `.env.local` + Vercel (각자 직접, 채팅으로 안 보내요) | 〃 |
-| `SUPABASE_SERVICE_ROLE_KEY` | 서버 `.env.local` + Vercel만 (브라우저·GitHub 금지) | 회원 탈퇴, 팀원 출발지 읽기(005)가 안 돼요 |
+| `NEXT_PUBLIC_SUPABASE_URL` | `.env.local` + Vercel (넣음) | 로그인 · 진짜 데이터가 안 되고 예전 데모로 움직여요 |
+| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | `.env.local` + Vercel (넣음, 채팅으로 안 보내요) | 〃 |
+| `SUPABASE_SERVICE_ROLE_KEY` | 서버 `.env.local` + Vercel만 (넣음, 브라우저·GitHub 금지) | 회원 탈퇴, 팀원 출발지 읽기(005)가 안 돼요 |
 
+- Vercel 환경 변수는 7개 모두 Production · Preview에 들어 있어요 (11/6 확인). `SUPABASE_SERVICE_ROLE_KEY` · `GEMINI_API_KEY`에 붙은 'Needs Attention'은 "비밀값 같으니 Secret으로 저장하라"는 권고예요 (지금 동작에는 상관없음).
 - 키는 채팅·문서에 쓰지 않아요. `.env.local`은 git에 올라가지 않아요.
 - `.env.local`에는 `KAKAO_REST_API_KEY=값` 한 줄만 (앞부분을 두 번 붙여넣지 않게 주의).
 - 카카오 앱 '싱클'(ID 1638343)은 카카오맵 사용 설정이 켜져 있어야 해요. 무료 쿼터는 계정당 처음 켠 앱 하나에만 붙어요.
@@ -151,8 +152,7 @@ B 최신(`placeType` 필수)에 맞춰 연결 쪽에서 고친 것: C `src/serve
      - **7 내 조건** `/proposals/{제안 ID}/conditions` (`LiveConditions.tsx`): AI가 이해한 내 시간(C 조건의 나) · 내 응답 · 매주 안 되는 시간(내 정보) · 출발 위치(바로 수정). '+ 이번 회의 조건 추가' → C `condition`(안 돼요 · 되면 좋아요, 찾는 기간 안). 5 화면 아래 'AI가 이해한 내 조건 보기 ›'로 들어가요.
    - **알림 (11/6)**: 1-2 알림은 `loadMyNotifications`(A `app_notifications`, 최근 100개), 하나 열면 그것만 · '모두 읽음'은 전부 `markNotificationsRead`. 홈 🔔은 `countUnreadNotifications` + `subscribeMyNotifications`(실시간). 지금 생기는 알림: `task_assigned`(할 일 배정 → 그 팀 할 일 탭), `meeting_response`(C '다시 알림' → 제안 화면). 실제 두 계정으로 확인.
    - 화면 크기: 컴퓨터(500px 이상)에서는 휴대폰 화면 높이를 `min(844px, 창 높이 − 32px)`로 고정하고 페이지 스크롤을 막아요. 화면 안(`.screen__body`)만 스크롤.
-   - 아직: 팀 메뉴의 회의는 데모 함수라 진짜 팀에서는 비어 있어요 (C 저장 뒤 `c_schedule_list`로). AI가 대화로 할 일 찾기는 B 요청 중 (7장).
-   - 다음: 대화방 '@AI 회의 잡아줘' → C 제안 만들기 (C SQL 적용 뒤). 그다음 대화방 '@AI 회의 잡아줘' → C 제안 만들기(`createLiveProposal`, 응답 마감 · 자료 마감 입력).
+   - 팀 메뉴 · 전체 보기의 회의는 진짜 팀이면 `loadTeamProposals`(c_schedule_list)로 보여줘요. 대화방 '@AI 회의 잡아줘' → C 제안 만들기도 연결 끝 (아래 2번).
    - 팀원 출발지: D 계산용 정확한 출발지는 `profile_private_locations`에 있고, 서버만 `get_team_private_origins_for_calculation`(005, service role 키)으로 읽어요. 브라우저에서 부르지 않아요.
    - `src/lib/data.ts`의 함수 안쪽만 API 호출로 바꿔요 (각 함수 위에 담당·API 주소 주석). `saveMyOrigin`이 출발지 저장 자리예요
    - `src/mocks/member-origins.json`(팀원 출발지 임시값)과 `demo-store`의 서버 저장 대상(확정, 응답, 출발지, 할 일)을 A API로 바꾸기
@@ -176,7 +176,7 @@ B 최신(`placeType` 필수)에 맞춰 연결 쪽에서 고친 것: C `src/serve
      - 응답은 `/respond`. 되는 시간 `kind: "selected"`, '다 안 돼요'는 `kind: "declined_all"`, 직접 입력 `kind: "custom"`.
      - 장소는 고른 `timeOptionId` + `searchAreas`(1~3곳, 빈 칸·중복 제거)를 `/places`로. 확정은 그 응답 `placeResults`에 저장된 장소 ID로 `/confirm` { `timeCandidateId`, `placeId`(온라인이면 null), `acknowledgePartialAttendance`, `version` }.
      - 제안 만들기는 `createLiveProposal()` → `POST /api/scheduling/teams/{teamId}` { text, referenceDate, searchWindow, **responseDeadline, materialDeadline** }. 마감 두 개는 꼭 화면에서 정해 보내요 (응답 마감 > 지금, 응답 마감 < 자료 마감, +09:00 붙이기). 아직 이 함수를 부르는 화면은 없어요 (대화방 실제 연결 때).
-   - **남은 것**: ① 팀이 `supabase/c-scheduling-review.sql`을 검토하고 Supabase에 적용 ② 실제 팀(A 팀 만들기 연결)에서 제안을 만들어 응답·장소·확정 확인 ③ 서버 설정 `SCHEDULE_LIVE_AI_ENABLED=true`, `SCHEDULE_LIVE_PLACES_ENABLED=true` (기본 꺼짐, 무료 사용량 확인 뒤 켜기) ④ 대화방 '@AI'에서 C 제안 만들기(`POST /api/scheduling/teams/{teamId}`, 응답 마감 입력 필요)와 대화방 카드·홈에서 실제 제안 열기.
+   - (예전 '남은 것' ①~④ — C SQL 적용, 실제 팀에서 응답 · 장소 · 확정, 서버 스위치 켜기(`.env.local`), 대화방 '@AI' 제안 만들기 · 카드 · 홈 — 은 11/6에 모두 끝났어요.)
    - 지우님 묶음 설명: `just_keeping`의 `share/jiwoo-c-code`(`a9c6fb0`) `jiwoo_C_code/integration/syncle-web/README.md`.
    - 이전 메모: 지우님이 우리 앱용 연결 묶음을 만들었어요 → `just_keeping`의 `share/jiwoo-c-code`(`a9c6fb0`) `jiwoo_C_code/integration/syncle-web/` (README에 형식 정리). `/api/scheduling/*` 라우트, `src/server/scheduling`, `src/features/scheduling`, C 저장 SQL(`c-scheduling-review.sql`, **검토용·미적용**). 우리 `main`(`a035210`) 기준이라 `integration/b-d`에는 비교하며 합쳐야 해요. 실제 제안의 6번은 C `POST /api/scheduling/proposals/{id}/places`(`searchAreas` 1~3곳 = 우리 지역 찾기의 역 이름)로 찾고, 그 결과의 장소 ID로만 확정할 수 있어요 (아니면 `C_PLACE_REQUIRED`).
    - 예전 메모: `src/server/c/features/proposals/proposal-flow.ts`(castVote, confirmProposal)와 `meeting-calendar.ts`(.ics)는 들어왔지만 화면과 연결 전이에요. 지금 5의 응답·확정은 브라우저 예시 상태(demo-store)예요.
