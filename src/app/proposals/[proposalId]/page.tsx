@@ -14,7 +14,8 @@ import { Icon } from "@/components/Icon";
 import { Toast, useToast } from "@/components/Toast";
 import { Sheet } from "@/components/Sheet";
 import { useDemo, useProposal } from "@/lib/demo-store";
-import { getMember, getPlaces, getTeam } from "@/lib/data";
+import { confirmProposal, getMember, getPlaces, getTeam } from "@/lib/data";
+import type { ConfirmRequest } from "@/types";
 import { getChosenPlace } from "@/components/chat/team-info";
 import { StatusPill } from "@/components/meeting/StatusPill";
 import { ModeToggle } from "@/components/meeting/ModeToggle";
@@ -86,8 +87,16 @@ function ProposalInner() {
     toast.show("응답을 고쳤어요 · AI가 추천을 다시 계산해요");
   }
 
+  // 방장이 확정: '추천대로 확정'이라 추천 시간 + 6에서 고른 장소를 C 확정 API에 넘겨요
   function confirm() {
-    update({ confirmed: true });
+    const req: ConfirmRequest = {
+      proposalId: proposal.id,
+      timeCandidateId: best.cTimeCandidateId ?? best.id,
+      placeId: online ? null : picked ? state.placeId : null,
+      acknowledgePartialAttendance: !allResponded,
+    };
+    confirmProposal(req);
+    update({ confirmed: true, confirmRequest: req });
     router.push(`/teams/${proposal.teamId}`);
   }
 

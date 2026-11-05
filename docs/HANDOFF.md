@@ -1,4 +1,4 @@
-# 싱클 인수인계 (2026-11-05 기준)
+# 싱클 인수인계 (2026-11-06 기준)
 
 새 작업을 시작할 때 이 문서와 `README.md`를 먼저 읽어요. AI(Claude)에게 맡길 때도 "docs/HANDOFF.md랑 README.md 읽고 이어서 하자"로 시작하면 돼요.
 
@@ -101,7 +101,9 @@
    - Supabase 프로젝트 URL·공개키, `schema-draft.sql` 적용 여부를 먼저 확인
    - `src/lib/data.ts`의 함수 안쪽만 API 호출로 바꿔요 (각 함수 위에 담당·API 주소 주석). `saveMyOrigin`이 출발지 저장 자리예요
    - `src/mocks/member-origins.json`(팀원 출발지 임시값)과 `demo-store`의 서버 저장 대상(확정, 응답, 출발지, 할 일)을 A API로 바꾸기
-2. **C의 투표 · 확정 저장**: `src/server/c/features/proposals/proposal-flow.ts`(castVote, confirmProposal)와 `meeting-calendar.ts`(.ics)는 들어왔지만 화면과 연결 전이에요. A의 저장이 있어야 여러 사람 응답이 모여요.
+2. **C의 응답 · 확정 저장**: `src/server/c/features/proposals/proposal-flow.ts`(castVote, confirmProposal)와 `meeting-calendar.ts`(.ics)는 들어왔지만 화면과 연결 전이에요. 지금 5의 응답·확정은 브라우저 예시 상태(demo-store)예요.
+   - 순서: A 기본 DB → C 저장 SQL 검토·적용 → 화면을 API에 연결. 그래야 팀원끼리 실제로 공유돼요.
+   - 확정할 때 넘길 값은 앱에 준비돼 있어요: `ConfirmRequest`(`src/types.ts`) = 제안 ID + **C의 시간 후보 ID**(`TimeOption.cTimeCandidateId`) + **6에서 고른 장소 ID** + 미응답자 있어도 확정 여부. 5의 `confirm()`이 `data.ts`의 `confirmProposal()`을 불러요 (지금은 아무것도 안 하고 `demo-store`의 `confirmRequest`에 기억). API 주소가 정해지면 그 함수 안만 fetch로 바꿔요.
 3. **Gemini 키로 B 실제 확인**: 키를 받으면 '@AI 회의 잡아줘'로 실제 조건 카드가 나오는지 확인.
 4. **`integration/b-d` → `final`**: 팀 확인 뒤 최종 저장소로 옮기기.
 
@@ -116,9 +118,12 @@
   - 새 추천 기준(1시간 제한 → 차이 → 최장)을 D 코드에 반영할지. 지금 D의 `rankPlacesByFairness`는 예전 기준(최장 우선)이라 앱은 `place-ranking.ts`를 써요
   - `findPlaces`가 글자로만 검색해서 다른 동네 장소가 섞여요 → 좌표·반경 검색 (`area-search.ts` 참고)
   - 걸어갈 만큼 가까우면 대중교통 경로가 없어 '미확인'이 돼요 → 도보 시간으로 처리
-- **지우님 (C)**
-  - C는 시간 후보마다 장소를 따로 찾게 되어 있어요. 앱은 장소를 6(지역 찾기)에서 한 번만 찾아요 → 맞출 방법
-  - 응답 마감은 C가 정하지 않아서 예시 값(11/6 21:00)을 써요 → 마감 정하는 주체
+- **지우님 (C)** — 11/6 답변으로 정리됨
+  - C의 장소 부분은 따로 알고리즘이 아니라 D `findPlaces`를 부르고 결과를 저장하는 연결부라 그대로 둬요.
+  - 장소는 **6 장소 화면을 써요**. 앱은 선택한 시간 후보 ID와 장소 ID를 C 확정 API에 넘겨요 (위 6장 2번, 앱 쪽 준비 끝).
+  - C가 고칠 것: '모든 시간 후보마다 장소 찾기' 반복 → **선택한 시간 기준으로 한 번** 호출. 고친 코드를 받으면 `src/server/c`만 바꿔 끼우고 `proposal-adapter.ts`를 확인해요 (지금은 `findPlaces: async () => []`로 넘겨요).
+  - C가 고칠 것: **응답 마감**을 제안 만들 때 입력받아 저장. 받으면 `proposal-adapter.ts`가 기존 예시 마감(11/6 21:00) 대신 그 값을 쓰게 바꿔요.
+  - 남은 확인: C의 `confirmProposal`은 지금 장소를 C의 `placeGroups`에서 찾아요. 6에서 고른 장소 ID를 받도록 바뀌는지 같이 확인해요.
 - **현서님 (A)**: 6장 1번
 
 ---

@@ -77,7 +77,10 @@ export type Message =
 
 /** 시간 후보 (time_options) */
 export interface TimeOption {
+  /** 화면 안에서 쓰는 순서 이름 (t-1, t-2 …). 내 응답(myPicks)과 맞춰요 */
   id: string;
+  /** C가 만든 진짜 시간 후보 ID ("time:시작/끝"). C 확정 API에는 이 값을 넘겨요. 가짜 데이터에는 없어요 */
+  cTimeCandidateId?: string;
   label: string; // "11/11(수) 19:00–21:00"
   short: string; // "11/11(수) 19:00"
   /** 시작·끝 시각 (서울 시간, ISO 8601). D 장소 추천과 B 일정 계산에 써요 */
@@ -96,6 +99,21 @@ export interface Source {
   who: string;
   quote: string;
   effect: string;
+}
+
+/**
+ * 회의 확정 요청 — C 확정 API (confirmProposal)에 넘기는 값
+ * 장소는 6 장소 후보에서 고른 것을 그대로 넘기고, C가 그 시간 기준으로 장소를 확인해요 (11/6 C와 합의).
+ * 회의 ID · 확정 시각 · 확정한 사람(방장)은 서버가 정해요.
+ */
+export interface ConfirmRequest {
+  proposalId: string;
+  /** C의 시간 후보 ID (TimeOption.cTimeCandidateId). 가짜 데이터 제안이면 화면 ID(t-1 …) */
+  timeCandidateId: string;
+  /** 6에서 고른 장소 ID. 온라인 회의면 null */
+  placeId: string | null;
+  /** 응답 안 한 팀원이 있는데도 확정 ('그래도 확정할까요?'에서 확정을 누름) */
+  acknowledgePartialAttendance: boolean;
 }
 
 /** 회의 제안 (proposals) — GET /api/proposals/:id */

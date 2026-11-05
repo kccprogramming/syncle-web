@@ -9,6 +9,7 @@ import type {
   AiReply,
   AppNotification,
   Condition,
+  ConfirmRequest,
   Me,
   Meeting,
   Member,
@@ -193,6 +194,16 @@ export async function recommendPlaces(
 /** GET /api/conditions?proposal=:id — B */
 export function getConditions(proposalId: string): Condition[] {
   return conditions[proposalId] ?? [];
+}
+
+/**
+ * 회의 확정 — C (confirmProposal) · 저장은 A
+ * 방장이 5에서 확정할 때 불러요. 시간 후보 ID와 6에서 고른 장소 ID를 넘겨요 (ConfirmRequest).
+ * 지금은 서버 저장이 없어서 아무것도 하지 않고, 화면은 데모 상태(demo-store)에 기억해요.
+ * A 기본 DB와 C 저장 SQL을 적용한 뒤 POST로 바꿔요 (주소는 C·A와 정하기).
+ */
+export function confirmProposal(_req: ConfirmRequest): void {
+  // 서버가 생기면: await fetch(`/api/proposals/${_req.proposalId}/confirm`, { method: "POST", body: JSON.stringify(_req) })
 }
 
 /** GET /api/meetings — C (다가오는 회의 + 지난 회의) */

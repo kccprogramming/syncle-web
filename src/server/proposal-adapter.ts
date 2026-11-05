@@ -60,6 +60,7 @@ export async function buildProposal(args: {
     const e = seoulParts(t.endAt);
     const time: TimeOption = {
       id: `t-${i + 1}`, // 화면의 내 응답(myPicks)과 맞추려고 순서대로 t-1, t-2 … 로 불러요
+      cTimeCandidateId: t.id, // C 확정 API에는 C의 진짜 ID를 넘겨요
       label: `${s.date} ${s.time}–${e.time}`,
       short: `${s.date} ${s.time}`,
       startAt: t.startAt,

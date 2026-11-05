@@ -8,7 +8,7 @@
  * 백엔드를 연결하면 이 상태 대부분은 서버 데이터로 바뀌어요.
  */
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
-import type { Condition, PlaceOption, PlaceSearchResult, Proposal, WeeklyBlock } from "@/types";
+import type { Condition, ConfirmRequest, PlaceOption, PlaceSearchResult, Proposal, WeeklyBlock } from "@/types";
 import { getMe, getMyOrigin, getProposal } from "@/lib/data";
 import type { PlaceIntent } from "@/lib/place-intent";
 
@@ -17,6 +17,8 @@ export interface DemoState {
   cProposal: Proposal | null;
   /** 방장이 회의를 확정했는지 (5 → 3-4) */
   confirmed: boolean;
+  /** 확정할 때 C에 넘긴 값 (시간 후보 ID + 6에서 고른 장소 ID). 서버가 생기면 확정된 회의로 바뀌어요 */
+  confirmRequest: ConfirmRequest | null;
   /** 내(민지) 응답: 되는 시간 후보 id */
   myPicks: string[];
   /** 지우가 3-3에서 응답했는지 */
@@ -58,6 +60,7 @@ export interface DemoState {
 const initialState = (): DemoState => ({
   cProposal: null,
   confirmed: false,
+  confirmRequest: null,
   myPicks: ["t-1", "t-2", "t-3"],
   jiwooResponded: false,
   jiwooPicks: ["t-1"],
