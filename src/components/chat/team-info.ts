@@ -21,9 +21,9 @@ const SHORT_TITLES: Record<string, string> = {
   "p-1": "역할 분담 회의",
 };
 
-/** 이 팀에서 진행 중인 회의 제안 (없으면 null) */
-export function getTeamProposal(teamId: string): Proposal | null {
-  const p = getProposal("p-1");
+/** 이 팀에서 진행 중인 회의 제안 (없으면 null). c: C가 만든 제안 (데모 상태의 cProposal) */
+export function getTeamProposal(teamId: string, c?: Proposal | null): Proposal | null {
+  const p = c ?? getProposal("p-1");
   return p.teamId === teamId ? p : null;
 }
 
@@ -50,9 +50,9 @@ export function getChosenPlace(proposalId: string, pick: PlacePick): PlaceOption
  * - upcoming: 확정된 다가오는 회의 (제안에서 나온 회의는 확정된 뒤에만 보여요)
  * - past: 지난 회의
  */
-export function getTeamMeetings(teamId: string, confirmed: boolean) {
+export function getTeamMeetings(teamId: string, confirmed: boolean, c?: Proposal | null) {
   const all = getMeetings().filter((m) => m.teamId === teamId);
-  const proposal = getTeamProposal(teamId);
+  const proposal = getTeamProposal(teamId, c);
   const isDemo = teamId === DEMO_TEAM_ID;
   return {
     proposal: proposal && !(isDemo && confirmed) ? proposal : null,

@@ -13,8 +13,8 @@ import { TopBar } from "@/components/TopBar";
 import { Icon } from "@/components/Icon";
 import { Toast, useToast } from "@/components/Toast";
 import { Sheet } from "@/components/Sheet";
-import { useDemo } from "@/lib/demo-store";
-import { getMember, getPlaces, getProposal, getTeam } from "@/lib/data";
+import { useDemo, useProposal } from "@/lib/demo-store";
+import { getMember, getPlaces, getTeam } from "@/lib/data";
 import { getChosenPlace } from "@/components/chat/team-info";
 import { StatusPill } from "@/components/meeting/StatusPill";
 import { ModeToggle } from "@/components/meeting/ModeToggle";
@@ -53,10 +53,12 @@ function ProposalInner() {
   const { state, update } = useDemo();
   const toast = useToast();
 
-  const proposal = getProposal(proposalId);
+  const proposal = useProposal(proposalId);
   const base = `/proposals/${proposal.id}`;
   const online = state.mode === "online";
-  const place = getChosenPlace(proposal.id, state);
+  // 6에서 장소를 고르기 전에는 예시 장소 대신 '장소 고르기'를 보여줘요
+  const picked = !!state.chosenPlace && state.chosenPlace.id === state.placeId;
+  const place = picked ? getChosenPlace(proposal.id, state) : null;
   const owner = getMember(getTeam(proposal.teamId).ownerId); // 방장
   const pendingName = getMember(proposal.pendingIds[0]).name;
 
@@ -215,12 +217,14 @@ function ProposalInner() {
           <Link href={`${base}/places`} className="card" style={{ padding: "12px 16px", flexDirection: "row", alignItems: "center", gap: 12, color: "var(--ink)" }}>
             <Icon name="pin" size={20} strokeWidth={1.8} color="var(--accent)" />
             <div className="stack gap-2 grow">
-              <span className="t-15 t-strong">{place?.name}</span>
+              <span className="t-15 t-strong">{place ? place.name : "팀원 사이 공평한 지역에서 찾아요"}</span>
               <span className="t-12 t-muted">
-                {place?.walk}{place?.maxMinutes == null ? "" : ` · 가장 먼 사람 ${place.maxMinutes}분`}
+                {place
+                  ? `${place.walk}${place.diffMinutes == null ? "" : ` · 사람 간 차이 ${place.diffMinutes}분`}`
+                  : "출발지를 보고 모두 비슷하게 걸리는 곳을 추천해요"}
               </span>
             </div>
-            <span className="t-13 t-strong t-accent no-shrink">장소 바꾸기 ›</span>
+            <span className="t-13 t-strong t-accent no-shrink">{place ? "장소 바꾸기 ›" : "장소 고르기 ›"}</span>
           </Link>
         )}
 
@@ -241,7 +245,7 @@ function ProposalInner() {
           <Line />
           <button type="button" className="row" aria-expanded={showSources} onClick={() => setShowSources(!showSources)}>
             <span className="t-14 t-strong no-shrink">AI가 참고한 발언 {proposal.sources.length}개</span>
-            <span className="t-12 t-muted grow t-ellipsis">{showSources ? "" : "고정 메시지, 민수, 서연 외"}</span>
+            <span className="t-12 t-muted grow t-ellipsis">{showSources ? "" : `${[...new Set(proposal.sources.map((x) => x.who))].slice(0, 3).join(", ")}${new Set(proposal.sources.map((x) => x.who)).size > 3 ? " 외" : ""}`}</span>
             <span className="t-12 t-muted no-shrink">{showSources ? "접기" : "펼치기"}</span>
           </button>
           {showSources ? (

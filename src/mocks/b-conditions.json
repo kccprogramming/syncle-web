@@ -1,0 +1,64 @@
+{
+  "_note": "GEMINI_API_KEY가 없을 때 쓰는 예시: B가 hci4 대화에서 뽑았을 법한 회의 조건이에요. C는 이걸로 실제 시간 계산을 해요.",
+  "hci4": {
+    "schedule": {
+      "teamId": "hci4",
+      "timezone": "Asia/Seoul",
+      "searchWindow": { "startAt": "2026-11-09T00:00:00+09:00", "endAt": "2026-11-16T00:00:00+09:00" },
+      "durationMinutes": 120,
+      "requiredMemberIds": ["u-minji", "u-jiwoo", "u-minsu", "u-seoyeon"],
+      "members": [
+        {
+          "memberId": "u-minji",
+          "responseStatus": "provided",
+          "availableSlots": [
+            { "startAt": "2026-11-09T19:00:00+09:00", "endAt": "2026-11-09T22:00:00+09:00" },
+            { "startAt": "2026-11-11T19:00:00+09:00", "endAt": "2026-11-11T22:00:00+09:00" },
+            { "startAt": "2026-11-12T19:00:00+09:00", "endAt": "2026-11-12T22:00:00+09:00" },
+            { "startAt": "2026-11-13T19:00:00+09:00", "endAt": "2026-11-13T22:00:00+09:00" },
+            { "startAt": "2026-11-14T13:00:00+09:00", "endAt": "2026-11-14T18:00:00+09:00" }
+          ],
+          "unavailableSlots": [{ "startAt": "2026-11-10T14:00:00+09:00", "endAt": "2026-11-10T18:00:00+09:00" }]
+        },
+        { "memberId": "u-jiwoo", "responseStatus": "missing", "availableSlots": [], "unavailableSlots": [] },
+        {
+          "memberId": "u-minsu",
+          "responseStatus": "provided",
+          "availableSlots": [
+            { "startAt": "2026-11-09T19:00:00+09:00", "endAt": "2026-11-09T22:00:00+09:00" },
+            { "startAt": "2026-11-11T19:00:00+09:00", "endAt": "2026-11-11T22:00:00+09:00" },
+            { "startAt": "2026-11-13T19:00:00+09:00", "endAt": "2026-11-13T22:00:00+09:00" },
+            { "startAt": "2026-11-14T14:00:00+09:00", "endAt": "2026-11-14T18:00:00+09:00" }
+          ],
+          "unavailableSlots": [{ "startAt": "2026-11-12T00:00:00+09:00", "endAt": "2026-11-13T00:00:00+09:00" }]
+        },
+        {
+          "memberId": "u-seoyeon",
+          "responseStatus": "provided",
+          "availableSlots": [
+            { "startAt": "2026-11-11T18:00:00+09:00", "endAt": "2026-11-11T22:00:00+09:00" },
+            { "startAt": "2026-11-12T18:00:00+09:00", "endAt": "2026-11-12T22:00:00+09:00" },
+            { "startAt": "2026-11-13T18:00:00+09:00", "endAt": "2026-11-13T22:00:00+09:00" },
+            { "startAt": "2026-11-14T12:00:00+09:00", "endAt": "2026-11-14T18:00:00+09:00" },
+            { "startAt": "2026-11-15T12:00:00+09:00", "endAt": "2026-11-15T18:00:00+09:00" }
+          ],
+          "unavailableSlots": [
+            { "startAt": "2026-11-14T00:00:00+09:00", "endAt": "2026-11-14T12:00:00+09:00" },
+            { "startAt": "2026-11-15T00:00:00+09:00", "endAt": "2026-11-15T12:00:00+09:00" }
+          ]
+        }
+      ]
+    },
+    "purpose": "중간발표 자료 역할 분담",
+    "meetingMode": "offline",
+    "agenda": ["발표 목차 확정", "파트별 분량과 담당 나누기", "자료 취합 마감일 정하기"],
+    "sourceMessageIds": ["msg-2", "msg-3", "msg-4", "msg-5"],
+    "origins": [
+      { "memberId": "u-minji", "station": "대화역 3호선" },
+      { "memberId": "u-jiwoo", "station": "길음역 4호선" },
+      { "memberId": "u-minsu", "station": "건대입구역 2호선" },
+      { "memberId": "u-seoyeon", "station": "신촌역 2호선" }
+    ],
+    "placeRequirements": ["노트북 작업 가능한 곳"]
+  }
+}

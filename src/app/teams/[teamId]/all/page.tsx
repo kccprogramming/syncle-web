@@ -52,7 +52,7 @@ function Inner() {
   const [filter, setFilter] = useState<FileFilter>("all");
 
   const isDemo = teamId === DEMO_TEAM_ID;
-  const meetings = getTeamMeetings(teamId, isDemo && state.confirmed);
+  const meetings = getTeamMeetings(teamId, isDemo && state.confirmed, state.cProposal);
   const files = getFiles(teamId);
   const { list: tasks, suggestion } = getTeamTaskViews(teamId, state);
 

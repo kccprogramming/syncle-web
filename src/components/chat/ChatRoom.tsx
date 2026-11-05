@@ -56,7 +56,7 @@ export function ChatRoom({
   const me = getMe();
   const team = getTeam(teamId);
   const isConfirmed = confirmed && teamId === DEMO_TEAM_ID;
-  const proposalId = getTeamProposal(teamId)?.id ?? "p-1";
+  const proposalId = getTeamProposal(teamId, state.cProposal)?.id ?? "p-1";
   const { aiOn, setAiOn } = useTeamAi(team);
   const toast = useToast();
 
@@ -125,6 +125,8 @@ export function ChatRoom({
         .then((r) => {
           // AI가 대화를 보고 고른 장소 종류를 기억해요 (6 장소 후보가 이걸로 찾아요). 사람이 바꿨던 값은 지워요.
           if (r.placeIntent) update({ aiPlaceIntent: r.placeIntent, placeKeyword: null });
+          // C가 시간 후보를 계산한 제안이 있으면 그걸로 카드·5·6·7을 보여줘요. 새 제안이니 내 응답도 다시 골라 둬요
+          if (r.proposal) update({ cProposal: r.proposal, myPicks: r.proposal.times.map((t) => t.id), jiwooResponded: false });
           if (r.source === "mock" || !r.reply) return runAi(workingId, fail);
           const reply: ChatItem = { id: newId(), type: "ai-reply", reply: r.reply, at: nowLabel() };
           // 조건이 정리됐으면 이어서 시간 제안(C · 아직 예시 데이터)을 보여줘요
@@ -173,7 +175,7 @@ export function ChatRoom({
   };
 
   // 위 요약 줄
-  const meetings = getTeamMeetings(teamId, isConfirmed);
+  const meetings = getTeamMeetings(teamId, isConfirmed, state.cProposal);
   const hasProposalCard = items.some((m) => m.type === "ai-proposal");
   const upcoming = meetings.upcoming[0];
   const showProposal = !!meetings.proposal && hasProposalCard;

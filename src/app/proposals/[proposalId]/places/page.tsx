@@ -17,8 +17,8 @@ import { useParams, useRouter } from "next/navigation";
 import { TopBar } from "@/components/TopBar";
 import { Spinner } from "@/components/Icon";
 import { Sheet } from "@/components/Sheet";
-import { useDemo } from "@/lib/demo-store";
-import { getMe, getProposal, originForD, recommendPlaces, type PlaceRecommendation } from "@/lib/data";
+import { useDemo, useProposal } from "@/lib/demo-store";
+import { getMe, originForD, recommendPlaces, type PlaceRecommendation } from "@/lib/data";
 import type { PlaceOption } from "@/types";
 import { inferPlaceIntent, wasLabel, withRo } from "@/lib/place-intent";
 import { PlaceMap } from "@/components/meeting/PlaceMap";
@@ -35,7 +35,7 @@ export default function PlacesPage() {
   const { proposalId } = useParams<{ proposalId: string }>();
   const router = useRouter();
   const { state, update } = useDemo();
-  const proposal = getProposal(proposalId);
+  const proposal = useProposal(proposalId);
 
   const [data, setData] = useState<PlaceRecommendation | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -92,7 +92,7 @@ export default function PlacesPage() {
 
   function choose() {
     if (!selected) return;
-    update({ placeId: selected.id, chosenPlace: live ? selected : null });
+    update({ placeId: selected.id, chosenPlace: selected });
     router.push(`/proposals/${proposal.id}`);
   }
 
@@ -102,7 +102,7 @@ export default function PlacesPage() {
         back={`/proposals/${proposal.id}`}
         backLabel="회의 제안으로"
         title="장소 후보"
-        right={<span className="t-12 t-muted no-shrink" style={{ marginRight: 8 }}>{data?.timeLabel ?? ""}</span>}
+        right={<span className="t-12 t-muted no-shrink" style={{ marginRight: 8 }}>{(proposal.times.find((t) => t.recommended) ?? proposal.times[0])?.short ?? ""}</span>}
       />
 
       {area && places.length ? (

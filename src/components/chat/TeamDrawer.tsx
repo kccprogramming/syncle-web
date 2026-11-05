@@ -64,7 +64,7 @@ export function TeamDrawer({
   if (!open) return null;
 
   const base = `/teams/${team.id}`;
-  const meetings = getTeamMeetings(team.id, confirmed);
+  const meetings = getTeamMeetings(team.id, confirmed, state.cProposal);
   const lastPast = meetings.past[0];
   const files = getFiles(team.id);
   const { list: tasks, suggestion } = getTeamTaskViews(team.id, state);

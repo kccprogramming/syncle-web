@@ -117,14 +117,16 @@ src/
 
 ## 7. 백엔드 연결 현황 (B · D)
 
-받은 코드는 `src/server/b`(성하, 회의 조건 추출)와 `src/server/d`(현규, 장소 추천)에 **그대로** 두었어요.
+받은 코드는 `src/server/b`(성하, 회의 조건 추출), `src/server/c`(지우, 시간 후보 · 회의 제안), `src/server/d`(현규, 장소 추천)에 **그대로** 두었어요.
+C의 `shared/b-c-contract.ts`만 B의 최신 규격을 다시 내보내도록 바꿨어요 (같은 모양 + `preferredSlots`).
 각 파일 끝의 단독 실행용 예시(`if (import.meta.main) {…}`)만 Next.js에서 돌 수 없어 뺐어요. 원본 설명은 같은 폴더의 `B_README.md`, `D_README.md`, `D_CONTRACT.md`에 있어요.
-우리 앱 모양으로 바꾸는 일은 `src/server/ai-adapter.ts`(B), `src/server/places-adapter.ts`(D)에서만 해요.
+우리 앱 모양으로 바꾸는 일은 `src/server/ai-adapter.ts`(B), `src/server/proposal-adapter.ts`(C), `src/server/places-adapter.ts`·`area-search.ts`(D)에서만 해요.
 
 | 담당 | 서버 주소 | 쓰는 화면 | 필요한 키 | 키가 없으면 |
 |---|---|---|---|---|
 | D 장소 추천 | `POST /api/places/recommend` | 6 장소 후보 → 5·8·대화방 카드 | `KAKAO_REST_API_KEY` | 가짜 장소 3곳 ('예시 데이터' 표시, 같은 추천 기준 적용) |
-| B 회의 조건 | `POST /api/ai/request` | 3 대화방 '@AI 회의 잡아줘' | `GEMINI_API_KEY` | 지금까지의 예시 흐름 |
+| B 회의 조건 | `POST /api/ai/request` | 3 대화방 '@AI 회의 잡아줘' | `GEMINI_API_KEY` | 예시 조건(`src/mocks/b-conditions.json`)으로 C를 돌려요 |
+| C 시간 후보 · 제안 | `POST /api/ai/request` (B 다음) | 3 제안 카드 · 5 회의 제안 · 6 · 3-3 · 홈 | 없음 (계산만 해요) | — |
 
 **장소 추천 기준** (`src/lib/place-ranking.ts`, 팀 합의 11/5)
 1. 누군가 1시간(`MAX_TRAVEL_MINUTES`)을 넘게 걸리는 장소는 뺀다
@@ -137,4 +139,5 @@ D의 `findPlaces`·`rankPlacesByFairness`는 글자 검색·예전 순위 기준
 
 아직 임시로 정해 둔 것 (C와 합의 필요):
 - 팀원 출발지: `src/mocks/member-origins.json` (나중에 A의 프로필 출발역)
-- B가 조건을 정리한 뒤 나오는 시간 제안 카드는 아직 C가 아니라 예시 데이터예요
+- C가 만든 제안은 이 팀의 제안 자리(`p-1`)를 바꿔 끼워요. 응답 마감·장소는 C가 정하지 않아서 기존 값을 이어받아요
+- C의 투표·확정(`proposal-flow.ts`)과 캘린더(`meeting-calendar.ts`)는 들어왔지만 아직 화면과 연결하지 않았어요 (A의 저장이 필요해요)

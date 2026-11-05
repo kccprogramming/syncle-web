@@ -8,11 +8,13 @@
  * 백엔드를 연결하면 이 상태 대부분은 서버 데이터로 바뀌어요.
  */
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
-import type { Condition, PlaceOption, PlaceSearchResult, WeeklyBlock } from "@/types";
-import { getMe, getMyOrigin } from "@/lib/data";
+import type { Condition, PlaceOption, PlaceSearchResult, Proposal, WeeklyBlock } from "@/types";
+import { getMe, getMyOrigin, getProposal } from "@/lib/data";
 import type { PlaceIntent } from "@/lib/place-intent";
 
 export interface DemoState {
+  /** C가 시간 후보를 계산해서 만든 회의 제안 (3 '@AI … 잡아줘' 뒤). 없으면 가짜 데이터의 제안을 보여줘요 */
+  cProposal: Proposal | null;
   /** 방장이 회의를 확정했는지 (5 → 3-4) */
   confirmed: boolean;
   /** 내(민지) 응답: 되는 시간 후보 id */
@@ -54,6 +56,7 @@ export interface DemoState {
 }
 
 const initialState = (): DemoState => ({
+  cProposal: null,
   confirmed: false,
   myPicks: ["t-1", "t-2", "t-3"],
   jiwooResponded: false,
@@ -128,4 +131,11 @@ export function useDemo(): DemoContextValue {
   const ctx = useContext(DemoContext);
   if (!ctx) throw new Error("useDemo는 DemoProvider 안에서만 쓸 수 있어요");
   return ctx;
+}
+
+/** 회의 제안 하나. C가 만든 제안이 있으면 그걸, 없으면 가짜 데이터(data.ts getProposal)를 돌려줘요 */
+export function useProposal(proposalId: string): Proposal {
+  const { state } = useDemo();
+  const c = state.cProposal;
+  return c && c.id === proposalId ? c : getProposal(proposalId);
 }

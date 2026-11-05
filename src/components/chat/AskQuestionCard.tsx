@@ -5,12 +5,12 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Icon } from "@/components/Icon";
 import { CheckBox } from "@/components/Controls";
-import { getMember, getProposal } from "@/lib/data";
-import { useDemo } from "@/lib/demo-store";
+import { getMember } from "@/lib/data";
+import { useDemo, useProposal } from "@/lib/demo-store";
 
 export function AskQuestionCard({ proposalId, viewerId, onToast }: { proposalId: string; viewerId: string; onToast: (text: string) => void }) {
   const { state, update } = useDemo();
-  const p = getProposal(proposalId);
+  const p = useProposal(proposalId);
   const viewer = getMember(viewerId);
 
   // 고른 시간과 보냈는지 여부. 저장된 상태가 늦게 불러와져도 맞춰지도록 effect로 따라가요.

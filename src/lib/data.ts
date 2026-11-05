@@ -41,6 +41,7 @@ import noMatchJson from "@/mocks/no-match.json";
 import placeSearchJson from "@/mocks/place-search.json";
 import aiRepliesJson from "@/mocks/ai-replies.json";
 import memberOriginsJson from "@/mocks/member-origins.json";
+import bConditionsJson from "@/mocks/b-conditions.json";
 import type { PlaceIntent } from "@/lib/place-intent";
 
 const members = membersJson as Member[];
@@ -127,6 +128,15 @@ export async function saveMyOrigin(_memberId: string, _place: PlaceSearchResult)
 /** D에 보낼 출발지 글자: 역 이름이면 이름 그대로, 아니면 도로명 주소 (D resolveOrigin이 역/주소를 나눠서 찾아요) */
 export function originForD(o: PlaceSearchResult): string {
   return /역(\s+\S+선)?$/.test(o.name) ? o.name : o.roadAddress;
+}
+
+/**
+ * 예시 회의 조건 (서버에서만 써요) — GEMINI_API_KEY가 없을 때 B 대신 C에 넘겨요.
+ * B가 이 팀 대화에서 뽑았을 법한 조건이라, C의 시간 계산은 실제로 돌아가요.
+ * 반환 모양은 B의 Conditions (src/server/b/b-c-contract.ts)예요.
+ */
+export function getDemoConditions(teamId: string): unknown | null {
+  return (bConditionsJson as Record<string, unknown>)[teamId] ?? null;
 }
 
 /** 6 장소 후보의 지역 하나 (기준 역 + 그 주변 장소) */
@@ -230,6 +240,10 @@ export interface AiRequestResponse {
   canPropose?: boolean;
   /** AI가 대화를 보고 고른 장소 종류와 근거 (6 장소 후보가 이걸로 찾아요) */
   placeIntent?: PlaceIntent;
+  /** C가 시간 후보를 계산해서 만든 회의 제안 (대화방 카드 · 5 · 6 · 7이 이걸 보여줘요) */
+  proposal?: Proposal;
+  /** C가 남긴 경고 */
+  warnings?: string[];
 }
 
 /**

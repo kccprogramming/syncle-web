@@ -5,8 +5,8 @@ import { useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { TopBar } from "@/components/TopBar";
 import { Icon } from "@/components/Icon";
-import { useDemo } from "@/lib/demo-store";
-import { getMember, getNoMatchOptions, getProposal, getTeam } from "@/lib/data";
+import { useDemo, useProposal } from "@/lib/demo-store";
+import { getMember, getNoMatchOptions, getTeam } from "@/lib/data";
 import { StatusPill } from "@/components/meeting/StatusPill";
 import { RadioCard } from "@/components/meeting/RadioCard";
 
@@ -15,7 +15,7 @@ export default function NoMatchPage() {
   const router = useRouter();
   const { update } = useDemo();
 
-  const proposal = getProposal(proposalId);
+  const proposal = useProposal(proposalId);
   const options = getNoMatchOptions(proposal.id);
   const total = proposal.respondedIds.length + proposal.pendingIds.length;
   const owner = getMember(getTeam(proposal.teamId).ownerId); // 방장

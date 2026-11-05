@@ -4,8 +4,8 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Icon, Spinner } from "@/components/Icon";
-import { getMeeting, getMember, getProposal } from "@/lib/data";
-import { useDemo } from "@/lib/demo-store";
+import { getMeeting, getMember } from "@/lib/data";
+import { useDemo, useProposal } from "@/lib/demo-store";
 import type { AiReply } from "@/types";
 import { getChosenPlace, respondedText } from "./team-info";
 
@@ -34,7 +34,7 @@ function InfoRow({ icon, iconColor, children, right }: { icon: "clock" | "timer"
 /** 3 AI 회의 제안 카드 */
 export function ProposalCard({ proposalId, teamId }: { proposalId: string; teamId: string }) {
   const { state } = useDemo();
-  const p = getProposal(proposalId);
+  const p = useProposal(proposalId);
   const s = p.cardSummary;
   const pendingName = p.pendingIds.length ? getMember(p.pendingIds[0]).name : null; // 아직 응답하지 않은 사람
 
@@ -101,7 +101,7 @@ function StepMark({ kind }: { kind: "done" | "doing" | "fail" | "todo" }) {
 
 /** 3-1-1 AI가 회의를 정리하는 중 (시간이 지나면 단계가 하나씩 끝나요) */
 export function AiWorkingCard({ proposalId }: { proposalId: string }) {
-  const p = getProposal(proposalId);
+  const p = useProposal(proposalId);
   const [step, setStep] = useState(1); // 1: 시간 맞추는 중, 2: 장소 찾는 중
 
   useEffect(() => {
@@ -147,7 +147,7 @@ export function AiWorkingCard({ proposalId }: { proposalId: string }) {
 
 /** 3-1-2 장소 찾기에 실패했을 때 */
 export function AiFailedCard({ proposalId, onRetry, onTimeOnly }: { proposalId: string; onRetry: () => void; onTimeOnly: () => void }) {
-  const p = getProposal(proposalId);
+  const p = useProposal(proposalId);
   return (
     <section aria-label="AI 정리 실패" style={{ ...cardBase, border: "1.5px solid var(--warn-line)" }}>
       <div className="hstack gap-8">

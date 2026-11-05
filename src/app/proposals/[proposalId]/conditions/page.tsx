@@ -12,8 +12,8 @@ import { TopBar } from "@/components/TopBar";
 import { Icon } from "@/components/Icon";
 import { CheckBox } from "@/components/Controls";
 import { Toast, useToast } from "@/components/Toast";
-import { useDemo } from "@/lib/demo-store";
-import { getConditions, getMe, getProposal } from "@/lib/data";
+import { useDemo, useProposal } from "@/lib/demo-store";
+import { getConditions, getMe } from "@/lib/data";
 import type { Condition } from "@/types";
 import { AddConditionSheet, type ConditionKind } from "@/components/meeting/AddConditionSheet";
 
@@ -65,7 +65,7 @@ function ConditionsInner() {
   const toast = useToast();
   const me = getMe();
 
-  const proposal = getProposal(proposalId);
+  const proposal = useProposal(proposalId);
   const conditions = [...getConditions(proposal.id), ...state.addedConditions];
 
   // 시트: null이면 닫힘, 아니면 처음 고를 종류

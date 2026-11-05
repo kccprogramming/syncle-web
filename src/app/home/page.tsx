@@ -10,8 +10,8 @@ import { useSearchParams } from "next/navigation";
 import { Icon } from "@/components/Icon";
 import { TeamBadge } from "@/components/Avatar";
 import { HomeHeader } from "@/components/home/HomeHeader";
-import { useDemo } from "@/lib/demo-store";
-import { getMeetings, getNotifications, getPlaces, getProposal, getTeam, getTeams } from "@/lib/data";
+import { useDemo, useProposal } from "@/lib/demo-store";
+import { getMeetings, getNotifications, getPlaces, getTeam, getTeams } from "@/lib/data";
 import type { Meeting } from "@/types";
 import { getChosenPlace, type PlacePick } from "@/components/chat/team-info";
 
@@ -151,7 +151,7 @@ function MeetingCard({ meeting, confirmed, pick }: { meeting: Meeting; confirmed
     );
   }
 
-  const proposal = getProposal(meeting.proposalId);
+  const proposal = useProposal(meeting.proposalId);
   const total = proposal.respondedIds.length + proposal.pendingIds.length;
   return (
     <Link href={`/proposals/${proposal.id}`} className="card card--accent" style={rowStyle}>
