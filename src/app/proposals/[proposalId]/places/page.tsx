@@ -4,6 +4,8 @@
  * 6 장소 후보 — 지도 + 정렬 + 장소 카드. 고르면 제안에 반영해요.
  *
  * 장소는 data.ts의 recommendPlaces → 서버 /api/places/recommend → D 모듈(findPlaces)로 찾아요.
+ * 찾을 장소 종류(합주실 · 회의 장소 · 회식 장소 …)는 AI가 대화를 보고 골라요 (3 '@AI … 잡아줘' → place-intent).
+ * 사람은 '바꾸기'로만 직접 고르고, 'AI 추천으로'를 누르면 다시 AI가 고른 종류로 돌아가요.
  * 카카오 키가 없으면 서버가 가짜 데이터를 돌려줘요 (화면 위에 '예시 데이터'로 표시).
  *
  * '공평한 순'은 D의 rankPlacesByFairness와 같은 기준이에요:
@@ -17,6 +19,7 @@ import { Sheet } from "@/components/Sheet";
 import { useDemo } from "@/lib/demo-store";
 import { getMe, getProposal, originForD, recommendPlaces, type PlaceRecommendation } from "@/lib/data";
 import type { PlaceOption } from "@/types";
+import { inferPlaceIntent, wasLabel } from "@/lib/place-intent";
 import { PlaceMap } from "@/components/meeting/PlaceMap";
 import { walkMinutes } from "@/components/meeting/proposal-utils";
 
@@ -46,8 +49,8 @@ function sortPlaces(list: PlaceOption[], sort: SortId) {
   return copy;
 }
 
-/** 자주 찾는 장소 종류. 그 밖의 것은 '직접 입력'으로 */
-const PLACE_KEYWORDS = ["스터디룸", "스터디카페", "카페", "합주실", "회의실"];
+/** '바꾸기'를 눌렀을 때 보여 줄 장소 종류. 그 밖의 것은 '직접 입력'으로 */
+const PLACE_KEYWORDS = ["스터디룸", "스터디카페", "카페", "합주실", "맛집", "회의실"];
 
 export default function PlacesPage() {
   const { proposalId } = useParams<{ proposalId: string }>();
@@ -62,7 +65,15 @@ export default function PlacesPage() {
   const [sort, setSort] = useState<SortId>("fair");
 
   const [keywordSheet, setKeywordSheet] = useState(false);
-  const keyword = state.placeKeyword;
+  const [showKinds, setShowKinds] = useState(false);
+  // AI가 대화에서 고른 장소 종류. 아직 '@AI … 잡아줘' 전이면 제안의 목적·안건에서 골라요.
+  const intent = state.aiPlaceIntent ?? inferPlaceIntent([proposal.title, proposal.placeNote, ...proposal.agenda]);
+  const keyword = state.placeKeyword ?? intent.keyword;
+  const manual = state.placeKeyword !== null && state.placeKeyword !== intent.keyword;
+  function pickKind(k: string | null) {
+    update({ placeKeyword: k });
+    setShowKinds(false);
+  }
 
   // 팀원이 직접 정한 출발지 (나 + 팀에 들어오며 정한 사람들)
   const meId = getMe().id;
@@ -148,14 +159,35 @@ export default function PlacesPage() {
               {live ? null : <span className="tag tag--gray no-shrink">예시 데이터</span>}
             </div>
 
-            {live ? (
+            {/* AI가 대화를 보고 고른 장소 종류 + 근거 */}
+            <div className="hstack gap-8 no-shrink" style={{ background: "var(--accent-softer)", borderRadius: 10, padding: "8px 10px" }}>
+              <span className="stack grow" style={{ gap: 1, minWidth: 0 }}>
+                <span className="t-13 t-strong" style={{ color: "var(--accent-ink)" }}>
+                  {manual ? `직접 고른 장소 · ${keyword}` : `AI가 고른 장소 · ${intent.label}`}
+                </span>
+                <span className="t-12 t-muted t-ellipsis">{manual ? `AI 추천은 ${wasLabel(intent.label)}` : intent.reason}</span>
+              </span>
+              {live ? (
+                manual ? (
+                  <button type="button" className="t-12 t-accent t-strong no-shrink" style={{ border: 0, background: "none", padding: "6px 2px" }} onClick={() => pickKind(null)}>
+                    AI 추천으로
+                  </button>
+                ) : (
+                  <button type="button" aria-expanded={showKinds} className="t-12 t-accent t-strong no-shrink" style={{ border: 0, background: "none", padding: "6px 2px" }} onClick={() => setShowKinds(!showKinds)}>
+                    {showKinds ? "닫기" : "바꾸기"}
+                  </button>
+                )
+              ) : null}
+            </div>
+
+            {live && showKinds ? (
               <div className="hstack gap-6 no-shrink" role="group" aria-label="장소 종류" style={{ overflowX: "auto", flexWrap: "nowrap", margin: "0 -16px", padding: "0 16px" }}>
                 {[...PLACE_KEYWORDS, ...(PLACE_KEYWORDS.includes(keyword) ? [] : [keyword])].map((k) => (
                   <button
                     key={k}
                     type="button"
                     aria-pressed={keyword === k}
-                    onClick={() => update({ placeKeyword: k })}
+                    onClick={() => pickKind(k === intent.keyword ? null : k)}
                     className={`chip no-shrink${keyword === k ? " chip--on" : ""}`}
                     style={{ minHeight: 30, padding: "0 10px", fontSize: 12, borderRadius: 14 }}
                   >
@@ -215,7 +247,7 @@ export default function PlacesPage() {
           initial={PLACE_KEYWORDS.includes(keyword) ? "" : keyword}
           onClose={() => setKeywordSheet(false)}
           onSave={(k) => {
-            update({ placeKeyword: k });
+            pickKind(k === intent.keyword ? null : k);
             setKeywordSheet(false);
           }}
         />

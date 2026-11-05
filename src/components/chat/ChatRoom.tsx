@@ -12,6 +12,7 @@ import { AiAvatar } from "@/components/Logo";
 import { Toast, useToast } from "@/components/Toast";
 import { getAiReply, getFiles, getMe, getMessages, getTeam, requestAi } from "@/lib/data";
 import type { Message } from "@/types";
+import { isSchedulingRequest } from "@/lib/place-intent";
 import { useDemo } from "@/lib/demo-store";
 import { AI_CHIPS, AiHelpPanel } from "./AiHelpPanel";
 import { ChatMessages, type ChatItem } from "./ChatMessages";
@@ -51,7 +52,7 @@ export function ChatRoom({
   startShare?: boolean;
   startMenu?: boolean;
 }) {
-  const { state } = useDemo();
+  const { state, update } = useDemo();
   const me = getMe();
   const team = getTeam(teamId);
   const isConfirmed = confirmed && teamId === DEMO_TEAM_ID;
@@ -115,13 +116,15 @@ export function ChatRoom({
     if (callsAi && !aiOn) {
       setExtra((prev) => [...prev, mine]);
       toast.show("AI 도우미가 꺼져 있어요");
-    } else if (callsAi && text.includes("회의") && !text.includes("회의록")) {
+    } else if (callsAi && isSchedulingRequest(text)) {
       const workingId = newId();
       setExtra((prev) => [...prev, mine, { id: workingId, type: "ai-working", proposalId, at }]);
       // B(회의 조건 추출)에게 먼저 물어봐요. 키가 없으면(mock) 지금까지의 예시 흐름 그대로예요.
       const sent = [...extra, mine].filter((m): m is Message => m.type === "text" || m.type === "mention-ai");
       requestAi(teamId, text, sent)
         .then((r) => {
+          // AI가 대화를 보고 고른 장소 종류를 기억해요 (6 장소 후보가 이걸로 찾아요). 사람이 바꿨던 값은 지워요.
+          if (r.placeIntent) update({ aiPlaceIntent: r.placeIntent, placeKeyword: null });
           if (r.source === "mock" || !r.reply) return runAi(workingId, fail);
           const reply: ChatItem = { id: newId(), type: "ai-reply", reply: r.reply, at: nowLabel() };
           // 조건이 정리됐으면 이어서 시간 제안(C · 아직 예시 데이터)을 보여줘요

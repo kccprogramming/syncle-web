@@ -10,6 +10,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import type { Condition, PlaceOption, PlaceSearchResult, WeeklyBlock } from "@/types";
 import { getMe, getMyOrigin } from "@/lib/data";
+import type { PlaceIntent } from "@/lib/place-intent";
 
 export interface DemoState {
   /** 방장이 회의를 확정했는지 (5 → 3-4) */
@@ -31,8 +32,10 @@ export interface DemoState {
   origin: PlaceSearchResult | null;
   /** 다른 팀원이 팀에 들어오며 직접 정한 출발지 (2-1). 실제로는 각자 계정의 프로필에 저장돼요 */
   memberOrigins: Record<string, PlaceSearchResult>;
-  /** 6 장소 후보에서 찾을 장소 종류 (스터디룸, 합주실 …) */
-  placeKeyword: string;
+  /** AI가 대화를 보고 고른 장소 종류 (합주실 · 회의 장소 · 회식 장소 …) — 3 '@AI … 잡아줘' 뒤에 정해져요 */
+  aiPlaceIntent: PlaceIntent | null;
+  /** 6에서 사람이 직접 바꾼 장소 종류. null이면 AI가 고른 것을 따라가요 */
+  placeKeyword: string | null;
   /** 매주 안 되는 시간 (2-2, 1-1) */
   weeklyBlocks: WeeklyBlock[];
   /** 알림 모두 읽음 */
@@ -61,7 +64,8 @@ const initialState = (): DemoState => ({
   addedConditions: [],
   origin: getMyOrigin(),
   memberOrigins: {},
-  placeKeyword: "스터디룸",
+  aiPlaceIntent: null,
+  placeKeyword: null,
   weeklyBlocks: getMe().weeklyBlocks,
   notificationsRead: false,
   taskDone: { "t-3": true },

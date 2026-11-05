@@ -7,6 +7,7 @@
  * B 코드(src/server/b)는 받은 그대로 두고, 이름·모양을 맞추는 일은 여기서만 해요.
  */
 import type { AiReply, Message, Team } from "@/types";
+import type { PlaceIntent } from "@/lib/place-intent";
 import type { ExtractionInput } from "./b/b-c-contract";
 import type { MvpRequestResult } from "./b/mvp";
 
@@ -51,7 +52,7 @@ export function toExtractionInput(args: {
 }
 
 /** B 결과 → 대화방 답 카드 */
-export function toReply(result: MvpRequestResult, nameOf: (memberId: string) => string): AiReply {
+export function toReply(result: MvpRequestResult, nameOf: (memberId: string) => string, intent?: PlaceIntent): AiReply {
   switch (result.status) {
     case "ignored":
       return { kind: "notice", title: "AI를 부르려면 @AI를 붙여 주세요", basis: "메시지에 @AI가 없어서 읽지 않았어요", items: [] };
@@ -59,10 +60,10 @@ export function toReply(result: MvpRequestResult, nameOf: (memberId: string) => 
     case "clarify_request":
       return { kind: "notice", title: result.message, basis: "지금은 회의 잡기만 AI가 직접 정리해요", items: [{ text: "@AI 회의 잡아줘" }] };
     case "ready":
-      return conditionsReply(result.conditions, nameOf);
+      return conditionsReply(result.conditions, nameOf, intent);
     case "needs_confirmation":
       // 초안이 있으면 조건 카드 + '확인 N명'으로 보여줘요 (사람별 질문은 C 후보가 나온 뒤 B가 따로 만들어요)
-      if (result.draft) return conditionsReply(result.draft, nameOf);
+      if (result.draft) return conditionsReply(result.draft, nameOf, intent);
       return {
         kind: "questions",
         title: "회의를 잡기 전에 확인할 게 있어요",
@@ -73,7 +74,7 @@ export function toReply(result: MvpRequestResult, nameOf: (memberId: string) => 
 }
 
 type Conditions = Extract<MvpRequestResult, { status: "ready" }>["conditions"];
-function conditionsReply(c: Conditions, nameOf: (id: string) => string): AiReply {
+function conditionsReply(c: Conditions, nameOf: (id: string) => string, intent?: PlaceIntent): AiReply {
   const by = (s: string) => c.schedule.members.filter((m) => m.responseStatus === s).map((m) => nameOf(m.memberId));
   const provided = by("provided");
   const waiting = [...by("missing"), ...by("needs_confirmation")];
@@ -81,6 +82,7 @@ function conditionsReply(c: Conditions, nameOf: (id: string) => string): AiReply
     { text: `목적 · ${c.purpose}` },
     { text: `길이 · ${c.schedule.durationMinutes}분 · ${c.meetingMode === "online" ? "온라인" : "대면"}` },
   ];
+  if (c.meetingMode === "offline" && intent) items.push({ text: `잡을 장소 · ${intent.label}`, sub: intent.reason });
   if (c.placeRequirements.length) items.push({ text: `필요한 곳 · ${c.placeRequirements.join(", ")}` });
   if (c.agenda.length) items.push({ text: `안건 · ${c.agenda.join(", ")}` });
   items.push({

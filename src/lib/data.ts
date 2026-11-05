@@ -41,6 +41,7 @@ import noMatchJson from "@/mocks/no-match.json";
 import placeSearchJson from "@/mocks/place-search.json";
 import aiRepliesJson from "@/mocks/ai-replies.json";
 import memberOriginsJson from "@/mocks/member-origins.json";
+import type { PlaceIntent } from "@/lib/place-intent";
 
 const members = membersJson as Member[];
 const teams = teamsJson as Team[];
@@ -211,6 +212,8 @@ export interface AiRequestResponse {
   reply?: AiReply;
   /** true면 회의 조건이 정리돼서 C(시간 후보)로 넘길 수 있어요 */
   canPropose?: boolean;
+  /** AI가 대화를 보고 고른 장소 종류와 근거 (6 장소 후보가 이걸로 찾아요) */
+  placeIntent?: PlaceIntent;
 }
 
 /**
