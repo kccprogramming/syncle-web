@@ -14,3 +14,7 @@
 - 심사 예상 질문 42개와 답변 · 이유 · 꼬리 질문: `심사예상질문.md`
 - 시연 영상 녹화 방법(계정 2개 · 보낼 대화 · 순서): `demo-script.md`
 - 휴대폰 목업(표지 · 11장): `shots/mock-chat.png` · `mock-proposal.png` · `mock-meeting.png`. 데모 화면을 Chrome으로 640×960(2배) 캡처한 뒤 `node mockup.js 캡처.png shots/mock-이름.png` (화면 390×844 자리를 잘라 둥근 화면 + 테두리 + 그림자).
+- **HTML 발표 파일** (Pretendard가 없는 컴퓨터 · 영상 넣기용): `html/` 폴더를 통째로 가져가서 `html/index.html`을 Chrome으로 열어요. 인터넷 없이 돼요.
+  - 키: → · 스페이스 · 클릭 다음, ← 이전, **F** 전체 화면, **N** 대본 보기(화면 아래), **P** 발표자 창(지금 장 · 다음 장 · 대본 · 시계, 두 화면일 때 내 화면에 띄우기), **V** 12장 영상 재생/멈춤
+  - 영상: `html/media/demo.mp4`로 넣으면 12장 영상 자리에 저절로 나와요 (다시 만들 필요 없음).
+  - 슬라이드를 고쳤다면 다시 만들기: PowerPoint로 PDF 저장 → `swift pdfpng.swift 발표.pdf html/slides 2` (1920×1080 그림) → `python3 build-html.py`
