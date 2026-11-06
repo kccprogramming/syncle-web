@@ -45,6 +45,12 @@ import memberOriginsJson from "@/mocks/member-origins.json";
 import bConditionsJson from "@/mocks/b-conditions.json";
 import type { PlaceIntent } from "@/lib/place-intent";
 import { getSupabase } from "@/lib/supabase";
+import { DEMO_NEIGHBORHOODS } from "@/lib/demo-scheduling";
+
+/** 데모 팀(hci4 …)인지 — 진짜 팀 ID는 UUID예요. 데모는 DB를 건드리지 않고 화면에만 반영해요 */
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const isDemoId = (id: string) => !UUID_RE.test(id);
+const demoWait = (ms = 700) => new Promise((r) => setTimeout(r, ms));
 
 const members = membersJson as Member[];
 const teams = teamsJson as Team[];
@@ -436,9 +442,12 @@ export async function loadTeamProposals(teamId: string): Promise<{ id: string; t
 
 /** 팀원 이름 불러와서 getMember가 쓰게 기억해요 (프로필은 같은 팀원끼리만 보여요) */
 export async function loadTeamMembers(memberIds: string[]): Promise<Member[]> {
+  // 데모 팀원(u-minji …)은 예시 데이터에 이미 있어요
+  const liveIds = memberIds.filter((id) => !isDemoId(id));
+  if (liveIds.length === 0) return getMembers(memberIds);
   const supabase = getSupabase();
-  if (!supabase || memberIds.length === 0) return [];
-  const { data, error } = await supabase.from("profiles").select("id,nickname").in("id", memberIds);
+  if (!supabase) return [];
+  const { data, error } = await supabase.from("profiles").select("id,nickname").in("id", liveIds);
   if (error) throw new Error(error.message);
   const list = (data ?? []).map((p) => {
     const name = String(p.nickname || "팀원");
@@ -453,6 +462,7 @@ export async function loadTeamMembers(memberIds: string[]): Promise<Member[]> {
  * 팀원끼리는 동네까지만 보여요 (정확한 출발지는 서버만 읽어요). 아직 안 정했으면 빠져요.
  */
 export async function loadMemberNeighborhoods(memberIds: string[]): Promise<Record<string, string>> {
+  if (memberIds.length && memberIds.every(isDemoId)) return Object.fromEntries(memberIds.filter((id) => DEMO_NEIGHBORHOODS[id]).map((id) => [id, DEMO_NEIGHBORHOODS[id]]));
   const supabase = getSupabase();
   if (!supabase || memberIds.length === 0) return {};
   const { data, error } = await supabase.from("profiles").select("id,departure_neighborhood").in("id", memberIds);
@@ -481,6 +491,8 @@ export async function loadTeamMessages(teamId: string): Promise<Message[]> {
 
 /** 메시지 보내기 — A (messages insert, 보내는 사람 = 나) */
 export async function sendTeamMessage(teamId: string, text: string): Promise<Message> {
+  // 데모 팀: 저장하지 않고 보낸 것처럼만
+  if (isDemoId(teamId)) return { id: `demo-${Date.now()}`, type: "text", senderId: getMe().id, text: text.trim(), at: hhmm(new Date().toISOString()) };
   const { supabase, id } = await signedIn();
   if (!supabase || !id) throw new Error("로그인이 필요해요");
   const { data, error } = await supabase
@@ -679,6 +691,7 @@ export async function loadTeamTasks(teamId: string): Promise<LiveTask[]> {
  * due: 날짜 "2026-11-10" (그날 23:59 서울 시간까지). 비우면 마감 없음.
  */
 export async function createTeamTask(teamId: string, input: { title: string; assigneeId: string | null; due: string | null }): Promise<LiveTask> {
+  if (isDemoId(teamId)) return { id: `demo-task-${Date.now()}`, title: input.title.trim(), assigneeId: input.assigneeId, dueAt: input.due ? `${input.due}T23:59:00+09:00` : null, done: false };
   const { supabase, id } = await signedIn();
   if (!supabase || !id) throw new Error("로그인이 필요해요");
   const title = input.title.trim();
@@ -708,6 +721,7 @@ export async function createTeamTask(teamId: string, input: { title: string; ass
  * 답 카드는 화면이 postAiReplyCard로 대화방에 남겨 팀원 모두 봐요. 할 일은 카드의 '추가'를 눌러야 저장돼요.
  */
 export async function askTeamAi(teamId: string, text: string, extra: { memo?: string; window?: { startAt: string; endAt: string } } = {}): Promise<AiReply> {
+  if (isDemoId(teamId)) return demoAiReply(teamId, text);
   const supabase = getSupabase();
   const { data } = supabase ? await supabase.auth.getSession() : { data: { session: null } };
   const token = data.session?.access_token;
@@ -720,6 +734,24 @@ export async function askTeamAi(teamId: string, text: string, extra: { memo?: st
   const body = (await res.json().catch(() => null)) as { ok?: boolean; data?: AiReply; error?: { message?: string } } | null;
   if (!res.ok || !body?.ok || !body.data) throw new Error(body?.error?.message ?? "AI가 정리하지 못했어요");
   return body.data;
+}
+
+/** 데모 팀의 AI 답: 회의록은 예시 회의록, 나머지는 예시 답 카드 (Gemini를 부르지 않아요) */
+async function demoAiReply(teamId: string, text: string): Promise<AiReply> {
+  await demoWait();
+  if (!/회의록/.test(text)) return getAiReply(teamId, text);
+  const m = (minutesJson as Record<string, { summary: string[]; decided: { text: string; settled: boolean }[]; tasks: { title: string; meta: string }[] }>)["m-0"];
+  const byName = (meta: string) => members.find((x) => meta.startsWith(x.name))?.id ?? null;
+  return {
+    kind: "minutes",
+    title: "회의록",
+    basis: "회의 메모와 회의 시간 대화를 근거로 정리했어요 · 데모 예시",
+    items: [
+      ...m.summary.map((t) => ({ text: t })),
+      ...m.decided.map((d) => ({ text: d.text, tag: d.settled ? "정함" : "미정" })),
+      ...m.tasks.map((t) => ({ text: t.title, sub: t.meta, tag: "할 일", assigneeId: byName(t.meta), due: null })),
+    ],
+  };
 }
 
 /** 할 일 완료 체크 — A */
@@ -834,6 +866,7 @@ export async function myUserId(): Promise<string | null> {
 
 /** 팀 하나 — A. 내가 속한 팀이 아니거나 로그인 안 했으면 null */
 export async function loadTeam(teamId: string): Promise<Team | null> {
+  if (isDemoId(teamId)) return teams.find((t) => t.id === teamId) ?? null;
   return (await loadMyTeams())?.find((t) => t.id === teamId) ?? null;
 }
 

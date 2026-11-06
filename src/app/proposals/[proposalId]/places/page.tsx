@@ -22,7 +22,7 @@ import { getMe, originForD, recommendPlaces, type PlaceRecommendation } from "@/
 import type { PlaceOption } from "@/types";
 import { inferPlaceIntent, wasLabel, withRo } from "@/lib/place-intent";
 import { PlaceMap } from "@/components/meeting/PlaceMap";
-import { isLiveId } from "@/lib/scheduling-client";
+import { usesLiveScreen } from "@/lib/scheduling-client";
 
 /** 사람 간 이동시간 차이 (모르는 사람이 있으면 null) */
 function diffOf(p: PlaceOption): number | null {
@@ -39,7 +39,7 @@ const PLACE_KEYWORDS = ["스터디룸", "스터디카페", "카페", "합주실"
 export default function PlacesPage() {
   const { proposalId } = useParams<{ proposalId: string }>();
   const router = useRouter();
-  const live = isLiveId(proposalId);
+  const live = usesLiveScreen(proposalId);
   useEffect(() => {
     if (live) router.replace(`/proposals/${proposalId}`);
   }, [live, proposalId, router]);

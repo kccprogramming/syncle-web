@@ -12,11 +12,11 @@ import { Toast, useToast } from "@/components/Toast";
 import { useDemo } from "@/lib/demo-store";
 import { getMeeting, getMinutes } from "@/lib/data";
 import { LiveMinutes } from "@/components/meeting/LiveMinutes";
-import { isLiveId } from "@/lib/scheduling-client";
+import { usesLiveScreen } from "@/lib/scheduling-client";
 
 export default function MinutesPage() {
   const { meetingId } = useParams<{ meetingId: string }>();
-  return isLiveId(meetingId) ? <LiveMinutes proposalId={meetingId} /> : <DemoMinutes meetingId={meetingId} />;
+  return usesLiveScreen(meetingId) ? <LiveMinutes proposalId={meetingId} /> : <DemoMinutes meetingId={meetingId} />;
 }
 
 function DemoMinutes({ meetingId }: { meetingId: string }) {

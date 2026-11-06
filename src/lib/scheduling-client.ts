@@ -1,9 +1,13 @@
 'use client';
 import type {projectProposal} from '@/features/scheduling/proposals';
 import {getSupabase} from '@/lib/supabase';
+import {demoPlaceSuggestion,demoSchedulingRequest,isDemoProposalId} from '@/lib/demo-scheduling';
 export type LiveProposal = ReturnType<typeof projectProposal> & {viewerId:string;notifiedCount?:number};
 /** C 일정 API 호출. 로그인 토큰은 앱의 Supabase 연결(src/lib/supabase.ts)에서 가져와요. */
 export async function schedulingRequest<T>(path:string,body?:unknown):Promise<T>{
+ // 데모 제안(p-1 · m-1 · m-0)은 로그인 없이 앱 안의 예시 데이터로 (src/lib/demo-scheduling.ts)
+ const demo=demoSchedulingRequest(path,body);
+ if(demo)return demo as Promise<T>;
  const client=getSupabase();
  if(!client)throw new Error('Supabase 연결이 설정되지 않았어요. 통합 담당자에게 확인해 주세요.');
  const {data,error}=await client.auth.getSession();
@@ -13,11 +17,14 @@ export async function schedulingRequest<T>(path:string,body?:unknown):Promise<T>
  if(!response.ok||!result?.ok)throw new Error(result?.error?.message??'요청을 처리하지 못했어요. 다시 시도해 주세요.');
  return result.data as T;
 }
+/** 실제 화면(C)으로 그릴 제안인지: 진짜 제안(UUID) 또는 데모 제안 */
+export const usesLiveScreen=(value:string)=>isLiveId(value)||isDemoProposalId(value);
 export const isLiveId=(value:string)=>/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
 
 /** 실제 제안의 장소 찾기에 넣을 '비교할 지역'(팀원 출발지 가운데 역 3곳)과 '찾을 장소' 추천 — 우리 앱 /api/places/areas */
 export type PlaceSearchSuggestion = {areas:string[];keyword:string;keywordLabel:string;keywordReason:string;unknownCount:number};
 export async function suggestPlaceSearch(proposalId:string):Promise<PlaceSearchSuggestion>{
+ if(isDemoProposalId(proposalId))return demoPlaceSuggestion();
  const client=getSupabase();
  const {data}=client?await client.auth.getSession():{data:{session:null}};
  if(!data.session)throw new Error('로그인이 필요해요.');

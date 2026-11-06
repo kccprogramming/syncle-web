@@ -17,6 +17,10 @@ import { OriginPickerSheet } from "@/components/home/OriginPickerSheet";
 import { DatePickerSheet, dateLabel } from "@/components/DatePickerSheet";
 import { loadMyProfile, originForD, saveMyOrigin, seoulLabel, type MyProfile } from "@/lib/data";
 import { schedulingRequest, type LiveProposal } from "@/lib/scheduling-client";
+import { isDemoProposalId } from "@/lib/demo-scheduling";
+
+/** 데모 제안에서 보여줄 '내 정보' (민지) */
+const DEMO_PROFILE: MyProfile = { nickname: "민지", origin: "대화역 3호선", area: "대화동", weekly: ["화 14:00–18:00 알바", "월 · 수 10:00–12:00 수업"], notificationsOn: true };
 
 type Slot = { startAt: string; endAt: string };
 
@@ -57,7 +61,7 @@ export function LiveConditions({ proposalId }: { proposalId: string }) {
 
   const load = useCallback(async () => {
     try {
-      const [p, me] = await Promise.all([schedulingRequest<LiveProposal>(`proposals/${proposalId}`), loadMyProfile()]);
+      const [p, me] = await Promise.all([schedulingRequest<LiveProposal>(`proposals/${proposalId}`), isDemoProposalId(proposalId) ? Promise.resolve(DEMO_PROFILE) : loadMyProfile()]);
       setData(p);
       setProfile(me);
     } catch (e) {
@@ -199,7 +203,7 @@ export function LiveConditions({ proposalId }: { proposalId: string }) {
           onPick={(place) => {
             setSheet(null);
             setProfile((p) => (p ? { ...p, origin: originForD(place), area: place.area } : p));
-            saveMyOrigin("", place)
+            (isDemoProposalId(proposalId) ? Promise.resolve() : saveMyOrigin("", place))
               .then(() => toast.show("출발하는 곳을 바꿨어요 · 다음 장소 찾기부터 반영돼요"))
               .catch(() => toast.show("저장하지 못했어요 · 잠시 후 다시 해 주세요"));
           }}

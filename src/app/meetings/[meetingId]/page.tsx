@@ -19,7 +19,7 @@ import { StatusPill } from "@/components/meeting/StatusPill";
 import { AbsentSheet } from "@/components/meeting/AbsentSheet";
 import { CalendarSheet } from "@/components/meeting/CalendarSheet";
 import { LiveMeeting } from "@/components/meeting/LiveMeeting";
-import { isLiveId } from "@/lib/scheduling-client";
+import { usesLiveScreen } from "@/lib/scheduling-client";
 
 // 캘린더 파일에 넣을 정확한 시각 (한국 시간)
 // TODO: API 연결 시 data.ts로 옮기기 (회의 데이터에 시작·끝 시각 넣기)
@@ -44,7 +44,7 @@ export default function MeetingPage() {
 /** 진짜 제안 ID면 C 확정 회의, 아니면 데모 회의 */
 function MeetingSwitch() {
   const { meetingId } = useParams<{ meetingId: string }>();
-  return isLiveId(meetingId) ? <LiveMeeting proposalId={meetingId} /> : <MeetingInner />;
+  return usesLiveScreen(meetingId) ? <LiveMeeting proposalId={meetingId} /> : <MeetingInner />;
 }
 
 function MeetingInner() {

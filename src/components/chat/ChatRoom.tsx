@@ -15,7 +15,7 @@ import type { Message, Team } from "@/types";
 import { isSchedulingRequest } from "@/lib/place-intent";
 import { useDemo } from "@/lib/demo-store";
 import { AI_CHIPS, AiHelpPanel } from "./AiHelpPanel";
-import { ChatMessages, type ChatItem } from "./ChatMessages";
+import { ChatMessages, useDemoCardInfo, type ChatItem } from "./ChatMessages";
 import { Composer } from "./Composer";
 import { ShareSheet, type UploadKind } from "./ShareSheet";
 import { TaskSheet } from "./TaskSheet";
@@ -142,6 +142,8 @@ export function ChatRoom({
   liveMsgsRef.current = liveMsgs;
   let base: ChatItem[] = liveTeam ? liveMsgs : getMessages(teamId, isConfirmed);
   if (fresh && !isConfirmed) base = base.filter((m) => m.type === "text" || m.type === "file");
+  // 실제 앱처럼 '나에게만' 질문 카드는 대화방에 보여주지 않아요 (데모도 같게)
+  base = base.filter((m) => m.type !== "ai-question");
   const items = liveTeam ? placeExtras(liveMsgs, extra, anchors.current) : [...base, ...extra];
 
   /** 진짜 팀: 화면에만 있는 카드를 지금 마지막 메시지(또는 afterId) 뒤에 붙여요 */
@@ -378,10 +380,12 @@ export function ChatRoom({
   const hasProposalCard = items.some((m) => m.type === "ai-proposal");
   const upcoming = meetings.upcoming[0];
   const showProposal = !!meetings.proposal && hasProposalCard;
+  // 데모 제안은 실제 화면과 같은 날짜(오늘 기준)로
+  const demoInfo = useDemoCardInfo(meetings.proposal?.id ?? "");
   const meetingText = upcoming
     ? meetingLine(upcoming, state)
     : showProposal && meetings.proposal
-      ? `${shortTitle(meetings.proposal)} · 응답 마감 ${meetings.proposal.deadline}`
+      ? `${shortTitle(meetings.proposal)} · ${demoInfo ? demoInfo.sub.split(" · ")[0] : `응답 마감 ${meetings.proposal.deadline}`}`
       : null;
   const hideBar = !!liveTeam || (fresh && !isConfirmed && !hasProposalCard); // AI에게 부탁하기 전에는 요약이 없어요
   const newCount = liveTeam ? 0 : (showProposal ? 1 : 0) + getFiles(teamId).filter((f) => f.isNew).length;

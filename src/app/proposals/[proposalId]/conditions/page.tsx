@@ -18,7 +18,7 @@ import { getConditions, getMe } from "@/lib/data";
 import type { Condition } from "@/types";
 import { AddConditionSheet, type ConditionKind } from "@/components/meeting/AddConditionSheet";
 import { LiveConditions } from "@/components/scheduling/LiveConditions";
-import { isLiveId } from "@/lib/scheduling-client";
+import { usesLiveScreen } from "@/lib/scheduling-client";
 
 // 선호 칩 (AI가 대화에서 이해한 것)
 // TODO: API 연결 시 data.ts로 옮기기
@@ -35,7 +35,7 @@ export default function ConditionsPage() {
 /** 진짜 제안 ID면 C 제안의 내 조건, 아니면 데모 */
 function ConditionsSwitch() {
   const { proposalId } = useParams<{ proposalId: string }>();
-  return isLiveId(proposalId) ? <LiveConditions proposalId={proposalId} /> : <ConditionsInner />;
+  return usesLiveScreen(proposalId) ? <LiveConditions proposalId={proposalId} /> : <ConditionsInner />;
 }
 
 /** 연필 버튼이 붙은 조건 한 줄 */

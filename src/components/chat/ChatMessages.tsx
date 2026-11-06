@@ -4,14 +4,14 @@
  * 대화 메시지 목록. 메시지 type마다 다른 모양으로 그려요.
  * 같은 사람이 연달아 보낸 메시지는 프로필을 한 번만 보여요.
  */
-import { Fragment } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { Avatar } from "@/components/Avatar";
 import { AiAvatar } from "@/components/Logo";
 import { Icon } from "@/components/Icon";
 import { getMember } from "@/lib/data";
 import type { AiReply, Message } from "@/types";
 import { AiFailedCard, AiReplyCard, AiThinkingCard, AiWorkingCard, ConfirmedCard, LiveCard, ProposalCard } from "./AiCards";
-import { AskQuestionCard } from "./AskQuestionCard";
+import { demoCardInfo } from "@/lib/demo-scheduling";
 
 /** 화면에서만 잠깐 쓰는 AI 상태 카드 (서버 메시지가 아니에요) */
 export type ChatItem =
@@ -133,11 +133,13 @@ function renderAiCard(
 ) {
   switch (m.type) {
     case "ai-proposal":
-      return <ProposalCard proposalId={m.proposalId} teamId={o.teamId} />;
+      // 데모 제안은 실제 앱과 같은 카드로 (누르면 실제 화면 모양의 데모 제안)
+      return demoCardInfo(m.proposalId, true) ? <DemoLiveCard id={m.proposalId} /> : <ProposalCard proposalId={m.proposalId} teamId={o.teamId} />;
     case "ai-confirmed":
-      return <ConfirmedCard meetingId={m.meetingId} />;
+      return demoCardInfo(m.meetingId, true) ? <DemoLiveCard id={m.meetingId} /> : <ConfirmedCard meetingId={m.meetingId} />;
     case "ai-question":
-      return <AskQuestionCard proposalId={m.proposalId} viewerId={o.viewerId} onToast={o.onToast} />;
+      // 실제 앱처럼 '나에게만' 질문 카드는 대화방에 보여주지 않아요
+      return null;
     case "ai-working":
       return <AiWorkingCard proposalId={m.proposalId} />;
     case "ai-thinking":
@@ -228,4 +230,16 @@ function Bubble({ item, mine, first, onOpenFiles, imageUrl }: { item: ChatItem; 
   }
 
   return null;
+}
+
+/** 데모 카드의 제목 · 한 줄 — 첫 화면은 처음 상태로 그리고(서버와 같게), 화면이 뜬 뒤 이 탭의 데모 상태(응답 · 확정)로 바꿔요 */
+export function useDemoCardInfo(id: string) {
+  const [info, setInfo] = useState(() => demoCardInfo(id, true));
+  useEffect(() => setInfo(demoCardInfo(id)), [id]);
+  return info;
+}
+
+function DemoLiveCard({ id }: { id: string }) {
+  const info = useDemoCardInfo(id);
+  return info ? <LiveCard kind={info.kind} proposalId={id} title={info.title} sub={info.sub} /> : null;
 }

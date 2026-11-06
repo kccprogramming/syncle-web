@@ -6,6 +6,7 @@
  * 맨 아래 버튼으로 데모 상태(확정 여부 등)를 바꾸거나 처음으로 되돌릴 수 있어요.
  */
 import Link from "next/link";
+import { resetDemoScheduling } from "@/lib/demo-scheduling";
 import { LogoMark, Wordmark } from "@/components/Logo";
 import { useDemo } from "@/lib/demo-store";
 
@@ -119,7 +120,10 @@ export default function ScreensPage() {
               onClick={() => update({ confirmed: !state.confirmed })}
             />
           </div>
-          <button type="button" className="btn btn--ghost btn--block" onClick={reset}>
+          <button type="button" className="btn btn--ghost btn--block" onClick={() => {
+            reset();
+            resetDemoScheduling();
+          }}>
             처음 상태로 되돌리기
           </button>
         </section>
