@@ -106,7 +106,7 @@ const arrow = (s, x, y, w, h, o = {}) => {
   I.phoneW = await icon("LuSmartphone", "FFFFFF");
   const LOGO_BLUE = await svgPng(logoSvg(HEX.accent1, "FFFFFF"));
   const LOGO_WHITE = await svgPng(logoSvg("FFFFFF", HEX.accent1));
-  const QR = "image/png;base64," + (await QRCode.toBuffer(DEMO_URL + "/teams/hci4", { margin: 1, width: 800, color: { dark: "#12163A", light: "#FFFFFF" } })).toString("base64");
+  const QR = "image/png;base64," + (await QRCode.toBuffer(DEMO_URL + "/demo", { margin: 1, width: 800, color: { dark: "#12163A", light: "#FFFFFF" } })).toString("base64");
 
   // 1 ── 표지 ─────────────────────────────────────────────
   pres.addSection({ title: "시작" });
@@ -521,7 +521,7 @@ const arrow = (s, x, y, w, h, o = {}) => {
     box(s, { x: 9.15, y: 3.92, w: 3.55, h: 2.85, fill: { color: TINT } });
     s.addImage({ data: QR, x: 9.5, y: 4.08, w: 1.9, h: 1.9, altText: "싱클 데모 QR 코드" });
     T(s, "로그인 없이\n바로 둘러보기", { x: 11.5, y: 4.3, w: 1.15, h: 1.0, fontSize: 13, bold: true, color: BLUE });
-    T(s, "카메라로 찍으면 데모 팀 대화방이 열려요", { x: 9.4, y: 6.13, w: 3.2, h: 0.5, fontSize: 11.5, color: MUTED });
+    T(s, "카메라로 찍으면 로그인부터 회의 카드까지 데모가 열려요", { x: 9.4, y: 6.13, w: 3.2, h: 0.5, fontSize: 11.5, color: MUTED });
     s.addNotes("[약 25초]\n앱 화면 38개, 백엔드 모듈 4개를 하나로 통합했고 자동 테스트 211개가 통과합니다. 로그인부터 확정, 회의록까지 실제 데이터로 동작합니다. 오른쪽 QR을 찍으시면 로그인 없이 바로 둘러보실 수 있습니다.");
   }
   // 14 ── 실용성 · 확장 ───────────────────────────────────

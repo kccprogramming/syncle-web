@@ -1,17 +1,95 @@
 {
   "hci4": [
-    { "id": "msg-1", "type": "file", "senderId": "u-jiwoo", "fileName": "중간발표_목차_초안.pptx", "size": "2.4MB", "at": "10:12" },
-    { "id": "msg-2", "type": "text", "senderId": "u-jiwoo", "text": "분량 나누는 건 만나서 정하는 게 나을 것 같아요", "at": "10:13" },
-    { "id": "msg-3", "type": "text", "senderId": "u-minsu", "text": "좋아요. 저 다음 주 목요일은 안 돼요", "at": "10:20" },
-    { "id": "msg-4", "type": "text", "senderId": "u-seoyeon", "text": "주말은 오후만 돼요! 노트북 챙겨갈게요", "at": "10:24" },
-    { "id": "msg-5", "type": "mention-ai", "senderId": "u-minji", "text": "다음 주에 회의 잡아줘", "at": "10:30" },
-    { "id": "msg-6", "type": "ai-proposal", "proposalId": "p-1", "at": "10:30" },
-    { "id": "msg-7", "type": "ai-question", "proposalId": "p-1", "visibleTo": ["u-jiwoo"], "at": "10:30" }
+    {
+      "id": "msg-0",
+      "type": "text",
+      "senderId": "u-minji",
+      "text": "다음 주에 중간발표 자료 역할 나누는 회의 한번 해요! 2시간 정도면 될 것 같아요",
+      "at": "09:58"
+    },
+    {
+      "id": "msg-1",
+      "type": "file",
+      "senderId": "u-jiwoo",
+      "fileName": "중간발표_목차_초안.pptx",
+      "size": "2.4MB",
+      "at": "10:12"
+    },
+    {
+      "id": "msg-2",
+      "type": "text",
+      "senderId": "u-jiwoo",
+      "text": "목차 초안 올렸어요. 분량 나누는 건 만나서 정하는 게 나을 것 같아요",
+      "at": "10:13"
+    },
+    {
+      "id": "msg-3",
+      "type": "text",
+      "senderId": "u-minsu",
+      "text": "좋아요. 저는 11/11(수) 저녁 7시 이후랑 11/14(토) 오후 2~4시 돼요. 11/12(목)은 하루 종일 안 돼요",
+      "at": "10:20"
+    },
+    {
+      "id": "msg-4",
+      "type": "text",
+      "senderId": "u-seoyeon",
+      "text": "저는 11/11(수) · 11/12(목) 저녁 7시 이후, 11/14(토) 오후 2~4시 다 돼요! 노트북 챙겨갈게요",
+      "at": "10:24"
+    },
+    {
+      "id": "msg-5",
+      "type": "text",
+      "senderId": "u-minji",
+      "text": "저도 그 시간 다 괜찮아요. 노트북 쓸 수 있는 곳이면 좋겠어요",
+      "at": "10:26"
+    },
+    {
+      "id": "msg-6",
+      "type": "text",
+      "senderId": "u-jiwoo",
+      "text": "저는 알바 일정이 아직 안 나와서, 나오면 바로 응답할게요",
+      "at": "10:27"
+    },
+    {
+      "id": "msg-7",
+      "type": "mention-ai",
+      "senderId": "u-minji",
+      "text": "다음 주에 회의 잡아줘",
+      "at": "10:30"
+    },
+    {
+      "id": "msg-8",
+      "type": "ai-proposal",
+      "proposalId": "p-1",
+      "at": "10:30"
+    }
   ],
   "hci4-confirmed": [
-    { "id": "msg-8", "type": "text", "senderId": "u-jiwoo", "text": "저도 수요일 저녁 괜찮아요!", "at": "20:02" },
-    { "id": "msg-9", "type": "system", "text": "민지님이 회의를 확정했어요", "at": "20:10" },
-    { "id": "msg-10", "type": "ai-confirmed", "meetingId": "m-1", "at": "20:10" },
-    { "id": "msg-11", "type": "text", "senderId": "u-seoyeon", "text": "좋아요, 수요일에 봬요!", "at": "20:12" }
+    {
+      "id": "msg-8",
+      "type": "text",
+      "senderId": "u-jiwoo",
+      "text": "저도 수요일 저녁 괜찮아요!",
+      "at": "20:02"
+    },
+    {
+      "id": "msg-9",
+      "type": "system",
+      "text": "민지님이 회의를 확정했어요",
+      "at": "20:10"
+    },
+    {
+      "id": "msg-10",
+      "type": "ai-confirmed",
+      "meetingId": "m-1",
+      "at": "20:10"
+    },
+    {
+      "id": "msg-11",
+      "type": "text",
+      "senderId": "u-seoyeon",
+      "text": "좋아요, 수요일에 봬요!",
+      "at": "20:12"
+    }
   ]
 }

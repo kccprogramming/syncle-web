@@ -10,12 +10,13 @@ import { TopBar } from "@/components/TopBar";
 import { Icon } from "@/components/Icon";
 import { AiAvatar } from "@/components/Logo";
 import { Toast, useToast } from "@/components/Toast";
-import { MAX_UPLOAD_BYTES, fileSizeLabel, isImageName, teamImageUrls, askTeamAi, postAiReplyCard, createTeamTask, getAiReply, getFiles, getMe, getMessages, getTeam, loadTeamMembers, postProposalCard, loadTeamMessages, myUserId, requestAi, sendTeamMessage, subscribeTeamMessages, teamFileUrl, uploadTeamFile } from "@/lib/data";
+import { MAX_UPLOAD_BYTES, fileSizeLabel, isImageName, teamImageUrls, askTeamAi, postAiReplyCard, createTeamTask, getAiReply, getFiles, getMe, getMessages, getTeam, loadTeamMembers, postProposalCard, loadTeamMessages, myUserId, sendTeamMessage, subscribeTeamMessages, teamFileUrl, uploadTeamFile } from "@/lib/data";
 import type { Message, Team } from "@/types";
 import { isSchedulingRequest } from "@/lib/place-intent";
 import { useDemo } from "@/lib/demo-store";
 import { AI_CHIPS, AiHelpPanel } from "./AiHelpPanel";
 import { ChatMessages, useDemoCardInfo, type ChatItem } from "./ChatMessages";
+import { resetDemoScheduling } from "@/lib/demo-scheduling";
 import { Composer } from "./Composer";
 import { ShareSheet, type UploadKind } from "./ShareSheet";
 import { TaskSheet } from "./TaskSheet";
@@ -269,28 +270,10 @@ export function ChatRoom({
     } else if (callsAi && isSchedulingRequest(text)) {
       const workingId = newId();
       setExtra((prev) => [...prev, mine, { id: workingId, type: "ai-working", proposalId, at }]);
-      // B(회의 조건 추출)에게 먼저 물어봐요. 키가 없으면(mock) 지금까지의 예시 흐름 그대로예요.
-      const sent = [...extra, mine].filter((m): m is Message => m.type === "text" || m.type === "mention-ai");
-      requestAi(teamId, text, sent)
-        .then((r) => {
-          // AI가 대화를 보고 고른 장소 종류를 기억해요 (6 장소 후보가 이걸로 찾아요). 사람이 바꿨던 값은 지워요.
-          if (r.placeIntent) update({ aiPlaceIntent: r.placeIntent, placeKeyword: null });
-          // C가 시간 후보를 계산한 제안이 있으면 그걸로 카드·5·6·7을 보여줘요. 새 제안이니 내 응답도 다시 골라 둬요
-          if (r.proposal) update({ cProposal: r.proposal, myPicks: r.proposal.times.map((t) => t.id), jiwooResponded: false });
-          if (r.source === "mock" || !r.reply) return runAi(workingId, fail);
-          const reply: ChatItem = { id: newId(), type: "ai-reply", reply: r.reply, at: nowLabel() };
-          // 조건이 정리됐으면 이어서 시간 제안(C · 아직 예시 데이터)을 보여줘요
-          setExtra((prev) => prev.flatMap((m) => (m.id === workingId ? (r.canPropose ? [reply, { id: newId(), type: "ai-proposal" as const, proposalId, at: nowLabel() }] : [reply]) : [m])));
-        })
-        .catch(() => {
-          const reply: ChatItem = {
-            id: newId(),
-            type: "ai-reply",
-            reply: { kind: "notice", title: "AI가 대화를 정리하지 못했어요", basis: "잠시 뒤 다시 부탁해 주세요 · 그동안 대화는 계속할 수 있어요", items: [] },
-            at: nowLabel(),
-          };
-          replaceItem(workingId, reply);
-        });
+      // 데모 팀: 실제 AI(Gemini)를 부르지 않고 예시 흐름으로 — 대화를 읽는 단계를 보여준 뒤 제안 카드를 올려요.
+      // 제안은 데모 일정(demo-scheduling)의 p-1을 처음 상태로 되돌려 써요 (5 · 6 · 확정 · 회의 카드가 이어져요)
+      resetDemoScheduling();
+      runAi(workingId, fail);
     } else if (callsAi) {
       // 요약·할 일·자료·회의록 등: 잠깐 '정리하고 있어요'를 보여준 뒤 답 카드로 바꿔요
       const thinkingId = newId();
@@ -376,7 +359,8 @@ export function ChatRoom({
   };
 
   // 위 요약 줄
-  const demoSchedule = useDemoSchedule(menuOpen); // 데모 팀: 실제 화면에서 응답 · 확정한 상태 (메뉴를 닫을 때도 다시 읽어요)
+  // 데모 팀: 실제 화면에서 응답 · 확정한 상태 (메뉴를 여닫을 때 · AI가 새 제안을 올렸을 때 다시 읽어요)
+  const demoSchedule = useDemoSchedule(`${menuOpen}-${extra.length}`);
   const meetings = getTeamMeetings(teamId, isConfirmed, state.cProposal, demoSchedule);
   const hasProposalCard = items.some((m) => m.type === "ai-proposal");
   const upcoming = meetings.upcoming[0];

@@ -7,17 +7,21 @@
  * 키가 없으면 지금처럼 href로 바로 이동하는 데모예요.
  * next: 실제 로그인 뒤 갈 화면. 비우면 팀이 있으면 홈(1), 없으면 처음 홈(1-0)으로 가요.
  */
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Toast, useToast } from "@/components/Toast";
 import { getSupabase, signInWithGoogle } from "@/lib/supabase";
+import { isDemoMode } from "@/lib/demo-scheduling";
 
 export function LoginButtons({ href, next }: { href: string; next?: string }) {
   const toast = useToast();
   const [busy, setBusy] = useState(false);
+  // 발표 데모(/demo로 들어옴)면 실제 Google 로그인 없이 데모 흐름으로 넘어가요
+  const [demo, setDemo] = useState(false);
+  useEffect(() => setDemo(isDemoMode()), []);
 
   async function onGoogle(e: React.MouseEvent) {
-    if (!getSupabase()) return; // 키가 없으면 Link가 그대로 데모 화면으로 이동해요
+    if (!getSupabase() || isDemoMode()) return; // 키가 없거나 데모면 Link가 그대로 데모 화면으로 이동해요
     e.preventDefault();
     setBusy(true);
     const error = await signInWithGoogle(next);
@@ -31,6 +35,7 @@ export function LoginButtons({ href, next }: { href: string; next?: string }) {
   return (
     <div className="stack gap-10">
       <GoogleButton href={href} onClick={onGoogle} busy={busy} />
+      {demo ? <p className="t-12 t-accent t-center" style={{ margin: 0 }}>데모예요 · 실제로 로그인하지 않고 예시 계정으로 들어가요</p> : null}
       <p className="t-12 t-muted t-center" style={{ marginTop: 6, lineHeight: 1.6 }}>
         시작하면{" "}
         <button type="button" style={linkStyle} onClick={() => toast.show("준비 중이에요")}>

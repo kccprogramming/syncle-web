@@ -7,7 +7,7 @@
   2. `SKILL=<pptx 스킬 폴더> NODE_PATH=./node_modules node build.js` → `Syncle_발표.pptx`
   3. PowerPoint로 열어 PDF로 저장해 화면 점검 (위쪽으로 가는 선은 크기를 음수로 쓰면 PowerPoint가 '복구'를 띄워요 → `arrow()`가 뒤집기로 처리)
 - 글꼴: Pretendard. 발표 컴퓨터에 없으면 PDF로 발표.
-- QR: 미리보기 데모 `https://syncle-web-git-integration-b-d-unione1.vercel.app/teams/hci4` (로그인 없이 데모 팀, 실제 화면 모양)
+- QR: 미리보기 데모 `https://syncle-web-git-integration-b-d-unione1.vercel.app/demo` (데모 모드로 로그인 → 새 팀 → 예시 대화 → @AI 회의 잡아줘 → 확정 → 회의 카드. 실제 Google 로그인 · Gemini 없이)
 - 심사 기준(실용성 30 · 참신성 30 · 완성도 20 · 기술성 20)과 발표 꿀팁 순서(팀원 → 문제 → 차별성 → 구현 · 기술 → 시연)에 맞춰 구성했어요.
 - 시연 영상(12장): 영상 파일을 `media/demo.mp4`에 두고 다시 만들면 들어가요. 없으면 영상 자리만 그려져 있어서 PowerPoint에서 그 자리에 '삽입 → 비디오'로 넣으면 돼요 (세로 휴대폰 화면 비율 390×844).
 - 시연 영상 녹화 방법(계정 2개 · 보낼 대화 · 순서): `demo-script.md`

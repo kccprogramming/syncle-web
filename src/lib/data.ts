@@ -930,7 +930,8 @@ export function getInvite(code: string) {
 
 /** 대화 메시지 (Supabase 실시간 구독) — A. confirmed=true면 확정 뒤 대화를 돌려줘요. */
 export function getMessages(teamId: string, confirmed = false): Message[] {
-  return messages[confirmed ? `${teamId}-confirmed` : teamId] ?? [];
+  // 예시 대화 속 날짜("11/11(수) 저녁 7시 이후")는 오늘 기준으로 옮겨요 → 데모 제안의 시간 후보와 같은 날이 돼요
+  return (messages[confirmed ? `${teamId}-confirmed` : teamId] ?? []).map((m) => ("text" in m && typeof m.text === "string" ? { ...m, text: demoShiftText(m.text) } : m));
 }
 
 /** GET /api/proposals/:id — C */

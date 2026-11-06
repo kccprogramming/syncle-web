@@ -107,10 +107,11 @@ function initial(): Record<string, StoredProposal> {
   const at = (day: number, hm: string) => first.find((c) => c.startAt === kst(day, hm))?.id ?? "";
   const [A, B, C] = [at(5, "19:00"), at(6, "19:00"), at(8, "14:00")];
   const pick = (memberId: string, ids: string[]): SavedResponse => ({ memberId, kind: "selected", selectedCandidateIds: ids.filter(Boolean), customSlots: [] });
-  p1.responses = [pick("u-minji", [A, C]), pick("u-minsu", [A, C]), pick("u-seoyeon", [A, B, C])];
+  // 민수 · 서연은 바로 응답했고, 보는 사람(민지)은 아직 → 데모에서 직접 눌러 볼 수 있게
+  p1.responses = [pick("u-minsu", [A, C]), pick("u-seoyeon", [A, B, C])];
 
   // 확정된 회의: 모두 응답 → A 시간 · 순위가 있는 장소로 확정
-  const m1: StoredProposal = { ...structuredClone(p1), id: "m-1", responses: [...p1.responses, pick("u-jiwoo", [A])], progress: { step: "done" } };
+  const m1: StoredProposal = { ...structuredClone(p1), id: "m-1", responses: [pick("u-minji", [A, C]), ...p1.responses, pick("u-jiwoo", [A])], progress: { step: "done" } };
   m1.placeResults = [placeResult(A, DEMO_AREAS)];
   const best = m1.placeResults[0].places.find((p) => p.rank === 1) ?? m1.placeResults[0].places[0];
   const slotA = first.find((c) => c.id === A)!;
@@ -147,6 +148,27 @@ function save() {
     // 무시 — 새로고침하면 처음 상태로 돌아가요
   }
 }
+/**
+ * 데모 모드: 발표 QR(/demo)로 들어오면 켜져요 (이 탭에만).
+ * 켜져 있으면 로그인 버튼이 Google로 가지 않고 데모 흐름(빈 홈 → 새 팀 → 대화방)으로 넘어가요.
+ */
+const MODE_KEY = "syncle-demo-mode";
+export function setDemoMode(on: boolean) {
+  try {
+    if (on) window.sessionStorage.setItem(MODE_KEY, "1");
+    else window.sessionStorage.removeItem(MODE_KEY);
+  } catch {
+    // 저장소를 못 쓰면 데모 모드 없이 (로그인 버튼은 원래대로)
+  }
+}
+export function isDemoMode() {
+  try {
+    return typeof window !== "undefined" && window.sessionStorage.getItem(MODE_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
 /** 데모를 처음 상태로 (화면 목록의 '처음 상태로 되돌리기'에서 같이 불러요) */
 export function resetDemoScheduling() {
   memory = initial();

@@ -21,7 +21,7 @@ import type { WeeklyBlock } from "@/types";
 
 // 데모용 초대 링크 · 팀 (로그인하면 진짜 값을 써요)
 const INVITE_URL = "https://syncle.app/invite/7K2Q-HCI4";
-const NEW_TEAM_ID = "hci4";
+const NEW_TEAM_ID = "hci4"; // 데모: 예시 대화만 있고 AI에게 아직 부탁하기 전 대화방(?fresh=1)으로 가요
 
 // 처음 화면에 보이는 '매주 안 되는 시간' (원본 디자인과 같게 하나만)
 const START_BLOCKS: WeeklyBlock[] = [{ id: "wb-1", days: ["화"], allDay: false, start: "14:00", end: "18:00", memo: "알바" }];
@@ -189,7 +189,7 @@ function Inner() {
       <footer className="footer footer--bare" style={{ padding: "12px 20px 24px", gap: 10 }}>
         {copied ? (
           <>
-            <Link href={`/teams/${createdId ?? NEW_TEAM_ID}`} className="btn btn--primary btn--lg btn--block">
+            <Link href={createdId ? `/teams/${createdId}` : `/teams/${NEW_TEAM_ID}?fresh=1`} className="btn btn--primary btn--lg btn--block">
               대화방으로 가기
             </Link>
             <span className="footer__note" style={{ fontSize: 12 }}>팀원에게 링크를 보내면 설치 없이 바로 참여해요</span>
