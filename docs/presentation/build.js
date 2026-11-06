@@ -437,25 +437,25 @@ const arrow = (s, x, y, w, h, o = {}) => {
     s.addNotes("[약 25초]\n장소는 출발지 가운데 역 세 곳에서 찾습니다. 한 명이라도 1시간이 넘으면 빼고, 사람 간 이동시간 차이가 작은 순으로 추천합니다. 예시에서는 A가 차이 13분으로 1위입니다.");
   }
   // 10 ── 화면 1 ─────────────────────────────────────────
-  const screens = (s, list, label) => {
-    const h = 4.25, cols = [2.62, 6.67, 10.72];
+  // 휴대폰 목업 세 개 (mockup.js로 만든 그림, 데모 화면)
+  const screens = (s, list) => {
+    const h = 4.55, w = h * (960 / 1868), cols = [2.62, 6.67, 10.72];
     list.forEach(([name, t, d], i) => {
-      const w = h * (764 / 1672), cx = cols[i];
-      phone(s, name, cx - w / 2, 1.82, h, t);
+      const cx = cols[i];
+      s.addImage({ path: SHOT(name), x: cx - w / 2, y: 1.6, w, h, altText: t });
       T(s, t, { x: cx - 2.0, y: 6.18, w: 4.0, h: 0.32, fontSize: 15, bold: true, align: "center" });
       T(s, d, { x: cx - 2.0, y: 6.5, w: 4.0, h: 0.3, fontSize: 12, color: MUTED, align: "center" });
     });
-    T(s, label, { x: 7.7, y: 0.42, w: 5.0, h: 0.32, fontSize: 11, color: MUTED, align: "right", valign: "middle" });
   };
   pres.addSection({ title: "결과물과 시연" });
   {
-    const s = content("결과물과 시연", "06  결과물", "실제로 동작하는 화면입니다");
+    const s = content("결과물과 시연", "06  결과물", "이렇게 만들었습니다");
     screens(s, [
-      ["live-chat", "대화방 · AI 요약 카드", "팀원 모두에게 · 누가 부탁했는지 · 근거 수"],
-      ["live-proposal", "회의 제안", "후보를 누르면 응답 끝 · 5명 모두 응답"],
-      ["live-meeting", "확정된 회의 카드", "캘린더 · 길찾기 · 장소 예약 · 회의록"],
-    ], "실제 로그인 화면 · 싱클 체험방 · 프로젝트 2조");
-    s.addNotes("[약 20초]\n실제 로그인 화면입니다. AI 요약 카드는 팀원 모두에게 보이고, 가운데는 우리 팀 다섯 명이 실제로 응답한 제안, 오른쪽은 확정된 회의 카드입니다.");
+      ["mock-chat", "대화방 · AI 회의 제안", "'@AI 회의 잡아줘' → 대화를 읽고 제안 카드"],
+      ["mock-proposal", "회의 제안", "후보 시간을 누르면 응답 끝 · 장소 찾기"],
+      ["mock-meeting", "확정된 회의 카드", "시간 · 장소 · 안건 · 캘린더 · 길찾기"],
+    ]);
+    s.addNotes("[약 15초]\n이렇게 만들었습니다. 대화방에서 AI가 회의를 제안하고, 팀원은 후보 시간을 누르기만 하면 되고, 방장이 확정하면 회의 카드가 만들어집니다.");
   }
   // 11-1 ── 시연 영상 ─────────────────────────────────────
   // 영상 파일을 media/demo.mp4에 두고 다시 만들면 영상이 들어가요. 없으면 PowerPoint에서 '삽입 → 비디오'로 넣을 자리만 그려요.
