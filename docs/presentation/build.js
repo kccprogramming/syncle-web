@@ -467,7 +467,7 @@ const arrow = (s, x, y, w, h, o = {}) => {
     const vh = 5.15, vw = vh * (390 / 844), vx = 1.45, vy = 1.85;
     box(s, { x: vx - 0.18, y: vy - 0.18, w: vw + 0.36, h: vh + 0.36, fill: { color: NAVY }, rectRadius: 0.32, objectName: "영상 테두리" });
     if (hasVideo) {
-      s.addMedia({ type: "video", path: VIDEO, x: vx, y: vy, w: vw, h: vh, cover: SHOT("live-chat"), objectName: "시연 영상" });
+      s.addMedia({ type: "video", path: VIDEO, x: vx, y: vy, w: vw, h: vh, cover: "data:image/png;base64," + require("fs").readFileSync(SHOT("video-cover")).toString("base64"), objectName: "시연 영상" });
     } else {
       box(s, { x: vx, y: vy, w: vw, h: vh, fill: { color: TINT }, rectRadius: 0.16, objectName: "영상 자리" });
       s.addImage({ data: I.phone, x: vx + vw / 2 - 0.35, y: vy + vh / 2 - 0.75, w: 0.7, h: 0.7 });
@@ -497,7 +497,7 @@ const arrow = (s, x, y, w, h, o = {}) => {
     s.addImage({ data: QR, x: 10.6, y: 3.05, w: 1.95, h: 1.95, altText: "싱클 데모 QR 코드" });
     T(s, "직접 해 보기", { x: 10.6, y: 5.12, w: 1.95, h: 0.3, fontSize: 14, bold: true, color: BLUE, align: "center" });
     T(s, "찍으면 로그인부터\n회의 카드까지 열려요", { x: 10.55, y: 5.43, w: 2.05, h: 0.45, fontSize: 11, color: MUTED, align: "center" });
-    s.addNotes("[영상 길이만큼 · 35초 안쪽 권장]\n(슬라이드의 영상을 클릭해 재생하고, 화면에 맞춰) 로그인해서 팀을 만들고, 평소처럼 대화한 뒤 '@AI 회의 잡아줘'라고 부탁합니다. AI가 대화를 읽고 시간 후보를 올리면 팀원은 되는 시간을 누르기만 하고, 방장이 공평한 장소를 찾아 확정하면 회의 카드가 만들어집니다. (영상이 끝나면 오른쪽 QR을 가리키며) QR을 찍으시면 같은 흐름을 직접 해 보실 수 있습니다.\n\n※ 영상이 재생되지 않으면: 오른쪽 단계 1~6을 차례로 짚으며 같은 대본을 말하고 QR로 넘어가세요.\n※ 전체 5분에 맞추려면 영상은 35초 안쪽이어야 해요.");
+    s.addNotes("[영상 약 40초]\n(슬라이드의 영상을 클릭해 재생하고, 영상 위쪽 자막에 맞춰 짧게) 로그인해서 팀을 만들고, 평소처럼 대화한 뒤 \'@AI 회의 잡아줘\'라고 부탁합니다. AI가 시간 후보를 올리면 팀원은 되는 시간을 누르기만 하고, 사람별 이동시간으로 고른 장소를 방장이 확정합니다. (영상이 끝나면 오른쪽 QR을 가리키며) QR을 찍으시면 같은 흐름을 직접 해 보실 수 있습니다.\n\n※ 영상이 재생되지 않으면: 오른쪽 단계 1~6을 차례로 짚으며 같은 대본을 말하고 QR로 넘어가세요.\n※ 영상이 약 40초라 전체가 5분에 빠듯해요. 시간이 모자라면 11장 대본을 \'이렇게 만들었습니다\' 한 문장으로 줄이세요.");
   }
   // 12 ── 완성도 ─────────────────────────────────────────
   {
