@@ -10,5 +10,6 @@
 - QR: 미리보기 데모 `https://syncle-web-git-integration-b-d-unione1.vercel.app/demo` (데모 모드로 로그인 → 새 팀 → 예시 대화 → @AI 회의 잡아줘 → 확정 → 회의 카드. 실제 Google 로그인 · Gemini 없이)
 - 심사 기준(실용성 30 · 참신성 30 · 완성도 20 · 기술성 20)과 발표 꿀팁 순서(팀원 → 문제 → 차별성 → 구현 · 기술 → 시연)에 맞춰 구성했어요.
 - 시연 영상(12장, 오른쪽에 데모 QR): 영상 파일을 `media/demo.mp4`에 두고 다시 만들면 들어가요. 없으면 영상 자리만 그려져 있어서 PowerPoint에서 그 자리에 '삽입 → 비디오'로 넣으면 돼요 (세로 휴대폰 화면 비율 390×844).
+- 발표 대본(장별 시간 · 예상 질문): `발표대본.md`
 - 시연 영상 녹화 방법(계정 2개 · 보낼 대화 · 순서): `demo-script.md`
 - 휴대폰 목업(표지 · 11장): `shots/mock-chat.png` · `mock-proposal.png` · `mock-meeting.png`. 데모 화면을 Chrome으로 640×960(2배) 캡처한 뒤 `node mockup.js 캡처.png shots/mock-이름.png` (화면 390×844 자리를 잘라 둥근 화면 + 테두리 + 그림자).
