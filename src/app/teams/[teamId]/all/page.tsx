@@ -16,7 +16,7 @@ import { LiveMeetingList, type LiveProposalRow } from "@/components/chat/LiveMee
 import { isLiveId } from "@/lib/scheduling-client";
 import { useDemo } from "@/lib/demo-store";
 import type { Team, TeamFile } from "@/types";
-import { DEMO_TEAM_ID, getChosenPlace, getTeamMeetings, getTeamTaskViews, liveTaskViews, meetingLine, respondedText } from "@/components/chat/team-info";
+import { DEMO_TEAM_ID, getChosenPlace, getTeamMeetings, getTeamTaskViews, liveTaskViews, meetingLine, respondedText, useDemoSchedule } from "@/components/chat/team-info";
 
 type Tab = "meet" | "photos" | "files" | "tasks";
 type FileFilter = "all" | TeamFile["kind"];
@@ -91,7 +91,8 @@ function Inner() {
   const [filter, setFilter] = useState<FileFilter>("all");
 
   const isDemo = teamId === DEMO_TEAM_ID;
-  const meetings = getTeamMeetings(teamId, isDemo && state.confirmed, state.cProposal);
+  const demoSchedule = useDemoSchedule();
+  const meetings = getTeamMeetings(teamId, isDemo && state.confirmed, state.cProposal, demoSchedule);
   const allFiles = live ? (liveFiles ?? []) : getFiles(teamId);
   const photos = allFiles.filter((f) => f.kind === "photo");
   // 진짜 팀은 사진을 사진 탭에 따로 모아요

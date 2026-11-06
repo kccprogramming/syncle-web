@@ -22,7 +22,7 @@ import { TaskSheet } from "./TaskSheet";
 import { CreateProposalSheet } from "./CreateProposalSheet";
 import { SummaryBar } from "./SummaryBar";
 import { TeamDrawer } from "./TeamDrawer";
-import { DEMO_TEAM_ID, getTeamMeetings, getTeamProposal, meetingLine, shortTitle, taskSummary, useTeamAi } from "./team-info";
+import { DEMO_TEAM_ID, getTeamMeetings, getTeamProposal, meetingLine, shortTitle, taskSummary, useDemoSchedule, useTeamAi } from "./team-info";
 
 /** AI가 회의를 정리하는 데 걸리는 시간(흉내) */
 const WORKING_MS = 2500;
@@ -376,7 +376,8 @@ export function ChatRoom({
   };
 
   // 위 요약 줄
-  const meetings = getTeamMeetings(teamId, isConfirmed, state.cProposal);
+  const demoSchedule = useDemoSchedule(menuOpen); // 데모 팀: 실제 화면에서 응답 · 확정한 상태 (메뉴를 닫을 때도 다시 읽어요)
+  const meetings = getTeamMeetings(teamId, isConfirmed, state.cProposal, demoSchedule);
   const hasProposalCard = items.some((m) => m.type === "ai-proposal");
   const upcoming = meetings.upcoming[0];
   const showProposal = !!meetings.proposal && hasProposalCard;

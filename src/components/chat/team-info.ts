@@ -4,8 +4,9 @@
  * 대화방·팀 메뉴 화면들이 같이 쓰는 계산 모음.
  * 데이터는 data.ts 함수로만 가져오고, 여기서는 화면에 보여 줄 모양으로 바꾸기만 해요.
  */
-import { useState } from "react";
-import { dueLabel, updateTeam, getMeetings, getPlaces, getProposal, getTasks, getMinutes, getMember, getMe, type LiveTask } from "@/lib/data";
+import { useEffect, useState } from "react";
+import { dueLabel, updateTeam, getMeetings, getPlaces, getProposal, getTasks, getMinutes, getMember, getMe, seoulLabel, type LiveTask } from "@/lib/data";
+import { demoSchedule, demoShiftText, type DemoSchedule } from "@/lib/demo-scheduling";
 import { useDemo, type DemoState } from "@/lib/demo-store";
 import { isLiveId } from "@/lib/scheduling-client";
 import type { Meeting, PlaceOption, Proposal, Task, Team } from "@/types";
@@ -13,10 +14,20 @@ import type { Meeting, PlaceOption, Proposal, Task, Team } from "@/types";
 /** 프로토타입 상태(useDemo)가 이어지는 팀. 다른 팀은 mock 데이터 그대로 보여요. */
 export const DEMO_TEAM_ID = "hci4";
 
-// TODO: API 연결 시 data.ts로 옮기기 (팀에 고정된 마감 메시지)
-const TEAM_DEADLINES: Record<string, string> = {
-  hci4: "자료 마감 11/13(금) 18:00",
-};
+/** 팀에 고정된 마감 메시지 — 데모 팀은 데모 제안의 자료 마감 (오늘 기준 날짜) */
+function teamDeadline(teamId: string): string | null {
+  return teamId === DEMO_TEAM_ID ? `자료 마감 ${seoulLabel(demoSchedule(true).p1.materialDeadline)}` : null;
+}
+
+/**
+ * 데모 팀의 일정 상태 (데모 일정 · 이 탭에 저장). 첫 화면은 처음 상태로 그리고(서버와 같게), 뜬 뒤 이 탭의 상태로 바꿔요.
+ * refreshKey가 바뀌면 다시 읽어요 (예: 팀 메뉴를 열 때)
+ */
+export function useDemoSchedule(refreshKey?: unknown): DemoSchedule {
+  const [s, set] = useState(() => demoSchedule(true));
+  useEffect(() => set(demoSchedule()), [refreshKey]);
+  return s;
+}
 // TODO: API 연결 시 data.ts로 옮기기 (요약 줄에 쓰는 짧은 회의 이름)
 const SHORT_TITLES: Record<string, string> = {
   "p-1": "역할 분담 회의",
@@ -51,7 +62,8 @@ export function getChosenPlace(proposalId: string, pick: PlacePick): PlaceOption
  * - upcoming: 확정된 다가오는 회의 (제안에서 나온 회의는 확정된 뒤에만 보여요)
  * - past: 지난 회의
  */
-export function getTeamMeetings(teamId: string, confirmed: boolean, c?: Proposal | null) {
+export function getTeamMeetings(teamId: string, confirmed: boolean, c?: Proposal | null, demo?: DemoSchedule) {
+  if (teamId === DEMO_TEAM_ID && demo && !c) return demoTeamMeetings(demo);
   const all = getMeetings().filter((m) => m.teamId === teamId);
   const proposal = getTeamProposal(teamId, c);
   const isDemo = teamId === DEMO_TEAM_ID;
@@ -60,6 +72,48 @@ export function getTeamMeetings(teamId: string, confirmed: boolean, c?: Proposal
     upcoming: all.filter((m) => m.status === "upcoming" && (!m.proposalId || (isDemo && confirmed))),
     past: all.filter((m) => m.status === "past"),
   };
+}
+
+/**
+ * 데모 팀 회의 목록 — 데모 일정(실제 화면과 같은 날짜 · 응답 · 확정 상태)으로 예시 데이터를 덮어써요.
+ * 확정하면 p-1이 '확정된 회의'(/meetings/p-1)로 옮겨 가요.
+ */
+function demoTeamMeetings({ p1, m0 }: DemoSchedule) {
+  const base = getProposal("p-1");
+  const top = p1.candidates[0];
+  const proposal: Proposal | null = p1.meeting
+    ? null
+    : {
+        ...base,
+        title: p1.title,
+        deadline: seoulLabel(p1.responseDeadline),
+        respondedIds: p1.memberIds.filter((id) => !p1.pendingIds.includes(id)),
+        pendingIds: p1.pendingIds,
+        cardSummary: { ...base.cardSummary, timeLabel: top ? seoulLabel(top.startAt) : base.cardSummary.timeLabel },
+      };
+  const mock = getMeetings().filter((m) => m.teamId === DEMO_TEAM_ID);
+  const upcoming: Meeting[] = p1.meeting
+    ? [
+        {
+          ...(mock.find((m) => m.proposalId === "p-1") ?? mock[0]),
+          id: "p-1",
+          proposalId: undefined, // 장소는 데모 일정에서 확정한 곳 (예전 데모 상태의 고른 장소 말고)
+          title: p1.title,
+          shortLabel: seoulLabel(p1.meeting.startAt),
+          placeName: p1.meeting.mode === "online" ? "온라인" : (p1.meeting.place?.name ?? ""),
+          attendeeIds: p1.meeting.attendeeIds,
+        },
+      ]
+    : [];
+  const past = mock
+    .filter((m) => m.status === "past")
+    .map((m) => {
+      // "10/28(수) 19:00" → 날짜 네모(월 · 일)와 '수 19:00 · …' 한 줄도 같은 날로
+      const label = m.id === "m-0" && m0.meeting ? seoulLabel(m0.meeting.startAt) : demoShiftText(m.shortLabel);
+      const [, mon, day, dow] = label.match(/^(\d+)\/(\d+)\((.)\)/) ?? [];
+      return mon ? { ...m, shortLabel: label, month: `${mon}월`, day, pastMeta: m.pastMeta?.replace(/^\S/, dow) } : m;
+    });
+  return { proposal, upcoming, past };
 }
 
 /** 확정 회의 한 줄: "11/11(수) 19:00 · 스터디룸 A" */
@@ -126,7 +180,7 @@ export function getTeamTaskViews(teamId: string, state: DemoState): { list: Task
 /** 대화방 위 요약 줄의 '할 일' 문장 (없으면 null) */
 export function taskSummary(teamId: string, state: DemoState): string | null {
   const myOpen = getTeamTaskViews(teamId, state).list.filter((t) => t.mine && !t.done).length;
-  const parts = [TEAM_DEADLINES[teamId], myOpen > 0 ? `내 할 일 ${myOpen}개` : null].filter(Boolean);
+  const parts = [teamDeadline(teamId), myOpen > 0 ? `내 할 일 ${myOpen}개` : null].filter(Boolean);
   return parts.length ? parts.join(" · ") : null;
 }
 

@@ -45,7 +45,7 @@ import memberOriginsJson from "@/mocks/member-origins.json";
 import bConditionsJson from "@/mocks/b-conditions.json";
 import type { PlaceIntent } from "@/lib/place-intent";
 import { getSupabase } from "@/lib/supabase";
-import { DEMO_NEIGHBORHOODS } from "@/lib/demo-scheduling";
+import { DEMO_NEIGHBORHOODS, demoMinutesShift, demoShiftText } from "@/lib/demo-scheduling";
 
 /** 데모 팀(hci4 …)인지 — 진짜 팀 ID는 UUID예요. 데모는 DB를 건드리지 않고 화면에만 반영해요 */
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -721,7 +721,7 @@ export async function createTeamTask(teamId: string, input: { title: string; ass
  * 답 카드는 화면이 postAiReplyCard로 대화방에 남겨 팀원 모두 봐요. 할 일은 카드의 '추가'를 눌러야 저장돼요.
  */
 export async function askTeamAi(teamId: string, text: string, extra: { memo?: string; window?: { startAt: string; endAt: string } } = {}): Promise<AiReply> {
-  if (isDemoId(teamId)) return demoAiReply(teamId, text);
+  if (isDemoId(teamId)) return demoAiReply(teamId, text, extra.window);
   const supabase = getSupabase();
   const { data } = supabase ? await supabase.auth.getSession() : { data: { session: null } };
   const token = data.session?.access_token;
@@ -737,10 +737,12 @@ export async function askTeamAi(teamId: string, text: string, extra: { memo?: st
 }
 
 /** 데모 팀의 AI 답: 회의록은 예시 회의록, 나머지는 예시 답 카드 (Gemini를 부르지 않아요) */
-async function demoAiReply(teamId: string, text: string): Promise<AiReply> {
+async function demoAiReply(teamId: string, text: string, window?: { startAt: string; endAt: string }): Promise<AiReply> {
   await demoWait();
   if (!/회의록/.test(text)) return getAiReply(teamId, text);
-  const m = (minutesJson as Record<string, { summary: string[]; decided: { text: string; settled: boolean }[]; tasks: { title: string; meta: string }[] }>)["m-0"];
+  // 지난 '주제 선정 회의'(m-0)면 그 회의록, 이번 '역할 분담' 회의면 m-1 회의록 (날짜는 회의 날짜 기준)
+  const past = !window || Date.parse(window.endAt) < Date.now() - 3 * 86_400_000;
+  const m = past ? getMinutes("m-0") : getMinutes("m-1", demoMinutesShift(window.startAt));
   const byName = (meta: string) => members.find((x) => meta.startsWith(x.name))?.id ?? null;
   return {
     kind: "minutes",
@@ -1129,12 +1131,14 @@ export function getMeeting(meetingId: string): Meeting {
 
 /** GET /api/teams/:id/tasks — A (+ B가 찾은 할 일 후보) */
 export function getTasks(teamId: string) {
-  return tasks[teamId] ?? { tasks: [], aiSuggestion: null };
+  const t = tasks[teamId] ?? { tasks: [], aiSuggestion: null };
+  // 예시 날짜는 오늘 기준으로 옮겨요 (발표 날짜가 언제여도 '이번 주 할 일'로 보이게)
+  return { tasks: t.tasks.map((x) => ({ ...x, due: demoShiftText(x.due) })), aiSuggestion: t.aiSuggestion && { ...t.aiSuggestion, due: demoShiftText(t.aiSuggestion.due) } };
 }
 
 /** GET /api/teams/:id/files — A */
 export function getFiles(teamId: string): TeamFile[] {
-  return files[teamId] ?? [];
+  return (files[teamId] ?? []).map((f) => ({ ...f, meta: demoShiftText(f.meta) }));
 }
 
 /** GET /api/notifications — A (앱 안 알림) */
@@ -1143,8 +1147,10 @@ export function getNotifications(): AppNotification[] {
 }
 
 /** GET /api/meetings/:id/minutes — B */
-export function getMinutes(meetingId: string): Minutes {
-  return minutes[meetingId] ?? minutes["m-0"];
+export function getMinutes(meetingId: string, days?: number): Minutes {
+  const m = minutes[meetingId] ?? minutes["m-0"];
+  const sh = (t: string) => demoShiftText(t, days);
+  return { ...m, meta: sh(m.meta), summary: m.summary.map(sh), decided: m.decided.map((d) => ({ ...d, text: sh(d.text) })), tasks: m.tasks.map((t) => ({ ...t, meta: sh(t.meta) })) };
 }
 
 /** GET /api/proposals/:id/alternatives — C (모두 되는 시간이 없을 때) */

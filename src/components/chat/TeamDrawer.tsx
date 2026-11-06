@@ -11,7 +11,7 @@ import { getFiles, getMember, getMembers, loadTeamMaterials, loadTeamProposals, 
 import { isLiveId } from "@/lib/scheduling-client";
 import { useDemo } from "@/lib/demo-store";
 import type { Team, TeamFile } from "@/types";
-import { DEMO_TEAM_ID, copyInviteLink, getTeamMeetings, getTeamTaskViews, liveTaskViews, meetingLine, respondedText } from "./team-info";
+import { DEMO_TEAM_ID, copyInviteLink, getTeamMeetings, getTeamTaskViews, liveTaskViews, meetingLine, respondedText, useDemoSchedule } from "./team-info";
 
 /** 섹션 제목 줄: "회의 2 ··· 전체 보기" */
 function SectionHead({ title, count, href }: { title: string; count: number; href: string }) {
@@ -93,6 +93,9 @@ export function TeamDrawer({
     };
   }, [open, live, team.id]);
 
+  // 데모 팀: 메뉴를 열 때마다 데모 일정(응답 · 확정)을 다시 읽어요
+  const demoSchedule = useDemoSchedule(open);
+
   if (!open) return null;
 
   const base = `/teams/${team.id}`;
@@ -112,7 +115,7 @@ export function TeamDrawer({
         onToast("파일을 열지 못했어요");
       });
   };
-  const meetings = getTeamMeetings(team.id, confirmed, state.cProposal);
+  const meetings = getTeamMeetings(team.id, confirmed, state.cProposal, demoSchedule);
   const lastPast = meetings.past[0];
   const allFiles = live ? (liveFiles ?? []) : getFiles(team.id);
   // 진짜 팀은 사진을 따로 모아 보여줘요

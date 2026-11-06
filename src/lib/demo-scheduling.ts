@@ -116,11 +116,11 @@ function initial(): Record<string, StoredProposal> {
   const slotA = first.find((c) => c.id === A)!;
   m1.meeting = { id: "m-1", startAt: slotA.startAt, endAt: slotA.endAt, attendeeIds: [...MEMBERS], mode: "offline", meetingUrl: null, place: { id: best.id, name: best.name, url: best.url } };
 
-  // 지난 회의(회의록 예시): 열흘 전 '주제 선정 회의'
+  // 지난 회의(회의록 예시): 9일 전 '주제 선정 회의' (예시 데이터의 10/28 · 자료 · 회의록과 같은 날)
   const m0: StoredProposal = { ...structuredClone(m1), id: "m-0", title: "주제 선정 회의" };
   m0.conditions.purpose = "주제 선정 회의";
   m0.conditions.agenda = ["주제 후보 3개 비교", "사전 설문 계획"];
-  m0.meeting = { id: "m-0", startAt: kst(-10, "19:00"), endAt: kst(-10, "20:40"), attendeeIds: [...MEMBERS], mode: "offline", meetingUrl: null, place: { id: "demo-B", name: "스터디카페 B · 회의실", url: null } };
+  m0.meeting = { id: "m-0", startAt: kst(-9, "19:00"), endAt: kst(-9, "20:40"), attendeeIds: [...MEMBERS], mode: "offline", meetingUrl: null, place: { id: "demo-B", name: "스터디카페 B · 회의실", url: null } };
   return { "p-1": p1, "m-1": m1, "m-0": m0 };
 }
 
@@ -228,6 +228,41 @@ export function demoPlaceSuggestion() {
 
 /** 데모의 다른 날짜(예: 주말합주)도 오늘 기준으로 — "2026-11-07T15:00:00+09:00" */
 export const demoDate = kst;
+
+/** 예시 데이터(JSON)의 날짜를 만든 기준일 = 2026-11-06(금) */
+const MOCK_BASE = Date.UTC(2026, 10, 6);
+/** 서울 날짜 기준 a − b 일 수 */
+const dayDiff = (a: number, b: number) => Math.round((a - b) / 86_400_000);
+const seoulDay = (ms: number) => {
+  const d = new Date(ms + 9 * 3600_000);
+  return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
+};
+/** 오늘이 예시 데이터 기준일에서 며칠 지났는지 (11/6이면 0) */
+export const demoDayOffset = () => dayDiff(seoulDay(Date.now()), MOCK_BASE);
+
+/**
+ * 예시 글 속 날짜("11/8(일)까지", "10/28", "11/3까지")를 days일 옮겨요. 요일도 다시 계산해요.
+ * 10~12월만 날짜로 봐요 ("3/4명" 같은 인원 표시는 그대로).
+ */
+export function demoShiftText(text: string, days = demoDayOffset()): string {
+  if (!days) return text;
+  return text.replace(/\b(1[0-2])\/(\d{1,2})(\([일월화수목금토]\))?/g, (_, m: string, d: string, dow?: string) => {
+    const t = new Date(Date.UTC(2026, +m - 1, +d + days));
+    return `${t.getUTCMonth() + 1}/${t.getUTCDate()}${dow ? `(${"일월화수목금토"[t.getUTCDay()]})` : ""}`;
+  });
+}
+/** 회의록 예시 m-1(역할 분담)은 11/11(수) 회의 기준으로 썼어요 → 실제 회의 날짜로 옮길 일 수 */
+export const demoMinutesShift = (meetingStartAt: string) => dayDiff(seoulDay(Date.parse(meetingStartAt)), Date.UTC(2026, 10, 11));
+
+/**
+ * 데모 팀의 일정 상태 (팀 메뉴 · 전체 보기 · 대화방 요약 줄에서 써요).
+ * p1: 응답 중이거나 이 탭에서 확정한 제안, m0: 지난 회의. fresh=true면 처음 상태 (서버가 그리는 첫 화면과 맞추려고)
+ */
+export function demoSchedule(fresh = false) {
+  const all = fresh ? initial() : store();
+  return { p1: projectProposal(all["p-1"]), m0: all["m-0"] };
+}
+export type DemoSchedule = ReturnType<typeof demoSchedule>;
 
 /**
  * 데모 홈 '다가오는 회의'의 p-1 한 장 (실제 홈과 같은 모양).
