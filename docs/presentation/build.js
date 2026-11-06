@@ -540,8 +540,11 @@ const arrow = (s, x, y, w, h, o = {}) => {
       const y = 2.42 + i * 1.42;
       box(s, { x: 0.6, y, w: 5.6, h: 1.22, fill: { color: TINT } });
       iconTile(s, img, 0.85, y + 0.3, 0.62, WHITE);
-      T(s, h, { x: 1.7, y: y + 0.2, w: 4.3, h: 0.38, fontSize: 17, bold: true });
-      T(s, d, { x: 1.7, y: y + 0.6, w: 4.35, h: 0.5, fontSize: 13, color: MUTED });
+      // 제목 + 설명을 한 글상자로 묶어 카드 세로 가운데에 (아이콘과 같은 높이)
+      T(s, [
+        { text: h, options: { fontSize: 17, bold: true, breakLine: true, paraSpaceAfter: 4 } },
+        { text: d, options: { fontSize: 13, color: MUTED } },
+      ], { x: 1.7, y, w: 4.35, h: 1.22, valign: "middle" });
     });
     T(s, "발전 방향", { x: 6.8, y: 1.95, w: 5, h: 0.35, fontSize: 15, bold: true, color: MUTED });
     const road = [
