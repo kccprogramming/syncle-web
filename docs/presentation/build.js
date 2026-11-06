@@ -112,10 +112,10 @@ const arrow = (s, x, y, w, h, o = {}) => {
   pres.addSection({ title: "시작" });
   {
     const s = pres.addSlide({ masterName: "DARK", sectionTitle: "시작" });
-    s.addImage({ data: LOGO_WHITE, x: 0.8, y: 1.15, w: 0.95, h: 0.95, altText: "싱클 로고" });
-    T(s, "국민대학교 KCC AI Agent 미니 캡스톤", { x: 0.8, y: 2.45, w: 6.6, h: 0.35, fontSize: 15, bold: true, color: SOFT });
-    T(s, "싱클 Syncle", { x: 0.8, y: 2.85, w: 6.6, h: 1.0, fontSize: 54, bold: true, color: WHITE });
-    T(s, "팀 대화를 AI가 읽고, 회의 시간 · 장소 · 안건을 정리해 제안하는 협업툴", { x: 0.8, y: 3.95, w: 6.4, h: 0.4, fontSize: 15, color: SOFT });
+    s.addImage({ data: LOGO_WHITE, x: 0.8, y: 1.55, w: 0.95, h: 0.95, altText: "싱클 로고" });
+    T(s, "국민대학교 KCC AI Agent 미니 캡스톤", { x: 0.8, y: 2.85, w: 6.6, h: 0.35, fontSize: 15, bold: true, color: SOFT });
+    T(s, "싱클 Syncle", { x: 0.8, y: 3.25, w: 6.6, h: 1.0, fontSize: 54, bold: true, color: WHITE });
+    T(s, "팀 대화를 AI가 읽고, 회의 시간 · 장소 · 안건을 정리해 제안하는 협업툴", { x: 0.8, y: 4.4, w: 6.6, h: 0.4, fontSize: 14, color: SOFT });
     T(s, "윤희원 · 김현규 · 김지우 · 박성하 · 정현서", { x: 0.8, y: 6.35, w: 6.6, h: 0.35, fontSize: 14, color: SOFT });
     // 휴대폰 목업 (mockup.js로 만든 그림: 데모 대화방 · 확정된 회의 카드)
     const mh = 5.7, mw = mh * (960 / 1868);
@@ -220,8 +220,8 @@ const arrow = (s, x, y, w, h, o = {}) => {
     const pains = [
       [I.repeat, "반복 조율", "답장을 모아 다시 대조하고\n빠진 사람에게 또 묻는다"],
       [I.users, "한 사람에게 집중", "팀장 · 총무가 맡지만\n인정받지 못하는 숨은 노동"],
-      [I.layers, "정보 분산", "메신저 · 투표 · 지도 · 캘린더를\n오가며 같은 내용을 옮긴다"],
-      [I.scale, "이동 부담 격차", "정하는 사람 근처로 잡혀\n누군가는 1시간 넘게 이동한다"],
+      [I.layers, "정보 분산", "메신저 · 지도 · 캘린더를\n오가며 같은 내용을 옮긴다"],
+      [I.scale, "이동 부담 격차", "정하는 사람 근처로 잡혀\n한 명은 1시간 넘게 이동한다"],
     ];
     const pw = 2.9, pg = 0.17;
     pains.forEach(([img, h, d], i) => {
@@ -229,7 +229,7 @@ const arrow = (s, x, y, w, h, o = {}) => {
       box(s, { x, y, w: pw, h: 2.25, fill: { color: TINT } });
       iconTile(s, img, x + 0.3, y + 0.3, 0.55, WHITE);
       T(s, h, { x: x + 0.3, y: y + 1.0, w: pw - 0.5, h: 0.4, fontSize: 18, bold: true });
-      T(s, d, { x: x + 0.3, y: y + 1.45, w: pw - 0.55, h: 0.7, fontSize: 13, color: MUTED });
+      T(s, d, { x: x + 0.3, y: y + 1.45, w: pw - 0.45, h: 0.7, fontSize: 13, color: MUTED });
     });
     T(s, "필요한 정보(시간 · 위치 · 목적)는 이미 대화에 있지만, 그것을 결정으로 바꾸는 일은 사람이 손으로 하고 있습니다", { x: 0.6, y: 6.32, w: 12.1, h: 0.4, fontSize: 15, bold: true, color: BLUE });
     s.addNotes("[약 15초]\n정리하면, 시간 · 위치 · 목적은 이미 대화에 다 있는데, 그걸 결정으로 바꾸는 일을 팀장 한 사람이 손으로 하고 있습니다.");
@@ -256,7 +256,7 @@ const arrow = (s, x, y, w, h, o = {}) => {
       [lab("확정 · 공유 · 캘린더"), mark("△", "공지 다시 작성"), mark("–", ""), mark("●", "초대 발송"), mark("–", ""), mark("●", "대화방 카드", true)],
     ];
     s.addTable(rows, { x: 0.6, y: 1.95, w: 12.1, colW: [2.45, 1.85, 1.85, 2.05, 1.85, 2.05], rowH: [0.55, 0.68, 0.68, 0.68, 0.68, 0.68], valign: "middle", margin: [0, 0.12, 0, 0.15], border: { type: "solid", pt: 1, color: "E3E6EF" }, fontSize: 14, color: INK });
-    T(s, "싱클은 '언제 · 어디서 · 무엇을'을 팀이 대화하는 곳에서 한 번에 풉니다 · 캘린더를 모두 연동하지 않아도 됩니다", { x: 0.6, y: 6.32, w: 9.0, h: 0.4, fontSize: 15, bold: true, color: BLUE });
+    T(s, "싱클은 '언제 · 어디서 · 무엇을'을 대화방 안에서 한 번에 풉니다 · 캘린더 연동 없이도 돼요", { x: 0.6, y: 6.32, w: 9.0, h: 0.4, fontSize: 15, bold: true, color: BLUE });
     T(s, "●  된다    △  일부    –  안 된다", { x: 9.7, y: 6.36, w: 3.0, h: 0.3, fontSize: 11, color: MUTED, align: "right" });
     s.addNotes("[약 20초]\n기존 도구는 하나씩만 풉니다. 투표 도구는 각자 입력해야 하고, AI 캘린더는 모두 연동해야 하고, 중간지점 서비스는 가운데 좌표만 봅니다. 싱클은 대화하는 곳에서 한 번에 풉니다.");
   }
@@ -376,21 +376,21 @@ const arrow = (s, x, y, w, h, o = {}) => {
     box(s, { x: 0.9, y: 5.05, w: 4.1, h: 1.35, fill: { color: WHITE } });
     T(s, "사용 모델", { x: 1.1, y: 5.18, w: 3.7, h: 0.3, fontSize: 12, bold: true, color: MUTED });
     T(s, "Gemini 3.1 Flash-Lite", { x: 1.1, y: 5.48, w: 3.7, h: 0.38, fontSize: 17, bold: true });
-    T(s, "무료 한도 안에서 빠른 응답 · 답은 정해진 JSON 형식으로", { x: 1.1, y: 5.88, w: 3.8, h: 0.4, fontSize: 12, color: MUTED });
+    T(s, "무료 한도 안에서 빠른 응답\n답은 정해진 JSON 형식으로", { x: 1.1, y: 5.86, w: 3.7, h: 0.45, fontSize: 12, color: MUTED });
     T(s, "찾아낸 실패와 고친 방법", { x: 5.7, y: 1.95, w: 7, h: 0.35, fontSize: 15, bold: true });
     const fx = [
-      ["AI가 끝 시각을 23:59:59로 씀", "분 단위로 맞춤 (다음 날 00:00)"],
-      ["찾는 기간 밖 날짜가 섞임", "모든 시간을 찾는 기간 안으로 자름"],
+      ["AI가 끝 시각을 23:59:59로 씀", "분 단위로 맞춤 (다음 날 0시)"],
+      ["찾는 기간 밖 날짜가 섞임", "모든 시간을 기간 안으로 자름"],
       ["같은 사람의 되는 · 안 되는 시간이 겹침", "겹친 부분은 되는 시간에서 뺌"],
-      ["'하루 종일 가능'을 0시로 이해 → 한밤중 후보", "매일 가능 시간(09~22시) 추가"],
-      ["요약 · 할 일에 대화에 없는 내용", "근거 메시지 인용 검사 · 지어내기 금지"],
+      ["'하루 종일'을 0시부터로 읽어 한밤중 후보", "매일 가능 시간(09~22시) 추가"],
+      ["요약 · 할 일에 대화에 없는 내용", "근거 인용 검사 · 지어내기 금지"],
     ];
     fx.forEach(([a, b], i) => {
       const y = 2.45 + i * 0.86;
       box(s, { x: 5.7, y, w: 7.0, h: 0.72, fill: { color: WHITE }, line: { color: "E3E6EF", width: 1 } });
-      T(s, a, { x: 5.95, y, w: 3.3, h: 0.72, fontSize: 13, valign: "middle" });
-      arrow(s, 9.3, y + 0.36, 0.3, 0, { line: { color: LINE, width: 1.25, endArrowType: "triangle" } });
-      T(s, b, { x: 9.72, y, w: 2.9, h: 0.72, fontSize: 13, bold: true, color: BLUE, valign: "middle" });
+      T(s, a, { x: 5.95, y, w: 3.55, h: 0.72, fontSize: 13, valign: "middle" });
+      arrow(s, 9.55, y + 0.36, 0.3, 0, { line: { color: LINE, width: 1.25, endArrowType: "triangle" } });
+      T(s, b, { x: 9.97, y, w: 2.65, h: 0.72, fontSize: 13, bold: true, color: BLUE, valign: "middle" });
     });
     s.addNotes("[약 20초]\n실제 팀 대화로 시험해 보니 처음에는 4번 중 1번만 성공했습니다. 23시 59분 같은 시각, 기간 밖 날짜, 한밤중 후보 같은 실패를 찾아 코드로 막았고, 그 뒤 8번 중 8번 성공했습니다.");
   }
@@ -398,17 +398,17 @@ const arrow = (s, x, y, w, h, o = {}) => {
   {
     const s = content("구현 과정과 기술", "05  핵심 알고리즘", "가장 먼 한 사람보다, 사람 간 차이를 줄입니다");
     const rules = [
-      ["후보 지역 3곳", "출발지 가운데에서 가까운 지하철역 3곳(서로 1.5km 이상),\n역 1km 안에서 AI가 고른 장소 종류를 찾음"],
-      ["1시간 넘는 사람이 있으면 제외", "장소마다 사람별 대중교통 시간, 가까우면 도보 시간"],
-      ["사람 간 차이가 작은 순", "최장 − 최단이 작은 순, 같으면 가장 오래 걸리는 사람이 짧은 순"],
-      ["모르는 사람은 빼고 비교", "출발지가 없는 팀원은 빼고 아는 사람(2명 이상)끼리,\n화면에 '미확인 N명 빼고 계산' 표시"],
+      ["후보 지역 3곳", "팀원 출발지 가운데의 지하철역 3곳 (서로 1.5km 이상)\n역 1km 안에서 AI가 고른 장소 종류를 찾음"],
+      ["1시간 넘는 사람이 있으면 제외", "장소마다 사람별 대중교통 시간을 구하고\n가까운 곳은 도보 시간으로 계산"],
+      ["사람 간 차이가 작은 순", "가장 오래 걸리는 사람과 가장 짧은 사람의 차이\n같으면 가장 오래 걸리는 사람이 짧은 곳이 먼저"],
+      ["모르는 사람은 빼고 비교", "출발지가 없는 팀원은 빼고 아는 사람(2명 이상)끼리\n화면에 '미확인 N명 빼고 계산'으로 표시"],
     ];
     rules.forEach(([h, d], i) => {
       const y = 1.95 + i * 1.12;
       s.addShape(pres.shapes.OVAL, { x: 0.6, y: y + 0.05, w: 0.48, h: 0.48, fill: { color: BLUE }, line: { type: "none" } });
       T(s, String(i + 1), { x: 0.6, y: y + 0.05, w: 0.48, h: 0.48, fontSize: 15, bold: true, color: WHITE, align: "center", valign: "middle" });
       T(s, h, { x: 1.3, y, w: 4.6, h: 0.4, fontSize: 17, bold: true });
-      T(s, d, { x: 1.3, y: y + 0.42, w: 4.55, h: 0.62, fontSize: 13, color: MUTED });
+      T(s, d, { x: 1.3, y: y + 0.42, w: 4.7, h: 0.62, fontSize: 13, color: MUTED });
     });
     // 오른쪽: 예시 (사람별 이동시간 점 + 범위 막대)
     const px = 6.3, py = 1.95, pw = 6.4, ph = 4.75;
@@ -433,7 +433,7 @@ const arrow = (s, x, y, w, h, o = {}) => {
       s.addShape(pres.shapes.ROUNDED_RECTANGLE, { x: xs(lo), y: cy - 0.07, w: xs(hi) - xs(lo), h: 0.14, rectRadius: 0.07, fill: { color: col, transparency: 70 }, line: { type: "none" } });
       mins.forEach((m) => s.addShape(pres.shapes.OVAL, { x: xs(m) - 0.09, y: cy - 0.09, w: 0.18, h: 0.18, fill: { color: col }, line: { color: WHITE, width: 1 } }));
     });
-    T(s, "A가 1위: 가장 먼 사람(35분)도 짧고, 사람 간 차이(13분)도 가장 작습니다", { x: px + 0.3, y: py + ph - 0.55, w: pw - 0.6, h: 0.35, fontSize: 13, bold: true, color: BLUE });
+    T(s, "A가 1위 · 가장 먼 사람 35분, 사람 간 차이 13분으로 가장 공평해요", { x: px + 0.3, y: py + ph - 0.55, w: pw - 0.6, h: 0.35, fontSize: 13, bold: true, color: BLUE });
     s.addNotes("[약 25초]\n장소는 출발지 가운데 역 세 곳에서 찾습니다. 한 명이라도 1시간이 넘으면 빼고, 사람 간 이동시간 차이가 작은 순으로 추천합니다. 예시에서는 A가 차이 13분으로 1위입니다.");
   }
   // 10 ── 화면 1 ─────────────────────────────────────────
@@ -493,10 +493,10 @@ const arrow = (s, x, y, w, h, o = {}) => {
     });
     T(s, "실제 로그인 · 실제 데이터 · Gemini AI로 녹화했어요", { x: sx, y: sy + steps.length * rh + 0.05, w: 5.2, h: 0.32, fontSize: 12, color: MUTED });
     // 직접 해 보기 QR (데모: 로그인 → 새 팀 → 예시 대화 → @AI → 확정 → 회의 카드)
-    box(s, { x: 10.45, y: 2.05, w: 2.25, h: 3.05, fill: { color: TINT }, objectName: "QR 상자" });
-    s.addImage({ data: QR, x: 10.6, y: 2.2, w: 1.95, h: 1.95, altText: "싱클 데모 QR 코드" });
-    T(s, "직접 해 보기", { x: 10.6, y: 4.27, w: 1.95, h: 0.3, fontSize: 14, bold: true, color: BLUE, align: "center" });
-    T(s, "찍으면 로그인부터\n회의 카드까지 열려요", { x: 10.55, y: 4.58, w: 2.05, h: 0.45, fontSize: 11, color: MUTED, align: "center" });
+    box(s, { x: 10.45, y: 2.9, w: 2.25, h: 3.05, fill: { color: TINT }, objectName: "QR 상자" });
+    s.addImage({ data: QR, x: 10.6, y: 3.05, w: 1.95, h: 1.95, altText: "싱클 데모 QR 코드" });
+    T(s, "직접 해 보기", { x: 10.6, y: 5.12, w: 1.95, h: 0.3, fontSize: 14, bold: true, color: BLUE, align: "center" });
+    T(s, "찍으면 로그인부터\n회의 카드까지 열려요", { x: 10.55, y: 5.43, w: 2.05, h: 0.45, fontSize: 11, color: MUTED, align: "center" });
     s.addNotes("[영상 길이만큼 · 30~40초 권장]\n(영상을 틀고) 실제로 로그인해서 팀을 만들고, 평소처럼 대화한 뒤 '@AI 회의 잡아줘'라고 부탁합니다. AI가 대화를 읽고 시간 후보를 올리면 팀원은 되는 시간을 누르기만 하고, 방장이 공평한 장소를 찾아 확정하면 회의 카드가 만들어집니다. 오른쪽 QR을 찍으시면 같은 흐름을 직접 해 보실 수 있습니다.\n\n※ 전체 5분에 맞추려면 다른 장의 대본을 영상 길이만큼 줄여야 해요.");
   }
   // 12 ── 완성도 ─────────────────────────────────────────
@@ -531,7 +531,7 @@ const arrow = (s, x, y, w, h, o = {}) => {
   {
     const s = content("실용성과 확장", "07  실용성과 확장", "매주 모이는 소규모 팀의 일을 바로 줄입니다");
     const tg = [
-      [I.cap, "대학생 팀 프로젝트", "수업 · 알바 사이에서 주 1회 대면 회의, 단톡방 조율을 대신"],
+      [I.cap, "대학생 팀 프로젝트", "수업 · 알바 사이 주 1회 회의, 단톡방 조율을 대신"],
       [I.music, "스터디 · 동아리 · 밴드", "합주실 · 스터디룸처럼 목적이 있는 장소를 공평하게"],
       [I.brief, "소규모 협업팀", "원격과 대면이 섞인 미팅, 온라인이면 회의 링크까지"],
     ];
@@ -545,8 +545,8 @@ const arrow = (s, x, y, w, h, o = {}) => {
     });
     T(s, "발전 방향", { x: 6.8, y: 1.95, w: 5, h: 0.35, fontSize: 15, bold: true, color: MUTED });
     const road = [
-      ["지금", "프로토타입", "부를 때만 일하는 AI · 공평한 장소 · 확정 · 회의록까지 실제 동작"],
-      ["다음", "파일럿", "실제 팀 3~5개가 2~4주 사용 · 확정까지 걸린 시간 · 응답률 측정"],
+      ["지금", "프로토타입", "부를 때만 일하는 AI · 공평한 장소 · 회의록까지 실제 동작"],
+      ["다음", "파일럿", "실제 팀 3~5개 · 2~4주 사용 · 확정 시간과 응답률 측정"],
       ["이후", "확장", "대화 자동 감지 · 캘린더 빈 시간 · 리마인드 · 카톡 공유"],
     ];
     s.addShape(pres.shapes.LINE, { x: 7.12, y: 2.75, w: 0, h: 2.85, line: { color: LINE, width: 1.5 } });
