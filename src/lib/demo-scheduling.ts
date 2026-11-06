@@ -11,6 +11,7 @@ import { projectProposal, type PlaceResult, type SavedResponse, type StoredPropo
 import { combineRegionPlaces, type RegionSearch } from "@/features/scheduling/region-places";
 import type { Conditions, Slot } from "@/server/b/b-c-contract";
 import placesJson from "@/mocks/places.json";
+import type { UpcomingItem } from "@/lib/data";
 
 /** 데모 제안: p-1 응답 받는 중 · m-1 확정된 회의 · m-0 지난 회의(회의록) */
 const DEMO_IDS = ["p-1", "m-1", "m-0"] as const;
@@ -223,6 +224,20 @@ export function demoSchedulingRequest(path: string, body?: unknown): Promise<unk
 /** 데모의 '찾은 지역 · 찾는 장소' 추천 (실제는 /api/places/areas) */
 export function demoPlaceSuggestion() {
   return { areas: [...DEMO_AREAS], keyword: "회의 장소", keywordLabel: "회의 장소", keywordReason: "대화에서 '노트북 가져와서 같이 작업'이라고 해서 골랐어요", unknownCount: 0 };
+}
+
+/** 데모의 다른 날짜(예: 주말합주)도 오늘 기준으로 — "2026-11-07T15:00:00+09:00" */
+export const demoDate = kst;
+
+/**
+ * 데모 홈 '다가오는 회의'의 p-1 한 장 (실제 홈과 같은 모양).
+ * 이 탭에서 확정했으면 확정 회의로 보여줘요. fresh=true면 처음 상태 (서버가 그리는 첫 화면과 맞추려고)
+ */
+export function demoUpcoming(fresh = false): UpcomingItem {
+  const p = projectProposal(fresh ? initial()["p-1"] : store()["p-1"]);
+  const base = { proposalId: p.id, teamName: "HCI 팀프로젝트 4조", title: p.title, responseDeadline: p.responseDeadline, respondedCount: p.respondedCount, totalCount: p.totalCount };
+  if (p.meeting) return { ...base, kind: "confirmed", startAt: p.meeting.startAt, placeName: p.meeting.mode === "online" ? "온라인" : (p.meeting.place?.name ?? ""), needsMe: false };
+  return { ...base, kind: "collecting", startAt: p.candidates[0]?.startAt ?? null, placeName: "", needsMe: p.pendingIds.includes(ME) };
 }
 
 /** 데모 대화방 카드에 쓸 제목 · 한 줄 (제안 · 확정) */

@@ -17,6 +17,7 @@ import { countUnreadNotifications, getMeetings, getNotifications, getPlaces, get
 import type { Meeting, Team } from "@/types";
 import { useAuthUser } from "@/lib/use-auth-user";
 import { getChosenPlace, type PlacePick } from "@/components/chat/team-info";
+import { demoDate, demoUpcoming } from "@/lib/demo-scheduling";
 
 export default function HomePage() {
   return (
@@ -68,12 +69,21 @@ function FullHome({ live, liveUpcoming, liveUnread = 0, error }: { live?: Team[]
   const { state } = useDemo();
   const teams = live ?? getTeams();
 
-  // 다가오는 회의를 날짜 순으로 (로그인했으면 아직 없음)
-  const upcoming = live
-    ? []
-    : getMeetings()
-        .filter((m) => m.status === "upcoming")
-        .sort((a, b) => dateValue(a) - dateValue(b));
+  // 데모의 다가오는 회의 (로그인했으면 없음) — 날짜는 오늘 기준
+  // p-1은 데모 일정(demo-scheduling)에서: 눌러서 열리는 5 · 8 화면과 같은 날짜 · 확정 상태
+  const [demoP1, setDemoP1] = useState(() => demoUpcoming(true));
+  useEffect(() => setDemoP1(demoUpcoming()), []);
+  const demoOthers = live ? [] : getMeetings().filter((m) => m.status === "upcoming" && !m.proposalId).map(shiftToToday);
+  // 팀 목록의 한 줄('회의 확정 · 11/7(토) 15:00')도 같은 날짜로
+  const teamNote = (t: Team) => {
+    const note = t.homeNote ?? t.lastMessage;
+    const m = demoOthers.find((x) => x.meeting.teamId === t.id);
+    return m ? note.replace(m.original, m.meeting.shortLabel) : note;
+  };
+  const demoItems = [
+    ...(live ? [] : [{ at: Date.parse(demoP1.startAt ?? demoP1.responseDeadline), el: <LiveMeetingCard key="p-1" item={demoP1} /> }]),
+    ...demoOthers.map((m) => ({ at: m.at, el: <MeetingCard key={m.meeting.id} meeting={m.meeting} confirmed={false} pick={state} /> })),
+  ].sort((a, b) => a.at - b.at);
 
   // 안 읽은 알림 수 (모두 읽음을 누르면 0)
   const unread = live ? liveUnread : state.notificationsRead ? 0 : getNotifications().filter((n) => n.unread).length;
@@ -94,9 +104,7 @@ function FullHome({ live, liveUpcoming, liveUnread = 0, error }: { live?: Team[]
               liveUpcoming.map((u) => <LiveMeetingCard key={u.proposalId} item={u} />)
             )
           ) : null}
-          {upcoming.map((m) => (
-            <MeetingCard key={m.id} meeting={m} confirmed={state.confirmed} pick={state} />
-          ))}
+          {demoItems.map((i) => i.el)}
         </section>
 
         <section className="stack gap-10">
@@ -107,7 +115,7 @@ function FullHome({ live, liveUpcoming, liveUnread = 0, error }: { live?: Team[]
               <TeamBadge initial={t.initial} color={t.color} ink={t.ink} size={44} />
               <div className="stack grow" style={{ gap: 3 }}>
                 <span className="t-15 t-strong">{t.name}</span>
-                <span className="t-13 t-muted t-ellipsis">{t.homeNote ?? t.lastMessage}</span>
+                <span className="t-13 t-muted t-ellipsis">{teamNote(t)}</span>
               </div>
               {t.unread > 0 && (
                 <span
@@ -179,9 +187,20 @@ function LiveMeetingCard({ item }: { item: UpcomingItem }) {
   );
 }
 
-/** 정렬용: "11월" + "7" → 1107 */
-function dateValue(m: Meeting) {
-  return parseInt(m.month) * 100 + parseInt(m.day);
+/**
+ * 데모 회의(예: 주말합주 '11/7(토) 15:00')를 오늘 기준 날짜로 옮겨요.
+ * 예시 데이터의 기준일 11/6에서 며칠 뒤였는지를 그대로 지켜요 (11/7 → 내일).
+ */
+const DEMO_BASE = Date.UTC(2026, 10, 6);
+function shiftToToday(m: Meeting): { meeting: Meeting; at: number; original: string } {
+  const original = m.shortLabel;
+  const match = original.match(/^(\d+)\/(\d+)\(.\)\s*(\d\d:\d\d)/);
+  if (!match) return { meeting: m, at: Infinity, original };
+  const offset = Math.round((Date.UTC(2026, +match[1] - 1, +match[2]) - DEMO_BASE) / 86_400_000);
+  const iso = demoDate(offset, match[3]);
+  const label = seoulLabel(iso); // "11/7(토) 15:00"
+  const [month, day] = label.split(/[/(]/);
+  return { meeting: { ...m, shortLabel: label, month: `${month}월`, day }, at: Date.parse(iso), original };
 }
 
 /** "11/7(토) 15:00" → "토 15:00" */
