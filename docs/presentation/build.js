@@ -456,6 +456,43 @@ const arrow = (s, x, y, w, h, o = {}) => {
     ], "실제 로그인 화면 · 싱클 체험방 · 프로젝트 2조");
     s.addNotes("[약 20초]\n실제 로그인 화면입니다. AI 요약 카드는 팀원 모두에게 보이고, 가운데는 우리 팀 다섯 명이 실제로 응답한 제안, 오른쪽은 확정된 회의 카드입니다.");
   }
+  // 11-1 ── 시연 영상 ─────────────────────────────────────
+  // 영상 파일을 media/demo.mp4에 두고 다시 만들면 영상이 들어가요. 없으면 PowerPoint에서 '삽입 → 비디오'로 넣을 자리만 그려요.
+  {
+    const s = content("결과물과 시연", "06  시연 영상", "로그인부터 회의 카드까지, 한 번에 보여드립니다");
+    const VIDEO = path.join(__dirname, "media", "demo.mp4");
+    const hasVideo = require("fs").existsSync(VIDEO);
+    // 휴대폰 화면 녹화(세로) 자리: 390 × 844 비율
+    const vh = 5.15, vw = vh * (390 / 844), vx = 1.45, vy = 1.85;
+    box(s, { x: vx - 0.18, y: vy - 0.18, w: vw + 0.36, h: vh + 0.36, fill: { color: NAVY }, rectRadius: 0.32, objectName: "영상 테두리" });
+    if (hasVideo) {
+      s.addMedia({ type: "video", path: VIDEO, x: vx, y: vy, w: vw, h: vh, cover: SHOT("live-chat"), objectName: "시연 영상" });
+    } else {
+      box(s, { x: vx, y: vy, w: vw, h: vh, fill: { color: TINT }, rectRadius: 0.16, objectName: "영상 자리" });
+      s.addImage({ data: I.phone, x: vx + vw / 2 - 0.35, y: vy + vh / 2 - 0.75, w: 0.7, h: 0.7 });
+      T(s, "시연 영상\n삽입 → 비디오", { x: vx + 0.15, y: vy + vh / 2 + 0.1, w: vw - 0.3, h: 0.7, fontSize: 14, bold: true, color: BLUE, align: "center" });
+    }
+    // 오른쪽: 영상에서 보이는 순서
+    const steps = [
+      [I.users, "Google 로그인 · 팀 만들기", "초대 링크로 팀원이 들어와요"],
+      [I.chat, "평소처럼 대화", "'목요일은 안 돼요' · '주말은 오후만'"],
+      [I.spark, "'@AI 회의 잡아줘'", "AI가 대화를 읽고 시간 후보 3개를 올려요"],
+      [I.clock, "되는 시간 누르기", "팀원은 후보를 누르기만 하면 응답 끝"],
+      [I.pin, "공평한 장소 찾기 · 확정", "사람별 이동시간 차이가 작은 곳 1위"],
+      [I.cal, "회의 카드", "시간 · 장소 · 안건 · 캘린더 · 길찾기"],
+    ];
+    const sx = 5.0, sy = 1.95, rh = 0.82;
+    steps.forEach(([img, head, sub], i) => {
+      const y = sy + i * rh;
+      iconTile(s, img, sx, y, 0.56);
+      T(s, `${i + 1}`, { x: sx + 0.75, y: y + 0.02, w: 0.35, h: 0.5, fontSize: 20, bold: true, color: BLUE, valign: "middle" });
+      T(s, head, { x: sx + 1.15, y: y - 0.02, w: 6.4, h: 0.34, fontSize: 17, bold: true, valign: "middle" });
+      T(s, sub, { x: sx + 1.15, y: y + 0.32, w: 6.4, h: 0.28, fontSize: 13, color: MUTED, valign: "middle" });
+      if (i < steps.length - 1) arrow(s, sx + 0.28, y + 0.6, 0, rh - 0.64, { line: { color: LINE, width: 1.25, endArrowType: "triangle" } });
+    });
+    T(s, "실제 로그인 · 실제 데이터 · Gemini AI로 녹화했어요", { x: sx, y: sy + steps.length * rh + 0.05, w: 7.5, h: 0.32, fontSize: 12, color: MUTED });
+    s.addNotes("[영상 길이만큼 · 30~40초 권장]\n(영상을 틀고) 실제로 로그인해서 팀을 만들고, 평소처럼 대화한 뒤 '@AI 회의 잡아줘'라고 부탁합니다. AI가 대화를 읽고 시간 후보를 올리면 팀원은 되는 시간을 누르기만 하고, 방장이 공평한 장소를 찾아 확정하면 회의 카드가 만들어집니다.\n\n※ 전체 5분에 맞추려면 다른 장의 대본을 영상 길이만큼 줄여야 해요.");
+  }
   // 12 ── 완성도 ─────────────────────────────────────────
   {
     const s = content("결과물과 시연", "06  구현 결과 · 시연", "기획한 핵심 흐름을 실제 데이터로 끝까지 구현했습니다");
