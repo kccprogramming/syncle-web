@@ -33,7 +33,8 @@ Google 로그인 → 내 정보(출발지 · 매주 안 되는 시간 · 알림 
    - 프로젝트 2조의 응답 중 제안(8c3c6605…)은 예전 규칙의 장소 결과('순위 제외')가 남아 있어요 → 방장이 '지역 · 장소 종류 바꿔서 다시 찾기'.
    - 남은 큰일: `integration/b-d` → `main`(정식 주소) 합치기, Google 로그인 동의 화면 공개 확인, Supabase에 정식 주소 등록 (팀 확인 뒤).
 
-1. **답 기다리는 중 (11/6 밤 전달함)**
+1. **일정 추출 보완 패치 적용 (11/6 오후, 지우님)**: 실제 제안에서 모든 팀원의 가능 시간이 비고 불가만 저장되던 문제 → `just_keeping`의 `share/jiwoo-c-code` `ab53731` `jiwoo_C_code/patches/schedule-extraction-1106.patch`를 그대로 `git apply` (SQL · migration 없음). 바뀐 곳: `src/server/b/schedule-time-rules.ts`(새, 검색 기간 달력 · 반복 요일 · '나머지 전부 가능' · 모호한 '2시에 끝나요'는 확정 안 함 규칙), `src/server/b/extractor.ts`(그 규칙을 프롬프트에 한 줄 추가 — **B 받은 코드를 고친 곳이라 성하님께 알리기**), `src/server/normalize-schedule-output.ts`(기존 보정 로직을 옮김), `gemini-generate.ts`(보정 전후 팀원별 슬롯 수 · 분량만 Vercel 로그 `[scheduling] time normalization`에 기록, 원문 · ID · 시각은 안 남김), `tests/schedule-extraction.test.ts`(`npm run test:schedule-extraction` 4개). 검색 기간이 31일을 넘으면 오류. 확인: 새 테스트 4 · C 15 · 타입 · 빌드 통과, 실제 Gemini로 '목요일 하루 종일 가능 / 월·수 18~22 알바 / 월화수 외 나머지 가능 / 화요일 2시에 끝나요' 대화를 돌려 기대대로 나옴. **남은 것**: 배포 뒤 문제가 났던 그 팀 대화로 새 제안을 만들어 확인 (로그인 필요).
+2. **답 기다리는 중 (11/6 밤 전달함)**
    - 성하님(B): **`c6e07ed`로 해결 · 통합본 반영함** (앱 카드를 요청 종류 하나로 · 근거 인용 검사 · 지어내기 금지, 테스트 196개 통과, 타입도 고침). 남은 것은 회의 조건의 `origins` 검사(앱이 빠진 팀원을 채우는 중) 정도.
    - 지우님(C): 한밤중 시간 후보 → **`9834b43`로 해결 (매일 회의 가능 시간 `meetingHours`, 기본 09:00~22:00) · 통합본 반영함**. Supabase에 고친 `supabase/c-place-type-migration.sql` **실행함 (11/6 희원)**. 남은 확인: 실제 계정으로 대면 제안을 새로 만들어 장소 종류 · 시간 후보(09:00~22:00 안) · 장소 찾기 보기 (이미 00:00에 확정된 회의는 그대로).
    - (11/6 결정) 장소 순위의 '출발지 없는 팀원 빼고 계산', 팀원 내보내기 SQL(`a-remove-team-member.sql`), 비공개 메시지는 앱에서 거르는 방식 — **지금 그대로 두기로 함** (팀원에게 따로 묻지 않음).
