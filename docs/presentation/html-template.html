@@ -13,8 +13,8 @@
   #stage { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); background: #fff; }
   #stage img.slide { position: absolute; inset: 0; width: 100%; height: 100%; display: none; user-select: none; -webkit-user-drag: none; }
   #stage img.slide.on { display: block; }
-  /* 12장 영상 자리 (PPT의 휴대폰 화면 자리와 같은 위치 · 크기) */
-  #video { position: absolute; left: 10.875%; top: 24.667%; width: 17.848%; height: 68.667%;
+  /* 12장 영상 자리 (PPT의 휴대폰 화면 자리와 같은 위치 · 크기: x 1.35 · y 1.85 · 2.693 × 5.15 인치) */
+  #video { position: absolute; left: 10.125%; top: 24.667%; width: 20.197%; height: 68.667%;
     background: #000; object-fit: contain; display: none; border-radius: calc(var(--u) * 0.16); }
   #video.on { display: block; }
   #notes { position: fixed; left: 0; right: 0; bottom: 0; max-height: 38vh; overflow: auto; display: none;
@@ -42,7 +42,7 @@
 <body>
 <div id="stage">
   <!--SLIDES-->
-  <video id="video" src="media/demo.mp4" controls playsinline preload="metadata"></video>
+  <video id="video" src="media/demo.mp4" poster="media/poster.png" controls playsinline preload="metadata"></video>
 </div>
 <div id="notes"></div>
 <div id="hint">→ · 스페이스 · 클릭: 다음 &nbsp;|&nbsp; ←: 이전 &nbsp;|&nbsp; F: 전체 화면 &nbsp;|&nbsp; N: 대본 &nbsp;|&nbsp; P: 발표자 창</div>

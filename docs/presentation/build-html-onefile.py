@@ -19,6 +19,8 @@ if os.path.exists(os.path.join(H, "media", "demo.mp4")):
     # 영상은 data: 주소로 바로 넣으면 Chrome이 못 여는 경우가 있어서, 열 때 Blob으로 바꿔서 넣어요
     b64 = base64.b64encode(open(os.path.join(H, "media", "demo.mp4"), "rb").read()).decode()
     html = html.replace(' src="media/demo.mp4"', "", 1)
+    if os.path.exists(os.path.join(H, "media", "poster.png")):
+        html = html.replace('poster="media/poster.png"', 'poster="' + data("media/poster.png", "image/png") + '"', 1)
     loader = ('<script id="vdata" type="application/octet-stream">' + b64 + '</script>\n<script>(function(){'
               'var s=atob(document.getElementById("vdata").textContent),a=new Uint8Array(s.length);'
               'for(var i=0;i<s.length;i++)a[i]=s.charCodeAt(i);'

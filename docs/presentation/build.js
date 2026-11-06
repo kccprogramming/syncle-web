@@ -463,8 +463,8 @@ const arrow = (s, x, y, w, h, o = {}) => {
     const s = content("결과물과 시연", "06  시연 영상", "로그인부터 회의 카드까지, 한 번에 보여드립니다");
     const VIDEO = path.join(__dirname, "media", "demo.mp4");
     const hasVideo = require("fs").existsSync(VIDEO);
-    // 휴대폰 화면 녹화(세로) 자리: 390 × 844 비율
-    const vh = 5.15, vw = vh * (390 / 844), vx = 1.45, vy = 1.85;
+    // 휴대폰 화면 녹화(세로) 자리: 영상 868 × 1660 비율
+    const vh = 5.15, vw = vh * (868 / 1660), vx = 1.35, vy = 1.85; // 영상 비율(위 자막 + 앱 화면)에 맞춘 휴대폰 자리
     box(s, { x: vx - 0.18, y: vy - 0.18, w: vw + 0.36, h: vh + 0.36, fill: { color: NAVY }, rectRadius: 0.32, objectName: "영상 테두리" });
     if (hasVideo) {
       s.addMedia({ type: "video", path: VIDEO, x: vx, y: vy, w: vw, h: vh, cover: "data:image/png;base64," + require("fs").readFileSync(SHOT("video-cover")).toString("base64"), objectName: "시연 영상" });
