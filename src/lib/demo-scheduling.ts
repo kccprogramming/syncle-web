@@ -34,7 +34,7 @@ function kst(dayOffset: number, hm: string) {
 const slot = (day: number, a: string, b: string): Slot => ({ startAt: kst(day, a), endAt: kst(day, b) });
 
 function conditions(): Conditions {
-  // 시간 후보가 '5일 뒤 19시(3명)', '8일 뒤 14시(3명)', '6일 뒤 19시(2명)'로 나오게 짠 예시 대화 결과
+  // 시간 후보가 '5일 뒤 19시(4명)', '8일 뒤 14시(4명)', '6일 뒤 19시(2명)'로 나오게 짠 예시 대화 결과
   const schedule = {
     teamId: TEAM,
     timezone: "Asia/Seoul" as const,
@@ -46,7 +46,7 @@ function conditions(): Conditions {
     meetingHours: { start: "09:00", end: "22:00" },
     members: [
       { memberId: "u-minji", responseStatus: "provided" as const, availableSlots: [slot(5, "19:00", "21:00"), slot(6, "19:00", "21:00"), slot(8, "14:00", "16:00")], unavailableSlots: [] },
-      { memberId: "u-jiwoo", responseStatus: "needs_confirmation" as const, availableSlots: [], unavailableSlots: [] },
+      { memberId: "u-jiwoo", responseStatus: "provided" as const, availableSlots: [slot(5, "19:00", "21:00"), slot(8, "14:00", "16:00")], unavailableSlots: [slot(6, "18:00", "22:00")] },
       { memberId: "u-minsu", responseStatus: "provided" as const, availableSlots: [slot(5, "19:00", "21:00"), slot(8, "14:00", "16:00")], unavailableSlots: [slot(6, "09:00", "22:00")] },
       { memberId: "u-seoyeon", responseStatus: "provided" as const, availableSlots: [slot(5, "19:00", "21:00"), slot(6, "19:00", "21:00"), slot(8, "14:00", "16:00")], unavailableSlots: [] },
     ],
@@ -107,11 +107,11 @@ function initial(): Record<string, StoredProposal> {
   const at = (day: number, hm: string) => first.find((c) => c.startAt === kst(day, hm))?.id ?? "";
   const [A, B, C] = [at(5, "19:00"), at(6, "19:00"), at(8, "14:00")];
   const pick = (memberId: string, ids: string[]): SavedResponse => ({ memberId, kind: "selected", selectedCandidateIds: ids.filter(Boolean), customSlots: [] });
-  // 민수 · 서연은 바로 응답했고, 보는 사람(민지)은 아직 → 데모에서 직접 눌러 볼 수 있게
-  p1.responses = [pick("u-minsu", [A, C]), pick("u-seoyeon", [A, B, C])];
+  // 지우 · 민수 · 서연은 바로 응답했고, 보는 사람(민지 · 방장)만 아직 → 데모에서 직접 누르면 모두 응답 → 바로 확정
+  p1.responses = [pick("u-jiwoo", [A, C]), pick("u-minsu", [A, C]), pick("u-seoyeon", [A, B, C])];
 
   // 확정된 회의: 모두 응답 → A 시간 · 순위가 있는 장소로 확정
-  const m1: StoredProposal = { ...structuredClone(p1), id: "m-1", responses: [pick("u-minji", [A, C]), ...p1.responses, pick("u-jiwoo", [A])], progress: { step: "done" } };
+  const m1: StoredProposal = { ...structuredClone(p1), id: "m-1", responses: [pick("u-minji", [A, C]), ...p1.responses], progress: { step: "done" } };
   m1.placeResults = [placeResult(A, DEMO_AREAS)];
   const best = m1.placeResults[0].places.find((p) => p.rank === 1) ?? m1.placeResults[0].places[0];
   const slotA = first.find((c) => c.id === A)!;
