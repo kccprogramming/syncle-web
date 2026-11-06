@@ -115,12 +115,13 @@ const arrow = (s, x, y, w, h, o = {}) => {
     s.addImage({ data: LOGO_WHITE, x: 0.8, y: 1.15, w: 0.95, h: 0.95, altText: "싱클 로고" });
     T(s, "국민대학교 KCC AI Agent 미니 캡스톤", { x: 0.8, y: 2.45, w: 6.6, h: 0.35, fontSize: 15, bold: true, color: SOFT });
     T(s, "싱클 Syncle", { x: 0.8, y: 2.85, w: 6.6, h: 1.0, fontSize: 54, bold: true, color: WHITE });
-    T(s, "말만 하면 회의가 잡힌다", { x: 0.8, y: 3.9, w: 6.6, h: 0.6, fontSize: 28, bold: true, color: WHITE });
-    T(s, "팀 대화를 AI가 읽고, 회의 시간 · 장소 · 안건을 정리해 제안하는 협업툴", { x: 0.8, y: 4.6, w: 6.4, h: 0.75, fontSize: 16, color: SOFT });
+    T(s, "팀 대화를 AI가 읽고, 회의 시간 · 장소 · 안건을 정리해 제안하는 협업툴", { x: 0.8, y: 3.95, w: 6.4, h: 0.4, fontSize: 15, color: SOFT });
     T(s, "윤희원 · 김현규 · 김지우 · 박성하 · 정현서", { x: 0.8, y: 6.35, w: 6.6, h: 0.35, fontSize: 14, color: SOFT });
-    phone(s, "chat", 7.75, 0.95, 5.5, "싱클 대화방 화면");
-    phone(s, "proposal", 10.25, 1.45, 5.5, "싱클 회의 제안 화면");
-    s.addNotes("[약 10초]\n안녕하세요. 말만 하면 회의가 잡히는 AI 협업툴, 싱클입니다.");
+    // 휴대폰 목업 (mockup.js로 만든 그림: 데모 대화방 · 확정된 회의 카드)
+    const mh = 5.7, mw = mh * (960 / 1868);
+    s.addImage({ path: SHOT("mock-chat"), x: 7.3, y: 0.75, w: mw, h: mh, altText: "싱클 대화방 화면 · AI 회의 제안 카드" });
+    s.addImage({ path: SHOT("mock-meeting"), x: 10.0, y: 1.35, w: mw, h: mh, altText: "싱클 확정된 회의 카드 화면" });
+    s.addNotes("[약 10초]\n안녕하세요. 팀 대화를 AI가 읽고 회의 시간과 장소를 정리해 주는 협업툴, 싱클입니다.");
   }
   // 2 ── 팀원 소개 ───────────────────────────────────────
   pres.addSection({ title: "프로젝트 소개" });
