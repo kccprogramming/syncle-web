@@ -476,7 +476,7 @@ const arrow = (s, x, y, w, h, o = {}) => {
     const steps = [
       [I.users, "Google 로그인 · 팀 만들기", "초대 링크로 팀원이 들어와요"],
       [I.chat, "평소처럼 대화", "'목요일은 안 돼요' · '주말은 오후만'"],
-      [I.spark, "'@AI 회의 잡아줘'", "AI가 대화를 읽고 시간 후보 3개를 올려요"],
+      [I.spark, "'@AI 회의 잡아줘'", "AI가 대화를 읽고 후보 3개를 올려요"],
       [I.clock, "되는 시간 누르기", "팀원은 후보를 누르기만 하면 응답 끝"],
       [I.pin, "공평한 장소 찾기 · 확정", "사람별 이동시간 차이가 작은 곳 1위"],
       [I.cal, "회의 카드", "시간 · 장소 · 안건 · 캘린더 · 길찾기"],
@@ -486,12 +486,17 @@ const arrow = (s, x, y, w, h, o = {}) => {
       const y = sy + i * rh;
       iconTile(s, img, sx, y, 0.56);
       T(s, `${i + 1}`, { x: sx + 0.75, y: y + 0.02, w: 0.35, h: 0.5, fontSize: 20, bold: true, color: BLUE, valign: "middle" });
-      T(s, head, { x: sx + 1.15, y: y - 0.02, w: 6.4, h: 0.34, fontSize: 17, bold: true, valign: "middle" });
-      T(s, sub, { x: sx + 1.15, y: y + 0.32, w: 6.4, h: 0.28, fontSize: 13, color: MUTED, valign: "middle" });
+      T(s, head, { x: sx + 1.15, y: y - 0.02, w: 4.1, h: 0.34, fontSize: 17, bold: true, valign: "middle" });
+      T(s, sub, { x: sx + 1.15, y: y + 0.32, w: 4.1, h: 0.28, fontSize: 13, color: MUTED, valign: "middle" });
       if (i < steps.length - 1) arrow(s, sx + 0.28, y + 0.6, 0, rh - 0.64, { line: { color: LINE, width: 1.25, endArrowType: "triangle" } });
     });
-    T(s, "실제 로그인 · 실제 데이터 · Gemini AI로 녹화했어요", { x: sx, y: sy + steps.length * rh + 0.05, w: 7.5, h: 0.32, fontSize: 12, color: MUTED });
-    s.addNotes("[영상 길이만큼 · 30~40초 권장]\n(영상을 틀고) 실제로 로그인해서 팀을 만들고, 평소처럼 대화한 뒤 '@AI 회의 잡아줘'라고 부탁합니다. AI가 대화를 읽고 시간 후보를 올리면 팀원은 되는 시간을 누르기만 하고, 방장이 공평한 장소를 찾아 확정하면 회의 카드가 만들어집니다.\n\n※ 전체 5분에 맞추려면 다른 장의 대본을 영상 길이만큼 줄여야 해요.");
+    T(s, "실제 로그인 · 실제 데이터 · Gemini AI로 녹화했어요", { x: sx, y: sy + steps.length * rh + 0.05, w: 5.2, h: 0.32, fontSize: 12, color: MUTED });
+    // 직접 해 보기 QR (데모: 로그인 → 새 팀 → 예시 대화 → @AI → 확정 → 회의 카드)
+    box(s, { x: 10.45, y: 2.05, w: 2.25, h: 3.05, fill: { color: TINT }, objectName: "QR 상자" });
+    s.addImage({ data: QR, x: 10.6, y: 2.2, w: 1.95, h: 1.95, altText: "싱클 데모 QR 코드" });
+    T(s, "직접 해 보기", { x: 10.6, y: 4.27, w: 1.95, h: 0.3, fontSize: 14, bold: true, color: BLUE, align: "center" });
+    T(s, "찍으면 로그인부터\n회의 카드까지 열려요", { x: 10.55, y: 4.58, w: 2.05, h: 0.45, fontSize: 11, color: MUTED, align: "center" });
+    s.addNotes("[영상 길이만큼 · 30~40초 권장]\n(영상을 틀고) 실제로 로그인해서 팀을 만들고, 평소처럼 대화한 뒤 '@AI 회의 잡아줘'라고 부탁합니다. AI가 대화를 읽고 시간 후보를 올리면 팀원은 되는 시간을 누르기만 하고, 방장이 공평한 장소를 찾아 확정하면 회의 카드가 만들어집니다. 오른쪽 QR을 찍으시면 같은 흐름을 직접 해 보실 수 있습니다.\n\n※ 전체 5분에 맞추려면 다른 장의 대본을 영상 길이만큼 줄여야 해요.");
   }
   // 12 ── 완성도 ─────────────────────────────────────────
   {
@@ -505,7 +510,7 @@ const arrow = (s, x, y, w, h, o = {}) => {
       T(s, l, { x: x + 0.3, y: y + 0.92, w: w - 0.5, h: 0.32, fontSize: 15, bold: true });
       T(s, d, { x: x + 0.3, y: y + 1.24, w: w - 0.5, h: 0.3, fontSize: 12, color: MUTED });
     });
-    T(s, "실제 데이터로 동작 · 두 계정으로 처음부터 끝까지 확인", { x: 0.6, y: 3.92, w: 8.2, h: 0.35, fontSize: 15, bold: true });
+    T(s, "실제 데이터로 동작 · 두 계정으로 처음부터 끝까지 확인", { x: 0.6, y: 3.92, w: 12.1, h: 0.35, fontSize: 15, bold: true });
     const done = [
       "Google 로그인 · 팀 만들기 · 초대 링크", "실시간 대화 · 사진 · 파일 · 할 일",
       "AI 회의 조건 → 시간 후보 3개", "응답 · 다시 알림 · 앱 알림",
@@ -513,16 +518,12 @@ const arrow = (s, x, y, w, h, o = {}) => {
       "AI 요약 · 할 일 · 자료 · 회의록", "팀 설정 · 방장 넘기기 · 내보내기",
     ];
     done.forEach((t, i) => {
-      const x = 0.6 + (i % 2) * 4.15, y = 4.38 + Math.floor(i / 2) * 0.47;
+      const x = 0.6 + (i % 2) * 6.1, y = 4.38 + Math.floor(i / 2) * 0.47;
       s.addImage({ data: I.checkGreen, x, y: y + 0.04, w: 0.26, h: 0.26 });
-      T(s, t, { x: x + 0.38, y, w: 3.7, h: 0.34, fontSize: 14, valign: "middle" });
+      T(s, t, { x: x + 0.38, y, w: 5.5, h: 0.34, fontSize: 14, valign: "middle" });
     });
-    T(s, [{ text: "사용 기술  ", options: { bold: true, color: INK } }, { text: "Next.js · TypeScript · Supabase · Gemini API · 카카오 지도 API · Vercel", options: { color: MUTED } }], { x: 0.6, y: 6.5, w: 8.3, h: 0.3, fontSize: 12 });
-    box(s, { x: 9.15, y: 3.92, w: 3.55, h: 2.85, fill: { color: TINT } });
-    s.addImage({ data: QR, x: 9.5, y: 4.08, w: 1.9, h: 1.9, altText: "싱클 데모 QR 코드" });
-    T(s, "로그인 없이\n바로 둘러보기", { x: 11.5, y: 4.3, w: 1.15, h: 1.0, fontSize: 13, bold: true, color: BLUE });
-    T(s, "카메라로 찍으면 로그인부터 회의 카드까지 데모가 열려요", { x: 9.4, y: 6.13, w: 3.2, h: 0.5, fontSize: 11.5, color: MUTED });
-    s.addNotes("[약 25초]\n앱 화면 38개, 백엔드 모듈 4개를 하나로 통합했고 자동 테스트 211개가 통과합니다. 로그인부터 확정, 회의록까지 실제 데이터로 동작합니다. 오른쪽 QR을 찍으시면 로그인 없이 바로 둘러보실 수 있습니다.");
+    T(s, [{ text: "사용 기술  ", options: { bold: true, color: INK } }, { text: "Next.js · TypeScript · Supabase · Gemini API · 카카오 지도 API · Vercel", options: { color: MUTED } }], { x: 0.6, y: 6.5, w: 12.1, h: 0.3, fontSize: 12 });
+    s.addNotes("[약 25초]\n앱 화면 38개, 백엔드 모듈 4개를 하나로 통합했고 자동 테스트 211개가 통과합니다. 로그인부터 확정, 회의록까지 실제 데이터로 동작합니다.");
   }
   // 14 ── 실용성 · 확장 ───────────────────────────────────
   pres.addSection({ title: "실용성과 확장" });
@@ -555,23 +556,6 @@ const arrow = (s, x, y, w, h, o = {}) => {
       T(s, d, { x: 7.65, y: y + 0.56, w: 5.05, h: 0.62, fontSize: 13, color: MUTED });
     });
     s.addNotes("[약 20초]\n대학생 팀플, 스터디와 밴드, 소규모 협업팀이 바로 쓸 수 있습니다. 다음은 실제 팀 파일럿, 이후에는 자동 감지와 캘린더 연동으로 넓혀 가겠습니다.");
-  }
-  // 15 ── 마무리 ─────────────────────────────────────────
-  {
-    const s = pres.addSlide({ masterName: "DARK", sectionTitle: "실용성과 확장" });
-    s.addImage({ data: LOGO_WHITE, x: 0.8, y: 0.9, w: 0.75, h: 0.75, altText: "싱클 로고" });
-    T(s, "회의를 잡는 숨은 노동,\n이제 AI가 줄입니다", { x: 0.8, y: 1.95, w: 8.0, h: 1.6, fontSize: 38, bold: true, color: WHITE, lineSpacingMultiple: 1.1 });
-    const sum = [[I.chatW, "대화 → 회의 조건", "Gemini가 정리, 근거와 함께"], [I.scaleW, "공평한 장소", "사람별 대중교통 시간 차이로"], [I.calW, "확정 · 회의록까지", "한 앱 안에서 한 흐름으로"]];
-    sum.forEach(([img, h, d], i) => {
-      const y = 3.95 + i * 0.78;
-      box(s, { x: 0.8, y, w: 0.55, h: 0.55, fill: { color: BLUE }, rectRadius: 0.1 });
-      s.addImage({ data: img, x: 0.92, y: y + 0.12, w: 0.31, h: 0.31 });
-      T(s, [{ text: h, options: { bold: true, color: WHITE } }, { text: "   " + d, options: { color: SOFT } }], { x: 1.6, y, w: 6.8, h: 0.55, fontSize: 16, valign: "middle" });
-    });
-    box(s, { x: 9.85, y: 3.85, w: 2.65, h: 2.65, fill: { color: WHITE } });
-    s.addImage({ data: QR, x: 10.0, y: 4.0, w: 2.35, h: 2.35, altText: "싱클 미리보기 주소 QR 코드" });
-    T(s, "로그인 없이 둘러보기", { x: 9.85, y: 6.6, w: 2.65, h: 0.32, fontSize: 13, bold: true, color: SOFT, align: "center" });
-    s.addNotes("[약 8초]\n회의를 잡는 숨은 노동, 이제 AI가 줄입니다. 대화를 회의 조건으로, 사람별 이동시간으로 공평한 장소를, 확정과 회의록까지 한 흐름으로 잇습니다.");
   }
   // 16 ── 감사합니다 ─────────────────────────────────────
   {

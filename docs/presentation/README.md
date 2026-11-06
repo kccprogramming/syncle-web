@@ -1,6 +1,6 @@
 # 발표 자료 (KCC AI Agent 미니 캡스톤 · 5분 발표)
 
-- 최종본: `Syncle_발표.pptx` (16장, 대본은 각 장 노트 · 약 4분 40초 + 시연 영상). 희원 컴퓨터에는 `~/Downloads/Syncle_발표/`에도 같은 파일 + PDF가 있어요.
+- 최종본: `Syncle_발표.pptx` (15장, 대본은 각 장 노트 · 약 4분 30초 + 시연 영상). 희원 컴퓨터에는 `~/Downloads/Syncle_발표/`에도 같은 파일 + PDF가 있어요.
 - 만드는 코드: `build.js` (pptxgenjs). 그림: `chars/`(팀원 캐릭터, `chars.js`로 생성) · `shots/`(앱 화면 캡처, `live-*`가 실제 로그인 화면).
 - 다시 만들기 (Claude에게 "docs/presentation으로 발표 자료 고쳐줘"라고 하면 돼요):
   1. 빈 폴더에 이 폴더를 복사하고 `npm i pptxgenjs qrcode react-icons react react-dom sharp`
@@ -9,5 +9,5 @@
 - 글꼴: Pretendard. 발표 컴퓨터에 없으면 PDF로 발표.
 - QR: 미리보기 데모 `https://syncle-web-git-integration-b-d-unione1.vercel.app/demo` (데모 모드로 로그인 → 새 팀 → 예시 대화 → @AI 회의 잡아줘 → 확정 → 회의 카드. 실제 Google 로그인 · Gemini 없이)
 - 심사 기준(실용성 30 · 참신성 30 · 완성도 20 · 기술성 20)과 발표 꿀팁 순서(팀원 → 문제 → 차별성 → 구현 · 기술 → 시연)에 맞춰 구성했어요.
-- 시연 영상(12장): 영상 파일을 `media/demo.mp4`에 두고 다시 만들면 들어가요. 없으면 영상 자리만 그려져 있어서 PowerPoint에서 그 자리에 '삽입 → 비디오'로 넣으면 돼요 (세로 휴대폰 화면 비율 390×844).
+- 시연 영상(12장, 오른쪽에 데모 QR): 영상 파일을 `media/demo.mp4`에 두고 다시 만들면 들어가요. 없으면 영상 자리만 그려져 있어서 PowerPoint에서 그 자리에 '삽입 → 비디오'로 넣으면 돼요 (세로 휴대폰 화면 비율 390×844).
 - 시연 영상 녹화 방법(계정 2개 · 보낼 대화 · 순서): `demo-script.md`
